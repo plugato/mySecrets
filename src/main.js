@@ -1132,8 +1132,7 @@ async function importBackup() {
 
 // ===== Atualizações automáticas (electron-updater + GitHub Releases) =====
 //
-// O app consulta as releases públicas de plugato/mySecrets-releases (sem
-// token). No Windows só funciona instalado pelo instalador NSIS: a cópia de
+// O app consulta as releases públicas de plugato/mySecrets (sem token). No Windows só funciona instalado pelo instalador NSIS: a cópia de
 // win-unpacked (make run-win) não tem resources/app-update.yml.
 
 let autoUpdater = null;
