@@ -3,4 +3,4 @@
 # a partir do bloco "publish" do package.json.
 provider: github
 owner: plugato
-repo: mySecrets-releases
+repo: mySecrets

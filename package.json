@@ -40,7 +40,7 @@
     "publish": {
       "provider": "github",
       "owner": "plugato",
-      "repo": "mySecrets-releases",
+      "repo": "mySecrets",
       "releaseType": "release"
     },
     "files": [

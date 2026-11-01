@@ -1,12 +1,9 @@
 # Build automático para Windows e Linux.
 #
-# - Push de tag vX.Y.Z  → builda e publica a release em plugato/mySecrets-releases
+# - Push de tag vX.Y.Z  → builda e publica a release neste repositório
 #   (de onde o electron-updater baixa as atualizações).
 # - Execução manual (Actions → Build → Run workflow) → só builda e deixa os
 #   instaladores como artefatos do workflow, sem publicar.
-#
-# Requer o secret RELEASES_TOKEN: um token do GitHub com permissão de escrita
-# (Contents: Read and write) no repositório mySecrets-releases.
 
 name: Build
 
@@ -76,6 +73,8 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/download-artifact@v4
@@ -85,8 +84,6 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          repository: plugato/mySecrets-releases
-          token: ${{ secrets.RELEASES_TOKEN }}
           tag_name: ${{ github.ref_name }}
           name: MySecrets ${{ github.ref_name }}
           files: dist/*

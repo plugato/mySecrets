@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Import from Proton Pass: unencrypted export as `.zip`, `data.json` or `.csv`. Logins (with linked 2FA entry when the item has TOTP), notes, cards, identities, aliases, Wi-Fi, SSH keys and custom fields; items in the trash are skipped.
 - Automated builds on GitHub Actions for Windows (installer + portable, x64) and Linux (AppImage, deb, tar.gz, x64 + arm64), published to the releases repository when a `v*` tag is pushed.
 
+### Changed
+- The code repository is now public, so releases (and auto-update) moved from `plugato/mySecrets-releases` to `plugato/mySecrets`. Installs of 1.4.4 or older still look at the old repository: install 1.5.0 manually once.
+
 ### Fixed
 - `npm test` now actually runs the test suite (`node --test tests/` treated the folder as a file).
 
