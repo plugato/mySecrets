@@ -1,0 +1,97 @@
+═══════════════════════════════════════════════════════
+    🔒 MySecrets - COMANDOS RÁPIDOS
+═══════════════════════════════════════════════════════
+
+🚀 EXECUTAR O APLICATIVO
+------------------------
+make dev           → Abre com DevTools (recomendado)
+make start         → Abre sem DevTools
+
+
+📦 BUILDAR (CRIAR EXECUTÁVEL)
+------------------------------
+make build-linux   → Cria AppImage para Linux
+make build-win     → Cria instalador para Windows
+make pack          → Empacota rápido (sem instalador)
+
+
+🔧 SETUP E INSTALAÇÃO
+----------------------
+make install       → Instala dependências
+make reinstall     → Reinstala tudo do zero
+make setup         → Setup inicial completo
+
+
+📊 INFORMAÇÕES
+--------------
+make status        → Mostra status do projeto
+make version       → Mostra versões instaladas
+make size          → Mostra tamanho dos builds
+
+
+🧹 LIMPEZA
+----------
+make clean         → Remove builds
+make clean-all     → Remove TUDO (incluindo node_modules)
+
+
+🌐 EXTENSÃO CHROME
+------------------
+make ext-icons     → Gera ícones da extensão
+make ext-pack      → Empacota extensão (.zip)
+make ext-install   → Mostra como instalar
+
+
+❓ AJUDA
+--------
+make               → Mostra TODOS os comandos
+make help          → Mesmo que acima
+
+
+═══════════════════════════════════════════════════════
+    ⚡ COMEÇAR AGORA
+═══════════════════════════════════════════════════════
+
+1. Ver todos os comandos:
+   make
+
+2. Executar o aplicativo:
+   make dev
+
+3. Build para Linux:
+   make build-linux
+
+4. Ver status:
+   make status
+
+
+═══════════════════════════════════════════════════════
+    📖 DOCUMENTAÇÃO COMPLETA
+═══════════════════════════════════════════════════════
+
+MAKEFILE_GUIA.md      → Guia completo do Makefile
+EXECUTAR_PROJETO.md   → Como executar e buildar
+START_HERE.md         → Início de toda documentação
+README.md             → Guia do usuário completo
+
+
+═══════════════════════════════════════════════════════
+    🎯 MAIS USADO
+═══════════════════════════════════════════════════════
+
+# Desenvolvimento diário
+make dev
+
+# Build para distribuir
+make build-linux
+
+# Problemas? Reinstalar
+make quick
+
+# Ver o que está acontecendo
+make status
+
+
+═══════════════════════════════════════════════════════
+
+Simples assim! 🚀

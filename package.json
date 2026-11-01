@@ -1,0 +1,82 @@
+{
+  "name": "mysecrets",
+  "version": "1.5.0",
+  "description": "Secure password and MFA manager built with Electron",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "build": "electron-builder",
+    "build-win": "electron-builder --win",
+    "build-linux": "electron-builder --linux",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "keywords": [
+    "electron",
+    "password-manager",
+    "mfa",
+    "totp",
+    "security"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "homepage": "https://github.com/plugato/mySecrets",
+  "devDependencies": {
+    "electron": "^38.2.1",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "otplib": "^12.0.1"
+  },
+  "build": {
+    "appId": "com.mysecrets.app",
+    "productName": "MySecrets",
+    "directories": {
+      "output": "dist"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "plugato",
+      "repo": "mySecrets-releases",
+      "releaseType": "release"
+    },
+    "files": [
+      "src/**/*",
+      "mcp-server/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "mcp-server/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64", "arm64"] },
+        { "target": "deb", "arch": ["x64", "arm64"] },
+        { "target": "tar.gz", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "assets/icon.png",
+      "category": "Utility",
+      "maintainer": "Plugato"
+    }
+  }
+}

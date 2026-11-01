@@ -1,0 +1,110 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+console.log('Preload.js sendo carregado...');
+
+// Expor APIs seguras para o renderer
+contextBridge.exposeInMainWorld('electronAPI', {
+  // Operações de dados
+  saveData: (data, masterPassword, options) => ipcRenderer.invoke('save-data', data, masterPassword, options || {}),
+  loadData: (masterPassword) => ipcRenderer.invoke('load-data', masterPassword),
+  checkDataExists: () => ipcRenderer.invoke('check-data-exists'),
+  resetData: () => ipcRenderer.invoke('reset-data'),
+
+  // Sessão (extensão Chrome / servidor MCP)
+  refreshSession: () => ipcRenderer.invoke('refresh-session'),
+  lock: () => ipcRenderer.invoke('lock'),
+  onSystemLock: (callback) => ipcRenderer.on('system-lock', () => callback()),
+
+  // Backups
+  exportBackup: () => ipcRenderer.invoke('export-backup'),
+  importBackup: () => ipcRenderer.invoke('import-backup'),
+  listBackups: () => ipcRenderer.invoke('list-backups'),
+
+  // Atalho global (Ctrl+Shift+M) — opcional, registrado com atraso pelo main
+  setGlobalShortcut: (enabled) => ipcRenderer.invoke('set-global-shortcut', enabled),
+
+  // Atualizações automáticas
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  onUpdateStatus: (callback) => ipcRenderer.on('update-status', (event, data) => callback(data)),
+
+  // Windows Hello (login por digital/biometria)
+  helloStatus: () => ipcRenderer.invoke('hello-status'),
+  helloEnroll: (masterPassword) => ipcRenderer.invoke('hello-enroll', masterPassword),
+  helloLogin: () => ipcRenderer.invoke('hello-login'),
+  helloDisable: () => ipcRenderer.invoke('hello-disable'),
+
+  // Servidor MCP (integração com assistentes de IA)
+  mcpStatus: () => ipcRenderer.invoke('mcp-status'),
+  mcpStart: (options) => ipcRenderer.invoke('mcp-start', options),
+  mcpStop: () => ipcRenderer.invoke('mcp-stop'),
+  onMcpStopped: (callback) => ipcRenderer.on('mcp-stopped', (event, data) => callback(data)),
+  
+  // Utilidades
+  generatePassword: (length = 16, includeSymbols = true) => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+    const allChars = includeSymbols ? chars + symbols : chars;
+    
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+    }
+    return password;
+  },
+  
+  // Copiar para clipboard (com limpeza automática opcional após N segundos)
+  copyToClipboard: (text, clearAfterSeconds = 0) => {
+    return ipcRenderer.invoke('copy-to-clipboard', text, clearAfterSeconds);
+  },
+  
+  // Funções MFA via IPC
+  generateTOTP: async (secret, options = {}) => {
+    try {
+      const result = await ipcRenderer.invoke('generate-totp', secret, options);
+      if (result.success) {
+        return { code: result.code, remaining: result.remaining, period: result.period };
+      } else {
+        console.error('Erro no TOTP:', result.error);
+        return { code: '000000', remaining: 30, period: 30 };
+      }
+    } catch (error) {
+      console.error('Erro ao gerar TOTP:', error);
+      return { code: '000000', remaining: 30, period: 30 };
+    }
+  },
+  
+  generateHOTP: async (secret, counter, options = {}) => {
+    try {
+      const result = await ipcRenderer.invoke('generate-hotp', secret, counter, options);
+      if (result.success) {
+        return { code: result.code, counter: result.counter };
+      } else {
+        console.error('Erro no HOTP:', result.error);
+        return { code: '000000', counter: counter + 1 };
+      }
+    } catch (error) {
+      console.error('Erro ao gerar HOTP:', error);
+      return { code: '000000', counter: counter + 1 };
+    }
+  },
+  
+  // Verificar se um código TOTP é válido
+  verifyTOTP: async (token, secret, options = {}) => {
+    try {
+      const result = await ipcRenderer.invoke('verify-totp', token, secret, options);
+      if (result.success) {
+        console.log('Verificação TOTP:', result);
+        return result.isValid;
+      } else {
+        console.error('Erro na verificação TOTP:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Erro ao verificar TOTP:', error);
+      return false;
+    }
+  }
+});
+
+console.log('electronAPI exposta com sucesso!');

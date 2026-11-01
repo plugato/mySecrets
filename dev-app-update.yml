@@ -1,0 +1,6 @@
+# Configuração do electron-updater para testes em modo dev (electron . --dev).
+# Em produção o electron-builder gera resources/app-update.yml automaticamente
+# a partir do bloco "publish" do package.json.
+provider: github
+owner: plugato
+repo: mySecrets-releases

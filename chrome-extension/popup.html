@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MySecrets Autofill</title>
+    <link rel="stylesheet" href="popup-styles.css">
+</head>
+<body>
+    <!-- Tela de Pareamento -->
+    <div id="pair-screen" class="screen" style="display: none;">
+        <div class="header">
+            <div class="logo">🔐</div>
+            <h1>MySecrets</h1>
+            <p class="subtitle">Extensão de Autofill</p>
+        </div>
+
+        <div class="status-message" id="pair-message">
+            <p>Conecte ao app desktop</p>
+            <small>No app: botão <b>MCP</b> → <b>Iniciar servidor</b> → copiar o <b>código de pareamento</b></small>
+        </div>
+
+        <div class="unlock-form">
+            <input
+                type="password"
+                id="pair-code-input"
+                placeholder="Cole o código de pareamento"
+                class="input-field"
+            >
+            <button id="pair-button" class="btn btn-primary">
+                Conectar
+            </button>
+        </div>
+    </div>
+
+    <!-- Tela de Entradas -->
+    <div id="list-screen" class="screen" style="display: none;">
+        <div class="header">
+            <div class="header-content">
+                <div class="logo-small">🔓</div>
+                <div>
+                    <h2>MySecrets</h2>
+                    <small id="entries-count">0 entradas</small>
+                </div>
+            </div>
+            <button id="refresh-button" class="btn-icon" title="Atualizar">
+                🔄
+            </button>
+        </div>
+
+        <div class="search-box">
+            <input
+                type="text"
+                id="search-input"
+                placeholder="Filtrar entradas..."
+                class="input-field"
+            >
+        </div>
+
+        <div class="current-site" id="current-site">
+            <div class="site-icon">🌐</div>
+            <div class="site-info">
+                <div class="site-url" id="site-url">Carregando...</div>
+                <div class="site-matches" id="site-matches">0 entradas encontradas</div>
+            </div>
+        </div>
+
+        <div class="entries-list" id="entries-list">
+            <!-- Entradas são inseridas aqui -->
+        </div>
+
+        <div class="empty-state" id="empty-state" style="display: none;">
+            <div class="empty-icon">📭</div>
+            <p>Nenhuma entrada para este site</p>
+            <small>Cadastre um login com a URL do site no app</small>
+        </div>
+
+        <div class="footer">
+            <button id="unpair-button" class="btn-text">
+                Desconectar
+            </button>
+        </div>
+    </div>
+
+    <!-- Tela de Erro -->
+    <div id="error-screen" class="screen" style="display: none;">
+        <div class="header">
+            <div class="logo">⚠️</div>
+            <h1>Sem conexão</h1>
+        </div>
+
+        <div class="error-message">
+            <p id="error-text">Não foi possível falar com o MySecrets</p>
+            <small>O app precisa estar aberto e o cofre desbloqueado.</small>
+        </div>
+
+        <div class="actions">
+            <button id="retry-button" class="btn btn-primary">
+                Tentar Novamente
+            </button>
+            <button id="help-button" class="btn btn-secondary">
+                Ajuda
+            </button>
+        </div>
+
+        <div class="help-info" id="help-info" style="display: none;">
+            <h3>Como conectar:</h3>
+            <ol>
+                <li>Abra o app MySecrets e desbloqueie o cofre</li>
+                <li>Clique em <b>MCP</b> e inicie o servidor local</li>
+                <li>Marque "Iniciar ao desbloquear" para não repetir isso</li>
+                <li>Clique em "Tentar Novamente"</li>
+            </ol>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

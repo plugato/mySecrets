@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MySecrets - Gerenciador de Senhas e MFA</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+</head>
+<body data-theme="light">
+    <!-- Tela de Login/Setup -->
+    <div id="auth-screen" class="screen">
+        <div class="auth-container">
+            <div class="logo">
+                <h1>🔐 MySecrets</h1>
+                <p>Gerenciador Seguro de Senhas e MFA</p>
+            </div>
+            
+            <div id="login-form" class="auth-form">
+                <h2>Digite sua Senha Mestra</h2>
+                <input type="password" id="master-password" placeholder="Senha Mestra" class="input-field">
+                <button id="login-btn" class="btn btn-primary">Entrar</button>
+                <div id="hello-divider" class="auth-divider" style="display: none;"><span>ou</span></div>
+                <button id="hello-login-btn" class="btn btn-hello" style="display: none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 11c0 3.5-.5 6.5-2 9"/>
+                        <path d="M8.5 12c0-1.9 1.6-3.5 3.5-3.5s3.5 1.6 3.5 3.5c0 2.4-.2 4.6-.8 6.7"/>
+                        <path d="M5.5 13.5c-.3-3.6 2.6-6.9 6.5-6.9 2.9 0 5.4 1.8 6.3 4.4"/>
+                        <path d="M19 13c0 2.3-.2 4.4-.7 6.4"/>
+                        <path d="M4.6 9C6 5.9 8.8 4 12 4c2 0 3.8.7 5.2 1.9"/>
+                    </svg>
+                    <span>Entrar com Windows Hello</span>
+                </button>
+                <button id="forgot-password-btn" class="btn btn-link">Esqueci minha senha</button>
+                <div id="login-error" class="error-message"></div>
+            </div>
+            
+            <div id="setup-form" class="auth-form" style="display: none;">
+                <h2>Configuração Inicial</h2>
+                <p>Crie uma senha mestra para proteger seus dados:</p>
+                <input type="password" id="new-master-password" placeholder="Nova Senha Mestra" class="input-field">
+                <div class="strength-meter" id="strength-meter">
+                    <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
+                    <span class="strength-label" id="strength-label"></span>
+                </div>
+                <input type="password" id="confirm-master-password" placeholder="Confirme a Senha Mestra" class="input-field">
+                <button id="setup-btn" class="btn btn-primary">Criar Cofre</button>
+                <div id="setup-error" class="error-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tela Principal -->
+    <div id="main-screen" class="screen" style="display: none;">
+        <div class="header">
+            <div class="header-left">
+                <div class="logo-section">
+                    <span class="material-symbols-outlined logo-icon">lock</span>
+                    <h1>MySecrets</h1>
+                </div>
+            </div>
+            <div class="header-center">
+                <div class="search-container">
+                    <span class="material-symbols-outlined search-icon">search</span>
+                    <input type="text" id="search-input" placeholder="Pesquisar entradas..." class="search-input">
+                    <button id="clear-search" class="clear-search-btn" style="display: none;">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="header-actions">
+                    <div class="theme-switcher">
+                        <button id="theme-toggle" class="btn btn-icon" title="Trocar tema">
+                            <span class="material-symbols-outlined theme-icon">palette</span>
+                        </button>
+                        <div id="theme-menu" class="theme-menu">
+                            <div class="theme-menu-title">Tema</div>
+                            <button class="theme-option" data-theme-value="light">
+                                <span class="theme-swatch"></span>
+                                <span>Claro</span>
+                                <span class="material-symbols-outlined theme-check">check</span>
+                            </button>
+                            <button class="theme-option" data-theme-value="dark">
+                                <span class="theme-swatch"></span>
+                                <span>Escuro</span>
+                                <span class="material-symbols-outlined theme-check">check</span>
+                            </button>
+                            <button class="theme-option" data-theme-value="ocean">
+                                <span class="theme-swatch"></span>
+                                <span>Oceano</span>
+                                <span class="material-symbols-outlined theme-check">check</span>
+                            </button>
+                            <button class="theme-option" data-theme-value="forest">
+                                <span class="theme-swatch"></span>
+                                <span>Floresta</span>
+                                <span class="material-symbols-outlined theme-check">check</span>
+                            </button>
+                            <button class="theme-option" data-theme-value="sunset">
+                                <span class="theme-swatch"></span>
+                                <span>Pôr do Sol</span>
+                                <span class="material-symbols-outlined theme-check">check</span>
+                            </button>
+                        </div>
+                    </div>
+                    <button id="import-entries-btn" class="btn btn-secondary">
+                        <span class="material-symbols-outlined">upload</span>
+                        <span>Importar</span>
+                    </button>
+                    <button id="add-entry-btn" class="btn btn-primary">
+                        <span class="material-symbols-outlined">add</span>
+                        <span>Adicionar</span>
+                    </button>
+                    <button id="mcp-btn" class="btn btn-secondary" title="Servidor MCP (assistentes de IA)">
+                        <span class="material-symbols-outlined">smart_toy</span>
+                        <span>MCP</span>
+                        <span id="mcp-status-dot" class="mcp-status-dot"></span>
+                    </button>
+                    <button id="settings-btn" class="btn btn-icon" title="Configurações">
+                        <span class="material-symbols-outlined">settings</span>
+                    </button>
+                    <button id="lock-btn" class="btn btn-secondary">
+                        <span class="material-symbols-outlined">lock</span>
+                        <span>Bloquear</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h3>Categorias</h3>
+                    <div class="entries-count" id="entries-count">0 entradas</div>
+                </div>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-type="all">
+                        <span class="material-symbols-outlined">apps</span>
+                        <span>Todos</span>
+                        <span class="count" id="count-all">0</span>
+                    </button>
+                    <button class="filter-btn" data-type="favorite">
+                        <span class="material-symbols-outlined">star</span>
+                        <span>Favoritos</span>
+                        <span class="count" id="count-favorite">0</span>
+                    </button>
+                    <button class="filter-btn" data-type="login">
+                        <span class="material-symbols-outlined">account_circle</span>
+                        <span>Logins</span>
+                        <span class="count" id="count-login">0</span>
+                    </button>
+                    <button class="filter-btn" data-type="mfa">
+                        <span class="material-symbols-outlined">security</span>
+                        <span>MFA</span>
+                        <span class="count" id="count-mfa">0</span>
+                    </button>
+                    <button class="filter-btn" data-type="token">
+                        <span class="material-symbols-outlined">key</span>
+                        <span>Tokens</span>
+                        <span class="count" id="count-token">0</span>
+                    </button>
+                    <button class="filter-btn" data-type="note">
+                        <span class="material-symbols-outlined">note</span>
+                        <span>Notas</span>
+                        <span class="count" id="count-note">0</span>
+                    </button>
+                    <div class="filter-divider"></div>
+                    <button class="filter-btn" data-type="health">
+                        <span class="material-symbols-outlined">monitor_heart</span>
+                        <span>Saúde das Senhas</span>
+                        <span class="count count-alert" id="count-health">0</span>
+                    </button>
+                    <button class="filter-btn" data-type="trash">
+                        <span class="material-symbols-outlined">delete</span>
+                        <span>Lixeira</span>
+                        <span class="count" id="count-trash">0</span>
+                    </button>
+                </div>
+                <div class="sidebar-tags" id="sidebar-tags" style="display: none;">
+                    <h4>Tags</h4>
+                    <div id="tags-list" class="tags-list"></div>
+                </div>
+                <div class="entries-section">
+                    <div class="entries-header">
+                        <h4>Entradas</h4>
+                        <div class="sort-options">
+                            <select id="sort-select" class="sort-select">
+                                <option value="title">Título A-Z</option>
+                                <option value="title-desc">Título Z-A</option>
+                                <option value="date-new">Mais recente</option>
+                                <option value="date-old">Mais antigo</option>
+                                <option value="type">Por tipo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="entries-list" class="entries-list"></div>
+                </div>
+            </div>
+
+            <div class="content">
+                <div id="welcome-message" class="welcome-message">
+                    <div class="welcome-icon">
+                        <span class="material-symbols-outlined">shield</span>
+                    </div>
+                    <h2>Bem-vindo ao MySecrets!</h2>
+                    <p>Seu gerenciador seguro de senhas e autenticação multifator</p>
+                    <div class="welcome-actions">
+                        <button class="btn btn-primary" id="welcome-add-btn">
+                            <span class="material-symbols-outlined">add</span>
+                            Adicionar primeira entrada
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="entry-details" class="entry-details" style="display: none;">
+                    <!-- Conteúdo será inserido dinamicamente -->
+                </div>
+                
+                <div id="mfa-overview" class="mfa-overview" style="display: none;">
+                    <div class="mfa-overview-header">
+                        <h2>Códigos MFA</h2>
+                        <p>Todos os seus códigos de autenticação multifator em tempo real</p>
+                    </div>
+                    <div id="mfa-codes-grid" class="mfa-codes-grid">
+                        <!-- Códigos MFA serão inseridos dinamicamente -->
+                    </div>
+                </div>
+
+                <div id="health-overview" class="health-overview" style="display: none;">
+                    <!-- Relatório de saúde das senhas inserido dinamicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Adicionar/Editar Entrada -->
+    <div id="entry-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Adicionar Entrada</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="entry-form">
+                    <div class="form-group">
+                        <label for="entry-type">Tipo:</label>
+                        <select id="entry-type" class="input-field">
+                            <option value="login">Login</option>
+                            <option value="mfa">MFA</option>
+                            <option value="token">Token</option>
+                            <option value="note">Nota Segura</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="entry-title">Título:</label>
+                        <input type="text" id="entry-title" class="input-field" required>
+                    </div>
+
+                    <div class="form-group form-row-split">
+                        <div class="form-col">
+                            <label for="entry-tags">Tags:</label>
+                            <input type="text" id="entry-tags" class="input-field" placeholder="trabalho, pessoal, banco...">
+                            <small>Separe as tags por vírgula</small>
+                        </div>
+                        <label class="favorite-toggle" for="entry-favorite">
+                            <input type="checkbox" id="entry-favorite">
+                            <span class="material-symbols-outlined">star</span>
+                            Favorito
+                        </label>
+                    </div>
+                    
+                    <div class="form-group" id="url-group">
+                        <label for="entry-url">URL/Site:</label>
+                        <input type="url" id="entry-url" class="input-field">
+                    </div>
+                    
+                    <div class="form-group" id="username-group">
+                        <label for="entry-username">Usuário/Email:</label>
+                        <input type="text" id="entry-username" class="input-field">
+                    </div>
+                    
+                    <div class="form-group" id="password-group">
+                        <label for="entry-password">Senha:</label>
+                        <div class="password-input-group">
+                            <input type="password" id="entry-password" class="input-field">
+                            <button type="button" class="btn btn-secondary" id="generate-password-btn">Gerar</button>
+                            <button type="button" class="btn btn-secondary" id="toggle-password-btn">👁️</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" id="linked-mfa-group" style="display: none;">
+                        <label for="entry-linked-mfa">Vincular MFA (2FA):</label>
+                        <select id="entry-linked-mfa" class="input-field">
+                            <option value="">Nenhum (sem 2FA)</option>
+                            <!-- Opções de MFA serão inseridas dinamicamente -->
+                        </select>
+                        <small>Selecione uma entrada MFA para preencher automaticamente o código 2FA</small>
+                    </div>
+                    
+                    <div class="form-group" id="mfa-group" style="display: none;">
+                        <label for="entry-mfa-algorithm">Algoritmo MFA:</label>
+                        <select id="entry-mfa-algorithm" class="input-field">
+                            <option value="totp">TOTP (Time-based)</option>
+                            <option value="hotp">HOTP (Counter-based)</option>
+                        </select>
+                        
+                        <label for="entry-mfa-secret">Chave Secreta MFA:</label>
+                        <input type="text" id="entry-mfa-secret" class="input-field">
+
+                        <div class="qr-import-row" id="qr-dropzone">
+                            <button type="button" id="mfa-qr-import-btn" class="btn btn-secondary">
+                                <span class="material-symbols-outlined">qr_code_scanner</span>
+                                Importar de imagem QR code
+                            </button>
+                            <input type="file" id="mfa-qr-import-input" accept="image/*" style="display: none;">
+                            <small id="mfa-qr-import-status">Ou arraste uma imagem de QR code para cá</small>
+                        </div>
+
+                        <div id="mfa-totp-options">
+                            <label for="entry-mfa-period">Período (segundos):</label>
+                            <input type="number" id="entry-mfa-period" class="input-field" value="30" min="1" max="300">
+                            
+                            <label for="entry-mfa-digits">Dígitos:</label>
+                            <select id="entry-mfa-digits" class="input-field">
+                                <option value="6">6 dígitos</option>
+                                <option value="8">8 dígitos</option>
+                            </select>
+                            
+                            <label for="entry-mfa-hash">Algoritmo Hash:</label>
+                            <select id="entry-mfa-hash" class="input-field">
+                                <option value="sha1">SHA-1 (padrão)</option>
+                                <option value="sha256">SHA-256</option>
+                                <option value="sha512">SHA-512</option>
+                            </select>
+                        </div>
+                        
+                        <div id="mfa-hotp-options" style="display: none;">
+                            <label for="entry-mfa-counter">Contador:</label>
+                            <input type="number" id="entry-mfa-counter" class="input-field" value="0" min="0">
+                            
+                            <label for="entry-mfa-digits-hotp">Dígitos:</label>
+                            <select id="entry-mfa-digits-hotp" class="input-field">
+                                <option value="6">6 dígitos</option>
+                                <option value="8">8 dígitos</option>
+                            </select>
+                            
+                            <label for="entry-mfa-hash-hotp">Algoritmo Hash:</label>
+                            <select id="entry-mfa-hash-hotp" class="input-field">
+                                <option value="sha1">SHA-1 (padrão)</option>
+                                <option value="sha256">SHA-256</option>
+                                <option value="sha512">SHA-512</option>
+                            </select>
+                        </div>
+                        
+                        <small>Cole a chave secreta fornecida pelo serviço</small>
+                    </div>
+                    
+                    <div class="form-group" id="token-group" style="display: none;">
+                        <label for="entry-token">Token/Chave de API:</label>
+                        <textarea id="entry-token" class="input-field token-textarea" rows="4" placeholder="Cole seu token aqui..."></textarea>
+                        <small>Tokens de API, JWT, chaves de acesso, etc.</small>
+                        
+                        <label for="entry-token-type" style="margin-top: 1rem;">Tipo de Token:</label>
+                        <select id="entry-token-type" class="input-field">
+                            <option value="api">Token de API</option>
+                            <option value="jwt">JWT</option>
+                            <option value="bearer">Bearer Token</option>
+                            <option value="oauth">OAuth Token</option>
+                            <option value="access">Access Key</option>
+                            <option value="secret">Secret Key</option>
+                            <option value="other">Outro</option>
+                        </select>
+                        
+                        <label for="entry-token-expires" style="margin-top: 1rem;">Data de Expiração (opcional):</label>
+                        <input type="date" id="entry-token-expires" class="input-field">
+                    </div>
+                    
+                    <div class="form-group" id="notes-group">
+                        <label for="entry-notes">Notas/Observações:</label>
+                        <textarea id="entry-notes" class="input-field" rows="4"></textarea>
+                    </div>
+                    
+                    <!-- Custom Fields Section -->
+                    <div class="form-group" id="custom-fields-group">
+                        <label>Campos Personalizados:</label>
+                        <div id="custom-fields-list" class="custom-fields-list">
+                            <!-- Custom fields serão inseridos aqui dinamicamente -->
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="add-custom-field-btn">
+                            <span class="material-symbols-outlined">add</span>
+                            Adicionar Campo Personalizado
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-btn">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="save-btn">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Geração de Senha -->
+    <div id="password-generator-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Gerador de Senhas</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="password-length">Comprimento:</label>
+                    <input type="range" id="password-length" min="8" max="64" value="16">
+                    <span id="length-value">16</span>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="include-symbols" checked>
+                        Incluir símbolos especiais
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>Senha gerada:</label>
+                    <div class="password-display">
+                        <input type="text" id="generated-password" class="input-field" readonly>
+                        <button type="button" class="btn btn-secondary" id="copy-generated-btn">Copiar</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="regenerate-btn">Gerar Nova</button>
+                <button type="button" class="btn btn-primary" id="use-password-btn">Usar Esta Senha</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação para Reset -->
+    <div id="reset-confirmation-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚠️ Resetar Cofre</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-content">
+                    <p><strong>ATENÇÃO:</strong> Esta ação irá apagar permanentemente todos os seus dados!</p>
+                    <p>Ao resetar o cofre:</p>
+                    <ul>
+                        <li>Todas as senhas salvas serão perdidas</li>
+                        <li>Todos os códigos MFA serão removidos</li>
+                        <li>Todas as notas seguras serão apagadas</li>
+                        <li>Esta ação <strong>NÃO PODE</strong> ser desfeita</li>
+                    </ul>
+                    <p>Tem certeza de que deseja continuar?</p>
+                </div>
+                
+                <div class="confirmation-input">
+                    <label for="reset-confirmation">Digite "RESETAR" para confirmar:</label>
+                    <input type="text" id="reset-confirmation" class="input-field" placeholder="Digite RESETAR">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-reset-btn">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirm-reset-btn" disabled>Resetar Cofre</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Importação -->
+    <div id="import-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📥 Importar Entradas</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="import-content">
+                    <p>Importe de um export do MySecrets, Bitwarden (.json) ou Proton Pass (.zip, .json ou .csv, sem criptografia):</p>
+                    
+                    <div class="import-section">
+                        <label for="import-file-input">Selecionar arquivo:</label>
+                        <input type="file" id="import-file-input" accept=".json,.csv,.zip" class="file-input">
+                        <div class="file-info" id="file-info" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="import-preview" id="import-preview" style="display: none;">
+                        <h4>Entradas a serem importadas:</h4>
+                        <div id="import-entries-list" class="import-entries-list"></div>
+                    </div>
+                    
+                    <div class="import-options">
+                        <label>
+                            <input type="checkbox" id="skip-duplicates" checked>
+                            Pular entradas duplicadas (baseado no título)
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-import-btn">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirm-import-btn" disabled>Importar Entradas</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal do Servidor MCP -->
+    <div id="mcp-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><span class="material-symbols-outlined" style="vertical-align:middle;">smart_toy</span> Servidor MCP</h2>
+                <button class="close-btn" id="mcp-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="mcp-intro">
+                    Permite que assistentes de IA (Claude Code, Claude Desktop, etc.) acessem
+                    suas senhas, tokens e códigos OTP de forma segura — apenas enquanto o cofre
+                    estiver <strong>aberto e desbloqueado</strong>.
+                </p>
+
+                <div class="mcp-status-panel">
+                    <div class="mcp-status-row">
+                        <span class="mcp-status-badge" id="mcp-badge">Parado</span>
+                        <span id="mcp-status-text">O servidor não está em execução.</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="mcp-port-input">Porta (loopback 127.0.0.1):</label>
+                    <input type="number" id="mcp-port-input" class="form-input" value="8765" min="1024" max="65535">
+                </div>
+
+                <div class="form-group">
+                    <label class="settings-checkbox">
+                        <input type="checkbox" id="mcp-autostart">
+                        Iniciar o servidor ao desbloquear o cofre
+                    </label>
+                    <small>Necessário para o auto-preenchimento da extensão funcionar sem passar por aqui toda vez.</small>
+                </div>
+
+                <div class="mcp-actions">
+                    <button id="mcp-start-btn" class="btn btn-primary">
+                        <span class="material-symbols-outlined">play_arrow</span>
+                        <span>Iniciar servidor</span>
+                    </button>
+                    <button id="mcp-stop-btn" class="btn btn-secondary" disabled>
+                        <span class="material-symbols-outlined">stop</span>
+                        <span>Parar servidor</span>
+                    </button>
+                </div>
+
+                <div class="mcp-connection" id="mcp-connection" style="display:none;">
+                    <h4>Dados de conexão</h4>
+                    <div class="form-group">
+                        <label>URL do servidor:</label>
+                        <div class="mcp-copy-field">
+                            <input type="text" id="mcp-url" class="form-input" readonly>
+                            <button class="btn btn-icon" data-copy="mcp-url" title="Copiar"><span class="material-symbols-outlined">content_copy</span></button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Token de autenticação:</label>
+                        <div class="mcp-copy-field">
+                            <input type="password" id="mcp-token" class="form-input" readonly>
+                            <button class="btn btn-icon" id="mcp-token-toggle" title="Mostrar/ocultar"><span class="material-symbols-outlined">visibility</span></button>
+                            <button class="btn btn-icon" data-copy="mcp-token" title="Copiar"><span class="material-symbols-outlined">content_copy</span></button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Código de pareamento da extensão (autofill):</label>
+                        <div class="mcp-copy-field">
+                            <textarea id="mcp-pair-code" class="form-input mcp-code" rows="3" style="white-space:pre-wrap;word-break:break-all;" readonly></textarea>
+                            <button class="btn btn-icon" data-copy="mcp-pair-code" title="Copiar"><span class="material-symbols-outlined">content_copy</span></button>
+                        </div>
+                        <small>Cole no popup da extensão MySecrets Autofill uma vez só: o código continua valendo depois de reiniciar o app ou o servidor.</small>
+                    </div>
+
+                    <h4>Como conectar</h4>
+                    <div class="mcp-tabs">
+                        <button class="mcp-tab active" data-tab="claude-code">Claude Code</button>
+                        <button class="mcp-tab" data-tab="json">JSON (.mcp.json)</button>
+                    </div>
+                    <div class="mcp-tab-content" data-tab-content="claude-code">
+                        <div class="mcp-copy-field">
+                            <textarea id="mcp-cmd-cli" class="form-input mcp-code" rows="2" readonly></textarea>
+                            <button class="btn btn-icon" data-copy="mcp-cmd-cli" title="Copiar"><span class="material-symbols-outlined">content_copy</span></button>
+                        </div>
+                    </div>
+                    <div class="mcp-tab-content" data-tab-content="json" style="display:none;">
+                        <div class="mcp-copy-field">
+                            <textarea id="mcp-cmd-json" class="form-input mcp-code" rows="10" readonly></textarea>
+                            <button class="btn btn-icon" data-copy="mcp-cmd-json" title="Copiar"><span class="material-symbols-outlined">content_copy</span></button>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="mcp-warning">
+                    <span class="material-symbols-outlined">shield</span>
+                    O servidor escuta apenas em 127.0.0.1 e exige o token acima. Não compartilhe o token.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Configurações -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><span class="material-symbols-outlined" style="vertical-align:middle;">settings</span> Configurações</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3><span class="material-symbols-outlined">shield_lock</span> Segurança</h3>
+
+                    <div class="form-group">
+                        <label for="setting-auto-lock">Bloquear automaticamente após inatividade:</label>
+                        <select id="setting-auto-lock" class="input-field">
+                            <option value="0">Nunca</option>
+                            <option value="1">1 minuto</option>
+                            <option value="5">5 minutos</option>
+                            <option value="15">15 minutos</option>
+                            <option value="30">30 minutos</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="setting-clipboard-clear">Limpar clipboard após copiar:</label>
+                        <select id="setting-clipboard-clear" class="input-field">
+                            <option value="0">Nunca</option>
+                            <option value="15">15 segundos</option>
+                            <option value="30">30 segundos</option>
+                            <option value="60">60 segundos</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="settings-checkbox">
+                            <input type="checkbox" id="setting-lock-on-suspend">
+                            Bloquear ao suspender o computador ou travar a tela
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="settings-checkbox">
+                            <input type="checkbox" id="setting-global-shortcut">
+                            Atalho global Ctrl+Shift+M para mostrar/ocultar a janela
+                        </label>
+                        <small>Registrado ~5s após ativar/iniciar, para evitar travamento do teclado. Em alguns sistemas (ex.: WSL) pode travar o input por alguns segundos.</small>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3><span class="material-symbols-outlined">backup</span> Backup</h3>
+
+                    <div class="form-group">
+                        <label class="settings-checkbox">
+                            <input type="checkbox" id="setting-auto-backup">
+                            Backup automático do cofre (a cada 6h, mantém os últimos 14)
+                        </label>
+                        <small id="setting-backup-info"></small>
+                    </div>
+
+                    <div class="settings-actions">
+                        <button class="btn btn-secondary" id="export-backup-btn">
+                            <span class="material-symbols-outlined">download</span>
+                            <span>Exportar backup</span>
+                        </button>
+                        <button class="btn btn-secondary" id="import-backup-btn">
+                            <span class="material-symbols-outlined">restore</span>
+                            <span>Restaurar backup</span>
+                        </button>
+                    </div>
+                    <small>O backup é o próprio cofre criptografado — só abre com a senha mestra da época.</small>
+                </div>
+
+                <div class="settings-section">
+                    <h3><span class="material-symbols-outlined">system_update_alt</span> Atualizações</h3>
+                    <div class="update-row">
+                        <span>Versão instalada: <strong id="app-version">—</strong></span>
+                        <button class="btn btn-secondary" id="check-updates-btn">
+                            <span class="material-symbols-outlined">refresh</span>
+                            <span>Verificar agora</span>
+                        </button>
+                    </div>
+                    <small id="update-status-text">O app verifica atualizações automaticamente ao iniciar.</small>
+                </div>
+
+                <div class="settings-section">
+                    <h3><span class="material-symbols-outlined">keyboard</span> Atalhos de teclado</h3>
+                    <div class="shortcuts-list">
+                        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>F</kbd><span>Focar a pesquisa</span></div>
+                        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>N</kbd><span>Nova entrada</span></div>
+                        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>L</kbd><span>Bloquear o cofre</span></div>
+                        <div class="shortcut-row"><kbd>Esc</kbd><span>Fechar modais</span></div>
+                        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd><span>Mostrar/ocultar janela (global)</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="settings-close-btn">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="jsQR.js"></script>
+    <script src="proton-pass-import.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

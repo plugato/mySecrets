@@ -1,0 +1,398 @@
+{
+  "chrome-extension/background.js": {
+    "mtime": 1793551602.0787823,
+    "seen": 1793551994.99245,
+    "ast_hash": "f0399033cdffcdaedad1e7bd9eb4cfd5",
+    "semantic_hash": "f0399033cdffcdaedad1e7bd9eb4cfd5"
+  },
+  "chrome-extension/content.js": {
+    "mtime": 1793551602.0789773,
+    "seen": 1793551994.992453,
+    "ast_hash": "71eab860a0429b966ac7b9cc7fe67dc9",
+    "semantic_hash": "71eab860a0429b966ac7b9cc7fe67dc9"
+  },
+  "chrome-extension/icons/create-icons.sh": {
+    "mtime": 1770132505.837637,
+    "seen": 1793551994.9924548,
+    "ast_hash": "0498ea83760fc9d3785e93b21c3a546d",
+    "semantic_hash": "0498ea83760fc9d3785e93b21c3a546d"
+  },
+  "chrome-extension/icons/create-simple-icons.sh": {
+    "mtime": 1770132505.837637,
+    "seen": 1793551994.9924557,
+    "ast_hash": "e3abbae04e29e994fc44e7f96a9d43c4",
+    "semantic_hash": "e3abbae04e29e994fc44e7f96a9d43c4"
+  },
+  "chrome-extension/lib.mjs": {
+    "mtime": 1793551602.0792577,
+    "seen": 1793551994.9924564,
+    "ast_hash": "3d8819230ba74119ddb9fcd67c084f47",
+    "semantic_hash": "3d8819230ba74119ddb9fcd67c084f47"
+  },
+  "chrome-extension/manifest.json": {
+    "mtime": 1793551602.0793145,
+    "seen": 1793551994.9924579,
+    "ast_hash": "73b305ba86a5a3e5e83a425b4b74527c",
+    "semantic_hash": "73b305ba86a5a3e5e83a425b4b74527c"
+  },
+  "chrome-extension/popup.js": {
+    "mtime": 1793551602.0794654,
+    "seen": 1793551994.992459,
+    "ast_hash": "8b9baf28cc58d5281edcb54af1a91271",
+    "semantic_hash": "8b9baf28cc58d5281edcb54af1a91271"
+  },
+  "dev-app-update.yml": {
+    "mtime": 1793551602.0794654,
+    "seen": 1793551994.992461,
+    "ast_hash": "64f03afa3035445edee699f1ce862c2d",
+    "semantic_hash": "64f03afa3035445edee699f1ce862c2d"
+  },
+  "mcp-server/core.js": {
+    "mtime": 1793551602.0801287,
+    "seen": 1793551994.9924626,
+    "ast_hash": "218bda4ad6dd541f7813d659fc49ec95",
+    "semantic_hash": "218bda4ad6dd541f7813d659fc49ec95"
+  },
+  "mcp-server/http-server.js": {
+    "mtime": 1793551602.0802455,
+    "seen": 1793551994.9924634,
+    "ast_hash": "77e1d99bdfdde299142a3debea4eae89",
+    "semantic_hash": "77e1d99bdfdde299142a3debea4eae89"
+  },
+  "mcp-server/index.js": {
+    "mtime": 1793551602.0802844,
+    "seen": 1793551994.992464,
+    "ast_hash": "bf02ca0036e8b5f1e355b94723a924e6",
+    "semantic_hash": "bf02ca0036e8b5f1e355b94723a924e6"
+  },
+  "mcp-server/mcp-config.example.json": {
+    "mtime": 1793551602.0802844,
+    "seen": 1793551994.9924653,
+    "ast_hash": "42aed639fbed9602f93f3de7129cea19",
+    "semantic_hash": "42aed639fbed9602f93f3de7129cea19"
+  },
+  "mcp-server/vault.js": {
+    "mtime": 1793551602.0803976,
+    "seen": 1793551994.992466,
+    "ast_hash": "9c7224358517495be0cf289d91cb9c05",
+    "semantic_hash": "9c7224358517495be0cf289d91cb9c05"
+  },
+  "native-host/com.mysecrets.native.json": {
+    "mtime": 1770132505.8403337,
+    "seen": 1793551994.9924667,
+    "ast_hash": "0e3739c6451868188b2f947db424cbcd",
+    "semantic_hash": "0e3739c6451868188b2f947db424cbcd"
+  },
+  "native-host/install.sh": {
+    "mtime": 1770132505.8403337,
+    "seen": 1793551994.9924674,
+    "ast_hash": "420c150f173248c485ae25a5ceac131f",
+    "semantic_hash": "420c150f173248c485ae25a5ceac131f"
+  },
+  "native-host/mysecrets-host.js": {
+    "mtime": 1793551602.0807774,
+    "seen": 1793551994.992468,
+    "ast_hash": "ba6b87d7afa9cef01544788cd7f1b73e",
+    "semantic_hash": "ba6b87d7afa9cef01544788cd7f1b73e"
+  },
+  "native-host/mysecrets-wrapper.sh": {
+    "mtime": 1770132505.8403337,
+    "seen": 1793551994.992469,
+    "ast_hash": "daff903b3545cb49cda0cd255b83e3c5",
+    "semantic_hash": "daff903b3545cb49cda0cd255b83e3c5"
+  },
+  "native-host/test-chrome.sh": {
+    "mtime": 1770132505.8403337,
+    "seen": 1793551994.9924698,
+    "ast_hash": "1e36ed144764a1930687b382c1653037",
+    "semantic_hash": "1e36ed144764a1930687b382c1653037"
+  },
+  "native-host/test-host.js": {
+    "mtime": 1770071173.7130864,
+    "seen": 1793551994.9924705,
+    "ast_hash": "4890a0003400d59831b22b1b5ff00b7e",
+    "semantic_hash": "4890a0003400d59831b22b1b5ff00b7e"
+  },
+  "package.json": {
+    "mtime": 1793551602.0819423,
+    "seen": 1793551994.9924712,
+    "ast_hash": "4e122442a4512e71d768a63e125da0e7",
+    "semantic_hash": "4e122442a4512e71d768a63e125da0e7"
+  },
+  "src/lib/vault-crypto.js": {
+    "mtime": 1793551602.0820203,
+    "seen": 1793551994.9924722,
+    "ast_hash": "c00dc70ce067d1d9f09bec91643d8f06",
+    "semantic_hash": "c00dc70ce067d1d9f09bec91643d8f06"
+  },
+  "src/main.js": {
+    "mtime": 1793551602.0822673,
+    "seen": 1793551994.992473,
+    "ast_hash": "63f043990cea1cb0d1a1c5f66a836050",
+    "semantic_hash": "63f043990cea1cb0d1a1c5f66a836050"
+  },
+  "src/preload-test.js": {
+    "mtime": 1759809078.8816228,
+    "seen": 1793551994.9924738,
+    "ast_hash": "96fd256b46db6f23e69668e45033b924",
+    "semantic_hash": "96fd256b46db6f23e69668e45033b924"
+  },
+  "src/preload.js": {
+    "mtime": 1793551602.0823672,
+    "seen": 1793551994.9924746,
+    "ast_hash": "9012d2add6172ead1702e4e35f909a09",
+    "semantic_hash": "9012d2add6172ead1702e4e35f909a09"
+  },
+  "src/renderer/app.js": {
+    "mtime": 1793551602.0829072,
+    "seen": 1793551994.9924755,
+    "ast_hash": "0ee370216f114f094b51b6248d57a2ed",
+    "semantic_hash": "0ee370216f114f094b51b6248d57a2ed"
+  },
+  "src/renderer/jsQR.js": {
+    "mtime": 1793551602.0837066,
+    "seen": 1793551994.9924762,
+    "ast_hash": "c5749c2591188b6c833dbe21cfd56b04",
+    "semantic_hash": "c5749c2591188b6c833dbe21cfd56b04"
+  },
+  "test-app-fix.js": {
+    "mtime": 1759809814.0777943,
+    "seen": 1793551994.992477,
+    "ast_hash": "2d12b99c747b5797022afecb32b5acaf",
+    "semantic_hash": "2d12b99c747b5797022afecb32b5acaf"
+  },
+  "test-conversion.js": {
+    "mtime": 1759812227.581954,
+    "seen": 1793551994.9924777,
+    "ast_hash": "c70c38aa12c60bdcdf56b8fcc361460c",
+    "semantic_hash": "c70c38aa12c60bdcdf56b8fcc361460c"
+  },
+  "test-exact-simulation.js": {
+    "mtime": 1759809888.8775678,
+    "seen": 1793551994.9924784,
+    "ast_hash": "6875cf91fb58b23e89f011dc1b53d72a",
+    "semantic_hash": "6875cf91fb58b23e89f011dc1b53d72a"
+  },
+  "test-methods.js": {
+    "mtime": 1759809814.0777943,
+    "seen": 1793551994.9924793,
+    "ast_hash": "eb434bc7bfb67b3e37feed14077c5399",
+    "semantic_hash": "eb434bc7bfb67b3e37feed14077c5399"
+  },
+  "test-totp.js": {
+    "mtime": 1759809814.0777943,
+    "seen": 1793551994.9924798,
+    "ast_hash": "b2ef0b0e676c4a4a509a837b1ab6aaf7",
+    "semantic_hash": "b2ef0b0e676c4a4a509a837b1ab6aaf7"
+  },
+  "tests/autofill.test.js": {
+    "mtime": 1793551602.0841448,
+    "seen": 1793551994.9924805,
+    "ast_hash": "d3e3fd0e20075b1bc32faa4d364f15bd",
+    "semantic_hash": "d3e3fd0e20075b1bc32faa4d364f15bd"
+  },
+  "tests/vault-crypto.test.js": {
+    "mtime": 1793551602.0842025,
+    "seen": 1793551994.9924812,
+    "ast_hash": "1b1082921aad874f11f84f16c45319a3",
+    "semantic_hash": "1b1082921aad874f11f84f16c45319a3"
+  },
+  ".make-commands.txt": {
+    "mtime": 1770132505.8351989,
+    "seen": 1793551994.992482,
+    "ast_hash": "a92471053009932c27278a3230fcef0d",
+    "semantic_hash": "a92471053009932c27278a3230fcef0d"
+  },
+  "ESTRUTURA_DOCS.txt": {
+    "mtime": 1770132505.8351989,
+    "seen": 1793551994.992483,
+    "ast_hash": "df2c285f6387120998a08a221d3ec6f6",
+    "semantic_hash": "df2c285f6387120998a08a221d3ec6f6"
+  },
+  "INDEX.md": {
+    "mtime": 1770132505.8351989,
+    "seen": 1793551994.9924839,
+    "ast_hash": "f54676b714c45f23c09d2a9956b70b1d",
+    "semantic_hash": "f54676b714c45f23c09d2a9956b70b1d"
+  },
+  "QUICK_START.md": {
+    "mtime": 1770132505.8359752,
+    "seen": 1793551994.9924846,
+    "ast_hash": "6309a83ba80e8ec9ce2b0e91ce2657fc",
+    "semantic_hash": "6309a83ba80e8ec9ce2b0e91ce2657fc"
+  },
+  "README.md": {
+    "mtime": 1793551602.0784066,
+    "seen": 1793551994.9924853,
+    "ast_hash": "709497b99ea03570030873ead1269b8c",
+    "semantic_hash": "709497b99ea03570030873ead1269b8c"
+  },
+  "chrome-extension/README_EXTENSION.md": {
+    "mtime": 1793551602.0786932,
+    "seen": 1793551994.9924865,
+    "ast_hash": "c3683987b727438644691044266f1b49",
+    "semantic_hash": "c3683987b727438644691044266f1b49"
+  },
+  "chrome-extension/icons/README_ICONS.md": {
+    "mtime": 1770132505.836975,
+    "seen": 1793551994.9924872,
+    "ast_hash": "375ac1503a6584e28bdf931c87fe853c",
+    "semantic_hash": "375ac1503a6584e28bdf931c87fe853c"
+  },
+  "chrome-extension/popup.html": {
+    "mtime": 1793551602.0793867,
+    "seen": 1793551994.9924881,
+    "ast_hash": "0b9de7ca1a4148b454eb71412cd8942e",
+    "semantic_hash": "0b9de7ca1a4148b454eb71412cd8942e"
+  },
+  "docs/developer/CHANGELOG.md": {
+    "mtime": 1793551602.0797763,
+    "seen": 1793551994.9924889,
+    "ast_hash": "103d807b8f66e677eb07c2a68ea3c2bb",
+    "semantic_hash": "103d807b8f66e677eb07c2a68ea3c2bb"
+  },
+  "docs/developer/CONTRIBUTING.md": {
+    "mtime": 1770132505.8384979,
+    "seen": 1793551994.9924898,
+    "ast_hash": "c5b01d1db03acd5bfa92476d33072c22",
+    "semantic_hash": "c5b01d1db03acd5bfa92476d33072c22"
+  },
+  "docs/developer/DEVELOPER_GUIDE.md": {
+    "mtime": 1770132505.8384979,
+    "seen": 1793551994.9924915,
+    "ast_hash": "98218a9ae567fa1ccdcf5c761664d796",
+    "semantic_hash": "98218a9ae567fa1ccdcf5c761664d796"
+  },
+  "docs/extension/EXTENSION_SUMMARY.md": {
+    "mtime": 1770132505.8384979,
+    "seen": 1793551994.9924922,
+    "ast_hash": "e6c373c3ff2fdbbad15798ad6f0b53db",
+    "semantic_hash": "e6c373c3ff2fdbbad15798ad6f0b53db"
+  },
+  "docs/extension/INTEGRACAO_EXTENSAO.md": {
+    "mtime": 1770132505.838953,
+    "seen": 1793551994.9924932,
+    "ast_hash": "b9901a81406681ea09e8ff22ed0fd99a",
+    "semantic_hash": "b9901a81406681ea09e8ff22ed0fd99a"
+  },
+  "docs/extension/LEIA_ME_EXTENSAO.md": {
+    "mtime": 1770132505.838953,
+    "seen": 1793551994.9924939,
+    "ast_hash": "144d70d25f0651682701660164482355",
+    "semantic_hash": "144d70d25f0651682701660164482355"
+  },
+  "docs/guides/COMO_USAR.txt": {
+    "mtime": 1770132505.838953,
+    "seen": 1793551994.9924946,
+    "ast_hash": "be3b9e60b667b164ad0980dae38d9362",
+    "semantic_hash": "be3b9e60b667b164ad0980dae38d9362"
+  },
+  "docs/guides/EXECUTAR_PROJETO.md": {
+    "mtime": 1770132505.8392036,
+    "seen": 1793551994.9924953,
+    "ast_hash": "817772dd0302ee8c575493945005b081",
+    "semantic_hash": "817772dd0302ee8c575493945005b081"
+  },
+  "docs/guides/INSTALAR_INTEGRACAO.txt": {
+    "mtime": 1770132505.839282,
+    "seen": 1793551994.992496,
+    "ast_hash": "b1ddcdc349008a96a6da3eabdf472d02",
+    "semantic_hash": "b1ddcdc349008a96a6da3eabdf472d02"
+  },
+  "docs/guides/MAKEFILE_GUIA.md": {
+    "mtime": 1770132505.839282,
+    "seen": 1793551994.992497,
+    "ast_hash": "5a8735bb04b09db1ffcdf2a043fe87e5",
+    "semantic_hash": "5a8735bb04b09db1ffcdf2a043fe87e5"
+  },
+  "docs/privacy-site/index.html": {
+    "mtime": 1793551602.0798821,
+    "seen": 1793551994.9924977,
+    "ast_hash": "37da1283cc81ca2d755f0d41d196b273",
+    "semantic_hash": "37da1283cc81ca2d755f0d41d196b273"
+  },
+  "docs/summaries/DOCS_INDEX.md": {
+    "mtime": 1770132505.839282,
+    "seen": 1793551994.9924984,
+    "ast_hash": "9413ae6bde41882fcfa2135684bb3479",
+    "semantic_hash": "9413ae6bde41882fcfa2135684bb3479"
+  },
+  "docs/summaries/DOCUMENTATION_SUMMARY.md": {
+    "mtime": 1770132505.8395376,
+    "seen": 1793551994.992499,
+    "ast_hash": "dee5702cdde068fa9d4c53d7eae1d39d",
+    "semantic_hash": "dee5702cdde068fa9d4c53d7eae1d39d"
+  },
+  "docs/summaries/RESUMO_INTEGRACAO.md": {
+    "mtime": 1770132505.8395376,
+    "seen": 1793551994.9925,
+    "ast_hash": "7cedceaebb20edd665e565af717fd995",
+    "semantic_hash": "7cedceaebb20edd665e565af717fd995"
+  },
+  "docs/summaries/RESUMO_MAKEFILE.md": {
+    "mtime": 1770132505.8395376,
+    "seen": 1793551994.9925008,
+    "ast_hash": "2f290fece20dc1e0b623060910aac14e",
+    "semantic_hash": "2f290fece20dc1e0b623060910aac14e"
+  },
+  "docs/summaries/START_HERE.md": {
+    "mtime": 1770132505.8395376,
+    "seen": 1793551994.9925015,
+    "ast_hash": "4c475cea800b238a105d12ec62cc4190",
+    "semantic_hash": "4c475cea800b238a105d12ec62cc4190"
+  },
+  "docs/user/INSTALLATION.md": {
+    "mtime": 1770132505.8395376,
+    "seen": 1793551994.992502,
+    "ast_hash": "1d9d2b21f5f6e38a50690b081af47f3a",
+    "semantic_hash": "1d9d2b21f5f6e38a50690b081af47f3a"
+  },
+  "docs/user/SECURITY.md": {
+    "mtime": 1770132505.8400218,
+    "seen": 1793551994.9925027,
+    "ast_hash": "127d522e3fe8b64ee43f3e5f597942b7",
+    "semantic_hash": "127d522e3fe8b64ee43f3e5f597942b7"
+  },
+  "mcp-server/README.md": {
+    "mtime": 1793551602.0798821,
+    "seen": 1793551994.9925036,
+    "ast_hash": "0ecf07b6b7f2d43a3403f033651e5245",
+    "semantic_hash": "0ecf07b6b7f2d43a3403f033651e5245"
+  },
+  "native-host/README.md": {
+    "mtime": 1770132505.8403337,
+    "seen": 1793551994.9925044,
+    "ast_hash": "60da8a68b2233c03a85f0b9dc6ba405c",
+    "semantic_hash": "60da8a68b2233c03a85f0b9dc6ba405c"
+  },
+  "assets/icon.png": {
+    "mtime": 1793551602.0785997,
+    "seen": 1793551994.992505,
+    "ast_hash": "4626e3e7c02d03e79e3129da637fa6c3",
+    "semantic_hash": "4626e3e7c02d03e79e3129da637fa6c3"
+  },
+  "chrome-extension/icons/icon128.png": {
+    "mtime": 1793551602.0790827,
+    "seen": 1793551994.9925058,
+    "ast_hash": "30680b3cd4963a3e7ea67d79a0345533",
+    "semantic_hash": "30680b3cd4963a3e7ea67d79a0345533"
+  },
+  "chrome-extension/icons/icon16.png": {
+    "mtime": 1793551602.0790827,
+    "seen": 1793551994.9925067,
+    "ast_hash": "72620c8d72c3d77f52416963cc8e3a9f",
+    "semantic_hash": "72620c8d72c3d77f52416963cc8e3a9f"
+  },
+  "chrome-extension/icons/icon32.png": {
+    "mtime": 1793551602.0790827,
+    "seen": 1793551994.9925075,
+    "ast_hash": "a459894363edc334e2533cebbc67a4bf",
+    "semantic_hash": "a459894363edc334e2533cebbc67a4bf"
+  },
+  "chrome-extension/icons/icon48.png": {
+    "mtime": 1793551602.0790827,
+    "seen": 1793551994.9925108,
+    "ast_hash": "30fe47b751657280f91a601b7d8bf85d",
+    "semantic_hash": "30fe47b751657280f91a601b7d8bf85d"
+  }
+}
