@@ -188,3 +188,9 @@ mfaimages/
 
 # Token do GitHub (local, NUNCA versionar)
 git.token
+
+# Client ID do login com Google (gerado no build a partir dos secrets do GitHub)
+src/google-oauth.json
+
+# Credencial OAuth baixada do Google Cloud (NUNCA versionar)
+client_secret*.json

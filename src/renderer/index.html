@@ -681,22 +681,45 @@
 
                 <div class="settings-section">
                     <h3><span class="material-symbols-outlined">cloud_sync</span> Sincronização (Google Drive)</h3>
-                    <p class="sync-status" id="sync-status-text">Verificando…</p>
-                    <div class="settings-actions">
-                        <button class="btn btn-primary" id="sync-drive-btn">
-                            <span class="material-symbols-outlined">add_to_drive</span>
-                            <span>Usar Google Drive</span>
-                        </button>
-                        <button class="btn btn-secondary" id="sync-choose-btn">
-                            <span class="material-symbols-outlined">folder_open</span>
-                            <span>Escolher pasta…</span>
-                        </button>
-                        <button class="btn btn-secondary" id="sync-disable-btn" style="display: none;">
-                            <span class="material-symbols-outlined">cloud_off</span>
-                            <span>Parar de sincronizar</span>
-                        </button>
+
+                    <div id="gdrive-block">
+                        <p class="sync-status" id="gdrive-status-text">Verificando…</p>
+                        <div class="settings-actions">
+                            <button class="btn btn-primary" id="gdrive-connect-btn">
+                                <span class="material-symbols-outlined">login</span>
+                                <span>Entrar com Google</span>
+                            </button>
+                            <button class="btn btn-secondary" id="gdrive-sync-btn" style="display: none;">
+                                <span class="material-symbols-outlined">sync</span>
+                                <span>Sincronizar agora</span>
+                            </button>
+                            <button class="btn btn-secondary" id="gdrive-disconnect-btn" style="display: none;">
+                                <span class="material-symbols-outlined">logout</span>
+                                <span>Desconectar</span>
+                            </button>
+                        </div>
+                        <small>O app cria a pasta <strong>MySecrets</strong> no seu Drive e só tem acesso a ela. O cofre vai sempre criptografado. Nos outros PCs, crie o cofre com a mesma senha mestra e entre com a mesma conta.</small>
                     </div>
-                    <small>Com o Google Drive para computador instalado, o cofre fica na pasta <strong>MySecrets</strong> do seu Drive, sempre criptografado. Nos outros PCs, escolha a mesma pasta e use a mesma senha mestra.</small>
+
+                    <details class="sync-advanced" id="sync-folder-block">
+                        <summary>Avançado: usar uma pasta sincronizada (Google Drive para computador, Syncthing…)</summary>
+                        <p class="sync-status" id="sync-status-text">Verificando…</p>
+                        <div class="settings-actions">
+                            <button class="btn btn-secondary" id="sync-drive-btn">
+                                <span class="material-symbols-outlined">add_to_drive</span>
+                                <span>Usar pasta do Google Drive</span>
+                            </button>
+                            <button class="btn btn-secondary" id="sync-choose-btn">
+                                <span class="material-symbols-outlined">folder_open</span>
+                                <span>Escolher pasta…</span>
+                            </button>
+                            <button class="btn btn-secondary" id="sync-disable-btn" style="display: none;">
+                                <span class="material-symbols-outlined">cloud_off</span>
+                                <span>Parar de sincronizar</span>
+                            </button>
+                        </div>
+                        <small>O cofre fica na pasta <strong>MySecrets</strong> dentro da pasta escolhida. Nos outros PCs, escolha a mesma pasta e use a mesma senha mestra.</small>
+                    </details>
                 </div>
 
                 <div class="settings-section">

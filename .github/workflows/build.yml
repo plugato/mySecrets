@@ -44,6 +44,19 @@ jobs:
 
       - run: npm ci
 
+      - name: Configurar login com Google
+        shell: bash
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: |
+          if [ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ]; then
+            node -e 'require("fs").writeFileSync("src/google-oauth.json", JSON.stringify({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET }))'
+            echo "Login com Google habilitado neste build"
+          else
+            echo "::warning::Secrets GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET ausentes: build sem login com Google"
+          fi
+
       - run: npm test
 
       - name: Build

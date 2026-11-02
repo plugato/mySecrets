@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, ipcMain, dialog, safeStorage, clipboard, nativeImage, globalShortcut, powerMonitor } = require('electron');
+const { app, BrowserWindow, Menu, Tray, ipcMain, dialog, safeStorage, clipboard, nativeImage, globalShortcut, powerMonitor, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -6,6 +6,7 @@ const os = require('os');
 const { execFile, spawn } = require('child_process');
 const vaultCrypto = require('./lib/vault-crypto');
 const vaultSync = require('./lib/vault-sync');
+const googleDrive = require('./lib/google-drive');
 
 // Carregar otplib no processo principal
 let otplib;
@@ -956,6 +957,9 @@ ipcMain.handle('save-data', async (event, data, masterPassword, options = {}) =>
   try {
     let entries = data;
     let merged = false;
+    if (isGdriveConnected()) {
+      recordLocalTombstones(vaultSync.removedIds(vaultState.ids, data));
+    }
     if (isSyncEnabled()) {
       const r = mergeWithSyncFolder(data, masterPassword, vaultSync.removedIds(vaultState.ids, data));
       entries = r.entries;
@@ -963,6 +967,10 @@ ipcMain.handle('save-data', async (event, data, masterPassword, options = {}) =>
     }
     writeVaultFile(entries, masterPassword);
     rememberVault(entries);
+    if (isGdriveConnected()) {
+      gdrive.password = masterPassword;
+      scheduleGdriveSync();
+    }
     if (options.autoBackup !== false) {
       maybeAutoBackup();
     }
@@ -979,6 +987,7 @@ ipcMain.handle('load-data', async (event, masterPassword) => {
       rememberVault([]);
       createSession(masterPassword);
       startVaultWatcher();
+      startGdrive(masterPassword);
       return { success: true, data: [] };
     }
 
@@ -1014,6 +1023,7 @@ ipcMain.handle('load-data', async (event, masterPassword) => {
     // Cria sessão quando desbloquear com sucesso
     createSession(masterPassword);
     startVaultWatcher();
+    startGdrive(masterPassword);
 
     return { success: true, data: entries };
   } catch (error) {
@@ -1027,6 +1037,12 @@ ipcMain.handle('check-data-exists', async () => {
 
 ipcMain.handle('reset-data', async () => {
   try {
+    if (isGdriveConnected()) {
+      // Idem para o Google Drive: só esquece a conta neste PC
+      stopGdrive();
+      gdrive.client = null;
+      fs.unlinkSync(gdriveStatePath);
+    }
     if (isSyncEnabled()) {
       // Não apaga o cofre da nuvem (os outros PCs dependem dele): só desliga
       // a sincronização neste PC e apaga o cofre local.
@@ -1063,6 +1079,9 @@ ipcMain.handle('sync-choose-folder', async () => {
 
 ipcMain.handle('sync-enable', async (event, baseDir, masterPassword) => {
   try {
+    if (isGdriveConnected()) {
+      return { success: false, error: 'Desconecte a conta Google antes de usar uma pasta sincronizada.' };
+    }
     if (!baseDir || !fs.existsSync(baseDir)) {
       return { success: false, error: 'Pasta não encontrada.' };
     }
@@ -1104,26 +1123,308 @@ ipcMain.handle('sync-enable', async (event, baseDir, masterPassword) => {
   }
 });
 
+/** Desliga a sincronização por pasta trazendo a versão atual para este PC. */
+function disableFolderSync() {
+  if (!isSyncEnabled()) return;
+  stopVaultWatcher();
+
+  const origem = vaultFile();
+  const localFile = path.join(userDataPath, vaultSync.VAULT_FILE);
+  if (fs.existsSync(origem)) {
+    if (fs.existsSync(localFile)) {
+      const localBackups = path.join(userDataPath, 'backups');
+      fs.mkdirSync(localBackups, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      fs.copyFileSync(localFile, path.join(localBackups, `vault-antes-de-desligar-sync-${stamp}.enc`));
+    }
+    fs.copyFileSync(origem, localFile);
+  }
+
+  vaultSync.writeVaultLocation(userDataPath, null);
+  vaultState.hash = fileHash(localFile);
+}
+
 ipcMain.handle('sync-disable', async () => {
   try {
-    if (!isSyncEnabled()) return { success: true };
-    stopVaultWatcher();
+    disableFolderSync();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
 
-    // Traz a versão atual da nuvem de volta para este PC
-    const origem = vaultFile();
-    const localFile = path.join(userDataPath, vaultSync.VAULT_FILE);
-    if (fs.existsSync(origem)) {
-      if (fs.existsSync(localFile)) {
-        const localBackups = path.join(userDataPath, 'backups');
-        fs.mkdirSync(localBackups, { recursive: true });
-        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        fs.copyFileSync(localFile, path.join(localBackups, `vault-antes-de-desligar-sync-${stamp}.enc`));
+// ===== Sincronização com login do Google (Google Drive API) =====
+//
+// O cofre continua local (userData/secrets.enc, funciona offline) e uma cópia
+// criptografada vai para a pasta "MySecrets" no Drive do usuário. Cada
+// sincronização baixa a versão da nuvem se ela mudou, mescla entrada por
+// entrada (vault-sync.js), grava localmente e envia o resultado. Roda ao
+// desbloquear, alguns segundos depois de cada alteração e a cada minuto.
+// O refresh token fica protegido pelo cofre do sistema (safeStorage) ou, sem
+// ele, pelo segredo de máquina.
+
+const gdriveStatePath = path.join(userDataPath, 'google-drive.json');
+const GDRIVE_FOLDER = 'MySecrets';
+const GDRIVE_INTERVAL = 60 * 1000;
+const GDRIVE_LEIA_ME = `MySecrets — cofre sincronizado
+==============================
+
+Esta pasta é mantida pelo app MySecrets (login com Google).
+
+- secrets.enc: o seu cofre, criptografado com AES-256-GCM. Sem a senha mestra
+  ninguém consegue ler, nem o Google.
+- .mysecrets-exclusoes.json: identificadores de itens apagados (sem dados).
+
+Não edite nem apague esses arquivos. Para usar em outro PC, instale o
+MySecrets, crie o cofre com a mesma senha mestra e, em Configurações >
+Sincronização, clique em "Entrar com Google".
+`;
+
+const gdrive = { client: null, password: null, timer: null, debounce: null, running: null, again: false };
+
+function readGdriveState() {
+  try {
+    return JSON.parse(fs.readFileSync(gdriveStatePath, 'utf8'));
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeGdriveState(state) {
+  fs.writeFileSync(gdriveStatePath, JSON.stringify(state, null, 2));
+  try { fs.chmodSync(gdriveStatePath, 0o600); } catch (_) { /* Windows */ }
+}
+
+function updateGdriveState(patch) {
+  writeGdriveState({ ...(readGdriveState() || {}), ...patch });
+}
+
+function protectToken(token) {
+  if (safeStorage.isEncryptionAvailable()) {
+    return { kind: 'safeStorage', data: safeStorage.encryptString(token).toString('base64') };
+  }
+  return { kind: 'machine', data: encryptSession({ token }) };
+}
+
+function unprotectToken(p) {
+  if (p.kind === 'safeStorage') return safeStorage.decryptString(Buffer.from(p.data, 'base64'));
+  const d = decryptSession(p.data);
+  return d && d.token;
+}
+
+function isGdriveConnected() {
+  const st = readGdriveState();
+  return !!(st && st.token);
+}
+
+function gdriveClient() {
+  if (gdrive.client) return gdrive.client;
+  const cfg = googleDrive.loadClientConfig();
+  const st = readGdriveState();
+  if (!cfg || !st || !st.token) return null;
+  const refreshToken = unprotectToken(st.token);
+  if (!refreshToken) return null;
+  gdrive.client = new googleDrive.DriveClient(cfg, refreshToken);
+  return gdrive.client;
+}
+
+function gdriveStatus() {
+  const st = readGdriveState() || {};
+  return {
+    available: !!googleDrive.loadClientConfig(),
+    connected: !!st.token,
+    email: st.email || '',
+    lastSyncAt: st.lastSyncAt || null,
+    lastError: st.lastError || null,
+    syncing: !!gdrive.running
+  };
+}
+
+function notifyGdrive() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('gdrive-status', gdriveStatus());
+  }
+}
+
+const entriesHash = (entries) => crypto.createHash('sha256').update(JSON.stringify(entries)).digest('hex');
+
+/** Exclusões definitivas feitas neste PC viram lápides locais (enviadas no sync). */
+function recordLocalTombstones(ids) {
+  if (!ids.length) return;
+  const { tombstones, files } = vaultSync.readTombstones(userDataPath);
+  const agora = new Date().toISOString();
+  ids.forEach((id) => { tombstones[id] = agora; });
+  vaultSync.writeTombstones(userDataPath, tombstones, files);
+}
+
+async function runGdriveSync(masterPassword) {
+  const client = gdriveClient();
+  if (!client || !masterPassword) return;
+  const st = readGdriveState() || {};
+
+  try {
+    let folderId = st.folderId;
+    if (!folderId) {
+      folderId = await client.ensureFolder(GDRIVE_FOLDER);
+      if (!(await client.findFile('LEIA-ME.txt', folderId))) {
+        await client.upload('LEIA-ME.txt', folderId, GDRIVE_LEIA_ME, null, 'text/plain');
       }
-      fs.copyFileSync(origem, localFile);
     }
 
-    vaultSync.writeVaultLocation(userDataPath, null);
-    vaultState.hash = fileHash(localFile);
+    const local = fs.existsSync(vaultFile()) ? readVaultEntries(vaultFile(), masterPassword) : [];
+    const remoteMeta = await client.findFile(vaultSync.VAULT_FILE, folderId);
+    const tombMeta = await client.findFile(vaultSync.TOMBSTONES_FILE, folderId);
+
+    // Só baixa o cofre da nuvem se ele mudou desde a última sincronização
+    let remote = null;
+    if (remoteMeta && remoteMeta.md5Checksum !== st.lastRemoteMd5) {
+      try {
+        remote = readEncryptedEntries(await client.download(remoteMeta.id), masterPassword);
+      } catch (_) {
+        throw new Error('O cofre no Google Drive usa outra senha mestra (ou está corrompido).');
+      }
+    }
+
+    const localT = vaultSync.readTombstones(userDataPath);
+    let remoteT = {};
+    if (tombMeta) {
+      try { remoteT = JSON.parse(await client.download(tombMeta.id)); } catch (_) { remoteT = {}; }
+    }
+    const tombs = vaultSync.mergeTombstones(localT.tombstones, remoteT);
+
+    const merged = vaultSync.mergeVaults(remote ? [local, remote] : [local], tombs);
+    const mergedHash = entriesHash(merged);
+
+    // Chegou algo de outro PC: grava localmente e avisa a tela
+    if (entriesHash(local) !== mergedHash) {
+      writeVaultFile(merged, masterPassword);
+      rememberVault(merged);
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('vault-changed');
+    }
+
+    // Envia se a nuvem não tem o resultado da mesclagem
+    const remoteHash = remote ? entriesHash(remote) : (remoteMeta ? st.lastSyncedHash : null);
+    let md5 = remoteMeta ? remoteMeta.md5Checksum : null;
+    if (!remoteMeta || mergedHash !== remoteHash) {
+      const conteudo = JSON.stringify(encryptVault(JSON.stringify(merged), masterPassword));
+      const up = await client.upload(vaultSync.VAULT_FILE, folderId, conteudo, remoteMeta && remoteMeta.id);
+      md5 = up.md5Checksum;
+    }
+
+    if (JSON.stringify(tombs) !== JSON.stringify(remoteT)) {
+      await client.upload(vaultSync.TOMBSTONES_FILE, folderId, JSON.stringify(tombs), tombMeta && tombMeta.id, 'application/json');
+    }
+    if (JSON.stringify(tombs) !== JSON.stringify(localT.tombstones)) {
+      vaultSync.writeTombstones(userDataPath, tombs, localT.files);
+    }
+
+    updateGdriveState({
+      folderId,
+      lastRemoteMd5: md5,
+      lastSyncedHash: mergedHash,
+      lastSyncAt: new Date().toISOString(),
+      lastError: null
+    });
+  } catch (error) {
+    if (error.code === 'invalid_grant') {
+      // Acesso revogado na conta Google: precisa entrar de novo
+      gdrive.client = null;
+      updateGdriveState({ token: null, lastError: 'O acesso ao Google foi revogado. Entre novamente.' });
+    } else {
+      updateGdriveState({ lastError: error.message });
+    }
+    console.error('Sincronização com Google Drive falhou:', error.message);
+  }
+}
+
+function readEncryptedEntries(conteudo, masterPassword) {
+  return JSON.parse(decryptVault(JSON.parse(conteudo), masterPassword));
+}
+
+/** Uma sincronização por vez; pedidos durante uma execução geram mais uma rodada. */
+function gdriveSync(masterPassword = gdrive.password) {
+  if (!isGdriveConnected() || !masterPassword) return Promise.resolve();
+  if (gdrive.running) {
+    gdrive.again = true;
+    return gdrive.running;
+  }
+  notifyGdrive();
+  gdrive.running = runGdriveSync(masterPassword).finally(() => {
+    gdrive.running = null;
+    notifyGdrive();
+    if (gdrive.again) {
+      gdrive.again = false;
+      gdriveSync();
+    }
+  });
+  return gdrive.running;
+}
+
+function scheduleGdriveSync(delayMs = 3000) {
+  if (!isGdriveConnected() || !gdrive.password) return;
+  clearTimeout(gdrive.debounce);
+  gdrive.debounce = setTimeout(() => gdriveSync(), delayMs);
+}
+
+function startGdrive(masterPassword) {
+  if (!isGdriveConnected()) return;
+  gdrive.password = masterPassword;
+  clearInterval(gdrive.timer);
+  gdrive.timer = setInterval(() => gdriveSync(), GDRIVE_INTERVAL);
+  scheduleGdriveSync(500);
+}
+
+function stopGdrive() {
+  clearInterval(gdrive.timer);
+  clearTimeout(gdrive.debounce);
+  gdrive.timer = null;
+  gdrive.password = null;
+}
+
+ipcMain.handle('gdrive-status', async () => gdriveStatus());
+
+ipcMain.handle('gdrive-connect', async (event, masterPassword) => {
+  const cfg = googleDrive.loadClientConfig();
+  if (!cfg) return { success: false, error: 'Esta versão do app não tem o login com Google configurado.' };
+  try {
+    disableFolderSync(); // as duas formas de sincronizar não convivem
+
+    const auth = await googleDrive.authorize(cfg, (url) => shell.openExternal(url));
+    writeGdriveState({ email: auth.email, token: protectToken(auth.refreshToken) });
+    gdrive.client = new googleDrive.DriveClient(cfg, auth.refreshToken);
+    gdrive.client.accessToken = auth.accessToken;
+    gdrive.client.expiresAt = auth.expiresAt;
+
+    await gdriveSync(masterPassword);
+    const st = readGdriveState() || {};
+    if (st.lastError) {
+      // Primeira sincronização falhou (ex.: senha mestra diferente): não fica meio conectado
+      await googleDrive.revoke(auth.refreshToken);
+      gdrive.client = null;
+      fs.unlinkSync(gdriveStatePath);
+      return { success: false, error: st.lastError };
+    }
+
+    startGdrive(masterPassword);
+    return { success: true, status: gdriveStatus() };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('gdrive-sync-now', async (event, masterPassword) => {
+  if (masterPassword) gdrive.password = masterPassword;
+  await gdriveSync(masterPassword || gdrive.password);
+  return gdriveStatus();
+});
+
+ipcMain.handle('gdrive-disconnect', async () => {
+  try {
+    const client = gdriveClient();
+    stopGdrive();
+    if (client) await googleDrive.revoke(client.refreshToken);
+    gdrive.client = null;
+    if (fs.existsSync(gdriveStatePath)) fs.unlinkSync(gdriveStatePath);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -1140,6 +1441,7 @@ ipcMain.handle('refresh-session', async () => {
 ipcMain.handle('lock', async () => {
   destroySession();
   stopVaultWatcher();
+  stopGdrive();
   return { success: true };
 });
 

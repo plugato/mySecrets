@@ -27,6 +27,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   syncDisable: () => ipcRenderer.invoke('sync-disable'),
   onVaultChanged: (callback) => ipcRenderer.on('vault-changed', () => callback()),
 
+  // Sincronização com login do Google (Google Drive API)
+  gdriveStatus: () => ipcRenderer.invoke('gdrive-status'),
+  gdriveConnect: (masterPassword) => ipcRenderer.invoke('gdrive-connect', masterPassword),
+  gdriveSyncNow: (masterPassword) => ipcRenderer.invoke('gdrive-sync-now', masterPassword),
+  gdriveDisconnect: () => ipcRenderer.invoke('gdrive-disconnect'),
+  onGdriveStatus: (callback) => ipcRenderer.on('gdrive-status', (event, data) => callback(data)),
+
   // Atalho global (Ctrl+Shift+M) — opcional, registrado com atraso pelo main
   setGlobalShortcut: (enabled) => ipcRenderer.invoke('set-global-shortcut', enabled),
 

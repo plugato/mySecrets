@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-01
+
+### Added
+- Sign in with Google to sync the vault (Settings > Sync > "Entrar com Google"): no folder or desktop client needed. Uses the Google Drive API with the `drive.file` scope (the app only sees the `MySecrets` folder it creates), OAuth loopback + PKCE in the system browser, and keeps the refresh token protected by the OS keychain (safeStorage). The vault stays local and works offline; the encrypted copy is synced on unlock, a few seconds after each change and every minute, with the same entry-by-entry merge as folder sync. Builds need the `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` repository secrets.
+
 ## [1.6.0] - 2026-11-01
 
 ### Added

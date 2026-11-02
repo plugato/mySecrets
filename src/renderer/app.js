@@ -662,6 +662,84 @@ function setupSettingsControls() {
 
     setupUpdateControls();
     setupSyncControls();
+    setupGdriveControls();
+}
+
+// ===== Login com Google (sincronização pela API do Drive) =====
+
+function setupGdriveControls() {
+    const block = document.getElementById('gdrive-block');
+    const statusEl = document.getElementById('gdrive-status-text');
+    const connectBtn = document.getElementById('gdrive-connect-btn');
+    const syncBtn = document.getElementById('gdrive-sync-btn');
+    const disconnectBtn = document.getElementById('gdrive-disconnect-btn');
+    const folderBlock = document.getElementById('sync-folder-block');
+    if (!block || !window.electronAPI.gdriveStatus) return;
+
+    function render(st) {
+        if (!st.available) {
+            statusEl.textContent = 'Login com Google indisponível nesta versão do app. Use a opção avançada abaixo.';
+            connectBtn.style.display = 'none';
+            syncBtn.style.display = 'none';
+            disconnectBtn.style.display = 'none';
+            return;
+        }
+        if (st.connected) {
+            let texto = `✅ Conectado como ${st.email || 'conta Google'}`;
+            if (st.syncing) texto += ' · sincronizando…';
+            else if (st.lastSyncAt) texto += ` · última sincronização: ${new Date(st.lastSyncAt).toLocaleString('pt-BR')}`;
+            if (st.lastError) texto += `\n⚠️ ${st.lastError}`;
+            statusEl.textContent = texto;
+            connectBtn.style.display = 'none';
+            syncBtn.style.display = '';
+            disconnectBtn.style.display = '';
+            if (folderBlock) folderBlock.style.display = 'none';
+        } else {
+            statusEl.textContent = st.lastError
+                ? `⚠️ ${st.lastError}`
+                : 'Cofre só neste PC. Entre com sua conta Google para sincronizar automaticamente.';
+            connectBtn.style.display = '';
+            syncBtn.style.display = 'none';
+            disconnectBtn.style.display = 'none';
+            if (folderBlock) folderBlock.style.display = '';
+        }
+    }
+
+    async function refresh() {
+        try { render(await window.electronAPI.gdriveStatus()); } catch (_) { /* opcional */ }
+    }
+
+    connectBtn.addEventListener('click', async () => {
+        connectBtn.disabled = true;
+        statusEl.textContent = 'Abrindo o login do Google no navegador… conclua por lá.';
+        try {
+            const result = await window.electronAPI.gdriveConnect(currentMasterPassword);
+            if (!result.success) alert('Não foi possível conectar ao Google: ' + result.error);
+        } finally {
+            connectBtn.disabled = false;
+            refresh();
+        }
+    });
+
+    syncBtn.addEventListener('click', async () => {
+        syncBtn.disabled = true;
+        try {
+            render(await window.electronAPI.gdriveSyncNow(currentMasterPassword));
+        } finally {
+            syncBtn.disabled = false;
+        }
+    });
+
+    disconnectBtn.addEventListener('click', async () => {
+        if (!confirm('Desconectar a conta Google? O cofre continua neste PC e a cópia no Drive não é apagada.')) return;
+        const result = await window.electronAPI.gdriveDisconnect();
+        if (!result.success) alert('Erro ao desconectar: ' + result.error);
+        refresh();
+    });
+
+    window.electronAPI.onGdriveStatus(render);
+    document.getElementById('settings-btn').addEventListener('click', refresh);
+    refresh();
 }
 
 // ===== Sincronização (Google Drive) =====

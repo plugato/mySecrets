@@ -3167,8 +3167,21 @@ input[type="checkbox"] {
     flex-wrap: wrap;
 }
 
+.sync-advanced {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+}
+
+.sync-advanced summary {
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
 .sync-status {
     font-size: 0.85rem;
+    white-space: pre-line;
     color: var(--text-secondary);
     margin: 0.25rem 0 0;
     word-break: break-all;
