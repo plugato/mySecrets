@@ -194,3 +194,6 @@ src/google-oauth.json
 
 # Credencial OAuth baixada do Google Cloud (NUNCA versionar)
 client_secret*.json
+
+# Chave da conta de serviço da Chrome Web Store (NUNCA versionar)
+cws-service-account*.json

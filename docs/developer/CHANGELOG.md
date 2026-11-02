@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-11-01
+
+### Added
+- Releases also submit the browser extension to the Chrome Web Store (API v2, service account), skipping when that manifest version is already published or in review. Needs the `CWS_SERVICE_ACCOUNT_JSON`, `CWS_PUBLISHER_ID` and `CWS_EXTENSION_ID` repository secrets.
+
 ## [1.8.0] - 2026-11-01
 
 ### Added
