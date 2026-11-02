@@ -680,6 +680,26 @@
                 </div>
 
                 <div class="settings-section">
+                    <h3><span class="material-symbols-outlined">cloud_sync</span> Sincronização (Google Drive)</h3>
+                    <p class="sync-status" id="sync-status-text">Verificando…</p>
+                    <div class="settings-actions">
+                        <button class="btn btn-primary" id="sync-drive-btn">
+                            <span class="material-symbols-outlined">add_to_drive</span>
+                            <span>Usar Google Drive</span>
+                        </button>
+                        <button class="btn btn-secondary" id="sync-choose-btn">
+                            <span class="material-symbols-outlined">folder_open</span>
+                            <span>Escolher pasta…</span>
+                        </button>
+                        <button class="btn btn-secondary" id="sync-disable-btn" style="display: none;">
+                            <span class="material-symbols-outlined">cloud_off</span>
+                            <span>Parar de sincronizar</span>
+                        </button>
+                    </div>
+                    <small>Com o Google Drive para computador instalado, o cofre fica na pasta <strong>MySecrets</strong> do seu Drive, sempre criptografado. Nos outros PCs, escolha a mesma pasta e use a mesma senha mestra.</small>
+                </div>
+
+                <div class="settings-section">
                     <h3><span class="material-symbols-outlined">system_update_alt</span> Atualizações</h3>
                     <div class="update-row">
                         <span>Versão instalada: <strong id="app-version">—</strong></span>

@@ -3167,6 +3167,13 @@ input[type="checkbox"] {
     flex-wrap: wrap;
 }
 
+.sync-status {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0.25rem 0 0;
+    word-break: break-all;
+}
+
 .settings-section small {
     display: block;
     color: var(--text-tertiary);

@@ -25,7 +25,16 @@ const USER_DATA_PATH = path.join(
   '.config',
   ELECTRON_APP
 );
-const SECRETS_FILE = path.join(USER_DATA_PATH, 'secrets.enc');
+// Com a sincronização ligada, o app grava em userData/vault-location.json a
+// pasta do cofre (ex.: Google Drive/MySecrets). Sessão e segredo de máquina
+// continuam em userData.
+function getSecretsFile() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(USER_DATA_PATH, 'vault-location.json'), 'utf8'));
+    if (cfg && cfg.dir) return path.join(cfg.dir, 'secrets.enc');
+  } catch (_) { /* sem sincronização */ }
+  return path.join(USER_DATA_PATH, 'secrets.enc');
+}
 const SESSION_FILE = path.join(USER_DATA_PATH, '.session');
 
 // Timeout para sessão (15 minutos)
@@ -300,7 +309,7 @@ function handleStatus() {
       unlocked: session.unlocked,
       reason: session.reason
     },
-    appInstalled: fs.existsSync(SECRETS_FILE),
+    appInstalled: fs.existsSync(getSecretsFile()),
     version: '1.0.0',
     security: {
       sessionEncrypted: true,
@@ -351,14 +360,14 @@ function handleGetEntries(message) {
 
   try {
     // Lê os dados criptografados
-    if (!fs.existsSync(SECRETS_FILE)) {
+    if (!fs.existsSync(getSecretsFile())) {
       return sendMessage({
         success: true,
         entries: []
       });
     }
 
-    const encryptedData = fs.readFileSync(SECRETS_FILE, 'utf8');
+    const encryptedData = fs.readFileSync(getSecretsFile(), 'utf8');
     
     // Obter senha da sessão (pode estar criptografada)
     let password;
@@ -517,7 +526,7 @@ function debug(...args) {
 
 debug('Native host iniciando...');
 debug('Session file path:', SESSION_FILE);
-debug('Secrets file path:', SECRETS_FILE);
+debug('Secrets file path:', getSecretsFile());
 
 // Inicia
 main().catch(error => {

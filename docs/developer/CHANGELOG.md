@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-01
+
+### Added
+- Vault sync through Google Drive for desktop (or any synced folder): Settings > Sync stores the encrypted vault in a `MySecrets` folder (`secrets.enc`, `backups/`, `LEIA-ME.txt`). Changes made on two PCs are merged entry by entry (latest edit wins), cloud conflict copies are merged and archived, and permanent deletions are tracked so entries don't come back. The app reloads when another PC updates the vault. Session, MCP token and Windows Hello stay local to each PC.
+
 ### Planned
 - Auto-lock after inactivity
 - QR code generation for MFA secrets

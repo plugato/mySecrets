@@ -76,7 +76,23 @@ function trashedData() {
 function persistData() {
     return window.electronAPI.saveData(currentData, currentMasterPassword, {
         autoBackup: getSettings().autoBackup
+    }).then(result => {
+        // Com sincronização, o main pode ter mesclado alterações de outro PC
+        if (result && result.success && result.merged && Array.isArray(result.data)) {
+            replaceVaultData(result.data);
+        }
+        return result;
     });
+}
+
+/** Troca o conteúdo do cofre em memória (sincronização) e redesenha a tela. */
+function replaceVaultData(entries) {
+    currentData = entries;
+    setTimeout(() => {
+        updateEntryCounts();
+        renderTagsSidebar();
+        handleSearch();
+    }, 0);
 }
 
 // ===== Configurações do usuário =====
@@ -645,6 +661,90 @@ function setupSettingsControls() {
     });
 
     setupUpdateControls();
+    setupSyncControls();
+}
+
+// ===== Sincronização (Google Drive) =====
+
+function setupSyncControls() {
+    const statusEl = document.getElementById('sync-status-text');
+    const driveBtn = document.getElementById('sync-drive-btn');
+    const chooseBtn = document.getElementById('sync-choose-btn');
+    const disableBtn = document.getElementById('sync-disable-btn');
+    if (!driveBtn || !window.electronAPI.syncStatus) return;
+
+    let detected = null;
+
+    async function refresh() {
+        try {
+            const st = await window.electronAPI.syncStatus();
+            detected = st.detected;
+            if (st.enabled) {
+                statusEl.textContent = `✅ Sincronizando em: ${st.dir}`;
+                driveBtn.style.display = 'none';
+                chooseBtn.querySelector('span:last-child').textContent = 'Mudar pasta…';
+                disableBtn.style.display = '';
+            } else {
+                statusEl.textContent = detected
+                    ? `Cofre só neste PC. Google Drive encontrado em: ${detected}`
+                    : 'Cofre só neste PC. Google Drive para computador não encontrado — instale-o ou escolha a pasta manualmente.';
+                driveBtn.style.display = detected ? '' : 'none';
+                chooseBtn.querySelector('span:last-child').textContent = 'Escolher pasta…';
+                disableBtn.style.display = 'none';
+            }
+        } catch (_) {
+            statusEl.textContent = 'Não foi possível verificar a sincronização.';
+        }
+    }
+
+    async function enable(baseDir) {
+        if (!baseDir) return;
+        const ok = confirm(`O cofre criptografado será guardado em:\n${baseDir}${/MySecrets$/.test(baseDir) ? '' : (baseDir.includes('\\') ? '\\' : '/') + 'MySecrets'}\n\nSe já houver um cofre lá (de outro PC), os dois serão mesclados. Continuar?`);
+        if (!ok) return;
+        const result = await window.electronAPI.syncEnable(baseDir, currentMasterPassword);
+        if (!result.success) {
+            alert('Não foi possível ligar a sincronização: ' + result.error);
+            return;
+        }
+        if (Array.isArray(result.data)) replaceVaultData(result.data);
+        alert(result.merged
+            ? 'Sincronização ligada. O cofre deste PC foi mesclado com o que já estava no Drive.'
+            : 'Sincronização ligada. Nos outros PCs, escolha esta mesma pasta.');
+        refresh();
+    }
+
+    driveBtn.addEventListener('click', () => enable(detected));
+    chooseBtn.addEventListener('click', async () => enable(await window.electronAPI.syncChooseFolder()));
+    disableBtn.addEventListener('click', async () => {
+        if (!confirm('Parar de sincronizar? O cofre volta a ficar só neste PC (com a versão atual do Drive). A pasta no Drive não é apagada.')) return;
+        const result = await window.electronAPI.syncDisable();
+        if (!result.success) alert('Erro ao desligar a sincronização: ' + result.error);
+        refresh();
+    });
+
+    document.getElementById('settings-btn').addEventListener('click', refresh);
+    refresh();
+}
+
+/**
+ * Outro PC atualizou o cofre no Drive: recarrega. Se houver um formulário
+ * aberto, espera ele fechar para não perder a edição.
+ */
+let pendingVaultReload = false;
+
+async function reloadVaultFromDisk() {
+    if (!currentMasterPassword) return;
+    if (entryModal.style.display === 'flex') {
+        pendingVaultReload = true;
+        return;
+    }
+    pendingVaultReload = false;
+    const result = await window.electronAPI.loadData(currentMasterPassword);
+    if (result.success) replaceVaultData(result.data);
+}
+
+if (window.electronAPI && window.electronAPI.onVaultChanged) {
+    window.electronAPI.onVaultChanged(() => { reloadVaultFromDisk(); });
 }
 
 // ===== Atualizações automáticas (UI) =====
@@ -3392,6 +3492,7 @@ async function handleImportEntries() {
 function closeModals() {
     console.log('Fechando todos os modais');
     entryModal.style.display = 'none';
+    if (pendingVaultReload) setTimeout(reloadVaultFromDisk, 0);
     passwordGeneratorModal.style.display = 'none';
     resetConfirmationModal.style.display = 'none';
     importModal.style.display = 'none';

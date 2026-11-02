@@ -20,6 +20,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   importBackup: () => ipcRenderer.invoke('import-backup'),
   listBackups: () => ipcRenderer.invoke('list-backups'),
 
+  // Sincronização do cofre (Google Drive ou outra pasta sincronizada)
+  syncStatus: () => ipcRenderer.invoke('sync-status'),
+  syncChooseFolder: () => ipcRenderer.invoke('sync-choose-folder'),
+  syncEnable: (baseDir, masterPassword) => ipcRenderer.invoke('sync-enable', baseDir, masterPassword),
+  syncDisable: () => ipcRenderer.invoke('sync-disable'),
+  onVaultChanged: (callback) => ipcRenderer.on('vault-changed', () => callback()),
+
   // Atalho global (Ctrl+Shift+M) — opcional, registrado com atraso pelo main
   setGlobalShortcut: (enabled) => ipcRenderer.invoke('set-global-shortcut', enabled),
 
