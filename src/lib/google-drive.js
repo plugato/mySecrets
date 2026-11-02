@@ -21,7 +21,10 @@ const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
-const SCOPES = ['https://www.googleapis.com/auth/drive.file', 'openid', 'email'];
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const SCOPES = [DRIVE_SCOPE, 'openid', 'email'];
+const SEM_PERMISSAO_DRIVE = 'A permissão do Google Drive não foi concedida. Entre de novo e, na tela do Google, ' +
+  'marque a opção de acesso aos arquivos do Google Drive usados com o MySecrets.';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
 /** Lê o Client ID do build; null se este build não tem login com Google. */
@@ -84,6 +87,11 @@ function authorize({ clientId, clientSecret }, openBrowser, timeoutMs = 5 * 60 *
           redirect_uri: redirectUri, grant_type: 'authorization_code', code_verifier: verifier
         });
         if (!tokens.refresh_token) throw new Error('O Google não devolveu um refresh token.');
+        // Na tela do Google cada permissão tem uma caixinha: sem a do Drive não há o que sincronizar
+        if (!String(tokens.scope || '').split(' ').includes(DRIVE_SCOPE)) {
+          await revoke(tokens.refresh_token);
+          throw Object.assign(new Error(SEM_PERMISSAO_DRIVE), { code: 'insufficient_scope' });
+        }
         const info = await getJson(USERINFO_URL, tokens.access_token).catch(() => ({}));
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(PAGINA_OK);
         finalizar(resolve, {
@@ -183,6 +191,9 @@ class DriveClient {
     }
     if (!res.ok) {
       const corpo = await res.text().catch(() => '');
+      if (res.status === 403 && /insufficient(Permissions| authentication scopes)/i.test(corpo)) {
+        throw Object.assign(new Error(SEM_PERMISSAO_DRIVE), { code: 'insufficient_scope' });
+      }
       throw new Error(`Google Drive respondeu HTTP ${res.status}: ${corpo.slice(0, 200)}`);
     }
     return res;

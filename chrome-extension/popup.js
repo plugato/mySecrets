@@ -97,6 +97,21 @@ async function loadEntries() {
   updateSiteInfo(entries.length);
   renderEntries(entries);
   showScreen('list');
+  updateNeverSave();
+}
+
+// Site marcado como "Nunca neste site" na pergunta de salvar login
+async function updateNeverSave() {
+  const btn = el('never-save-button');
+  let host = '';
+  try { host = new URL(currentTab.url).hostname.toLowerCase().replace(/^www\./, ''); } catch (_) { /* página interna */ }
+  const res = await ask({ type: 'get_never_save' });
+  const bloqueado = !!(host && res && res.success && res.hosts.includes(host));
+  btn.style.display = bloqueado ? '' : 'none';
+  btn.onclick = async () => {
+    await ask({ type: 'remove_never_save', host });
+    updateNeverSave();
+  };
 }
 
 async function initialize() {

@@ -53,6 +53,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   mcpStart: (options) => ipcRenderer.invoke('mcp-start', options),
   mcpStop: () => ipcRenderer.invoke('mcp-stop'),
   onMcpStopped: (callback) => ipcRenderer.on('mcp-stopped', (event, data) => callback(data)),
+  // Extensão pedindo para salvar um login (via servidor local)
+  onExtensionSaveLogin: (callback) => ipcRenderer.on('extension-save-login', (event, data) => callback(data)),
+  extensionSaveResult: (reqId, result) => ipcRenderer.invoke('extension-save-result', reqId, result),
   
   // Utilidades
   generatePassword: (length = 16, includeSymbols = true) => {

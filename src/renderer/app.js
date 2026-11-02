@@ -825,6 +825,76 @@ if (window.electronAPI && window.electronAPI.onVaultChanged) {
     window.electronAPI.onVaultChanged(() => { reloadVaultFromDisk(); });
 }
 
+// ===== Logins salvos pela extensão do navegador =====
+
+/**
+ * A extensão perguntou "Salvar este login?" e o usuário aceitou. Cria uma
+ * entrada de login ou, com id, atualiza a senha (guardando a anterior no
+ * histórico, como numa edição normal).
+ */
+async function saveLoginFromExtension({ id, url, username, password }) {
+    if (!currentMasterPassword) return { success: false, error: 'Cofre bloqueado' };
+
+    const now = new Date().toISOString();
+    let entry;
+    let mode;
+
+    if (id) {
+        entry = currentData.find(e => e.id === id && !e.deletedAt);
+        if (!entry) return { success: false, error: 'Entrada não encontrada no cofre' };
+        if (entry.password && entry.password !== password) {
+            entry.passwordHistory = [...(entry.passwordHistory || []), { password: entry.password, changedAt: now }].slice(-10);
+        }
+        entry.password = password;
+        if (username && !entry.username) entry.username = username;
+        entry.updatedAt = now;
+        mode = 'update';
+    } else {
+        let origem = url;
+        let titulo = url;
+        try {
+            const u = new URL(url);
+            origem = u.origin;
+            titulo = u.hostname.replace(/^www\./, '');
+        } catch (_) { /* url já validada pelo servidor */ }
+        entry = {
+            id: generateId(),
+            type: 'login',
+            title: titulo,
+            url: origem,
+            username: username || '',
+            password,
+            notes: '',
+            tags: ['extensao'],
+            favorite: false,
+            createdAt: now,
+            updatedAt: now
+        };
+        currentData.push(entry);
+        mode = 'new';
+    }
+
+    const result = await persistData();
+    if (!result.success) return { success: false, error: result.error || 'Erro ao salvar o cofre' };
+
+    updateEntryCounts();
+    renderTagsSidebar();
+    handleSearch();
+    return { success: true, id: entry.id, mode };
+}
+
+if (window.electronAPI && window.electronAPI.onExtensionSaveLogin) {
+    window.electronAPI.onExtensionSaveLogin(async (req) => {
+        let result;
+        try {
+            result = await saveLoginFromExtension(req);
+        } catch (error) {
+            result = { success: false, error: error.message };
+        }
+        window.electronAPI.extensionSaveResult(req.reqId, result);
+    });
+}
+
 // ===== Atualizações automáticas (UI) =====
 
 function setupUpdateControls() {

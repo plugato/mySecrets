@@ -56,3 +56,32 @@ export function parsePairingCode(code) {
   }
   return { url: conn.url, token: conn.token };
 }
+
+// ===== Oferecer para salvar logins =====
+
+// Decide o que fazer com um login enviado numa página, dado o que já existe
+// no cofre para o site (metadados de search_secrets, sem senha):
+//   { mode: 'new' }            nada salvo para esse usuário → oferecer salvar
+//   { mode: 'check', id }      já existe → o background compara a senha e,
+//                              se mudou, oferece atualizar
+export function saveDecision(matches, username) {
+  const user = String(username || '').trim().toLowerCase();
+  const list = Array.isArray(matches) ? matches : [];
+  if (user) {
+    const same = list.find((m) => String(m.username || '').trim().toLowerCase() === user);
+    return same ? { mode: 'check', id: same.id } : { mode: 'new' };
+  }
+  // Sem usuário (ex.: tela só de senha): só dá para comparar se há um único login
+  return list.length === 1 ? { mode: 'check', id: list[0].id } : { mode: 'new' };
+}
+
+// Host para mostrar/guardar (sem www), ou '' para páginas que não são web.
+export function displayHost(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    return u.hostname.toLowerCase().replace(/^www\./, '');
+  } catch (_) {
+    return '';
+  }
+}

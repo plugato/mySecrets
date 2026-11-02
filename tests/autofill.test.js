@@ -98,3 +98,79 @@ test('servidor: preflight, token e bloqueio de página web', async (t) => {
   });
   assert.strictEqual(paginaWeb.status, 403, 'página web não pode falar com o cofre');
 });
+
+// ===== Oferecer para salvar logins =====
+
+test('saveDecision: novo, conferir senha, sem usuário', async () => {
+  const { saveDecision } = await lib;
+  const logins = [{ id: '1', username: 'Eu@Exemplo.com' }, { id: '2', username: 'outro' }];
+  assert.deepStrictEqual(saveDecision(logins, ' eu@exemplo.com '), { mode: 'check', id: '1' });
+  assert.deepStrictEqual(saveDecision(logins, 'novo'), { mode: 'new' });
+  assert.deepStrictEqual(saveDecision([], 'eu'), { mode: 'new' });
+  assert.deepStrictEqual(saveDecision([{ id: '9', username: 'x' }], ''), { mode: 'check', id: '9' });
+  assert.deepStrictEqual(saveDecision(logins, ''), { mode: 'new' });
+});
+
+test('displayHost: tira www e ignora páginas internas', async () => {
+  const { displayHost } = await lib;
+  assert.strictEqual(displayHost('https://www.GitHub.com/login?x=1'), 'github.com');
+  assert.strictEqual(displayHost('chrome://settings'), '');
+  assert.strictEqual(displayHost('lixo'), '');
+});
+
+test('validSaveParams: só aceita login web com senha', () => {
+  const { validSaveParams } = require('../mcp-server/http-server');
+  assert.strictEqual(validSaveParams({ url: 'https://a.com', username: 'eu', password: 'p' }), null);
+  assert.match(validSaveParams({ url: 'javascript:alert(1)', password: 'p' }), /URL/);
+  assert.match(validSaveParams({ url: 'https://a.com', password: '' }), /Senha/);
+  assert.match(validSaveParams({ url: 'https://a.com', password: 'p', username: 'x'.repeat(600) }), /Usuário/);
+  assert.match(validSaveParams(null), /ausentes/);
+});
+
+test('save_login: servidor repassa ao app por IPC e devolve o resultado', async (t) => {
+  const { fork } = require('node:child_process');
+  const path = require('node:path');
+  const port = 20000 + Math.floor(Math.random() * 20000);
+  const child = fork(path.join(__dirname, '..', 'mcp-server', 'http-server.js'), [], {
+    env: { ...process.env, MYSECRETS_MCP_PORT: String(port), MYSECRETS_MCP_TOKEN: 'tk', MYSECRETS_MCP_HOST: '127.0.0.1' },
+    stdio: ['ignore', 'pipe', 'pipe', 'ipc']
+  });
+  t.after(() => child.kill());
+
+  await new Promise((resolve, reject) => {
+    child.stdout.once('data', resolve);
+    child.once('exit', () => reject(new Error('servidor saiu')));
+  });
+
+  // Faz o papel do app: grava e responde
+  const recebidos = [];
+  child.on('message', (msg) => {
+    recebidos.push(msg.payload);
+    const result = msg.payload.password === 'falhar'
+      ? { success: false, error: 'Cofre bloqueado' }
+      : { success: true, id: 'novo1', mode: msg.payload.id ? 'update' : 'new' };
+    child.send({ type: 'save_login_result', reqId: msg.reqId, result });
+  });
+
+  const chamar = (params, token = 'tk') => fetch(`http://127.0.0.1:${port}/mcp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, Origin: EXT_ORIGIN },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'mysecrets/save_login', params })
+  });
+
+  let r = await chamar({ url: 'https://github.com/login', username: 'eu', password: 's3nha' });
+  let body = await r.json();
+  assert.deepStrictEqual(body.result, { saved: true, id: 'novo1', mode: 'new' });
+  assert.deepStrictEqual(recebidos[0], { id: null, url: 'https://github.com/login', username: 'eu', password: 's3nha' });
+
+  body = await (await chamar({ url: 'https://github.com', password: 'falhar' })).json();
+  assert.strictEqual(body.error.message, 'Cofre bloqueado');
+
+  body = await (await chamar({ url: 'ftp://x', password: 'p' })).json();
+  assert.match(body.error.message, /URL/);
+  assert.strictEqual(recebidos.length, 2, 'parâmetro inválido não chega ao app');
+
+  r = await chamar({ url: 'https://github.com', password: 'p' }, 'errado');
+  assert.strictEqual(r.status, 401);
+  assert.strictEqual(recebidos.length, 2, 'sem token não chega ao app');
+});

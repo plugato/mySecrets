@@ -598,8 +598,11 @@ function startMcpServer(options = {}) {
         MYSECRETS_MCP_TOKEN: token,
         MYSECRETS_MCP_HOST: '127.0.0.1'
       },
-      stdio: ['ignore', 'pipe', 'pipe']
+      // 'ipc': canal para a extensão salvar logins pelo app (mysecrets/save_login)
+      stdio: ['ignore', 'pipe', 'pipe', 'ipc']
     });
+
+    child.on('message', (msg) => handleMcpMessage(child, msg));
 
     let settled = false;
     const finish = (result) => { if (!settled) { settled = true; resolve(result); } };
@@ -679,6 +682,39 @@ function stopMcpServer() {
 }
 
 ipcMain.handle('mcp-status', async () => getMcpStatus());
+// ===== Salvar login pedido pela extensão =====
+//
+// O servidor local (processo filho) repassa o pedido por IPC; quem grava é o
+// renderer, que tem o cofre aberto em memória e salva como numa edição normal.
+
+const extensionSaves = new Map();
+const EXTENSION_SAVE_TIMEOUT = 10000;
+
+function handleMcpMessage(child, msg) {
+  if (!msg || msg.type !== 'save_login') return;
+  const responder = (result) => {
+    try { child.send({ type: 'save_login_result', reqId: msg.reqId, result }); } catch (_) { /* filho encerrado */ }
+  };
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    responder({ success: false, error: 'App sem janela aberta' });
+    return;
+  }
+  extensionSaves.set(msg.reqId, responder);
+  setTimeout(() => {
+    if (extensionSaves.delete(msg.reqId)) responder({ success: false, error: 'O app não respondeu' });
+  }, EXTENSION_SAVE_TIMEOUT);
+  mainWindow.webContents.send('extension-save-login', { reqId: msg.reqId, ...msg.payload });
+}
+
+ipcMain.handle('extension-save-result', async (event, reqId, result) => {
+  const responder = extensionSaves.get(reqId);
+  if (responder) {
+    extensionSaves.delete(reqId);
+    responder(result);
+  }
+  return true;
+});
+
 ipcMain.handle('mcp-start', async (event, options) => startMcpServer(options || {}));
 ipcMain.handle('mcp-stop', async () => stopMcpServer());
 
@@ -1326,10 +1362,13 @@ async function runGdriveSync(masterPassword) {
       lastError: null
     });
   } catch (error) {
-    if (error.code === 'invalid_grant') {
-      // Acesso revogado na conta Google: precisa entrar de novo
+    if (error.code === 'invalid_grant' || error.code === 'insufficient_scope') {
+      // Acesso revogado ou sem a permissão do Drive: precisa entrar de novo
       gdrive.client = null;
-      updateGdriveState({ token: null, lastError: 'O acesso ao Google foi revogado. Entre novamente.' });
+      updateGdriveState({
+        token: null,
+        lastError: error.code === 'invalid_grant' ? 'O acesso ao Google foi revogado. Entre novamente.' : error.message
+      });
     } else {
       updateGdriveState({ lastError: error.message });
     }

@@ -7,7 +7,7 @@
 // Consequência: sem app aberto e cofre desbloqueado a extensão não tem dados.
 // Nada de senha mestra nem cópia do cofre no navegador.
 
-import { hostCandidates, parsePairingCode } from './lib.mjs';
+import { hostCandidates, parsePairingCode, saveDecision, displayHost } from './lib.mjs';
 
 const CONN_KEY = 'mysecrets_conn'; // { url, token }
 let rpcId = 0;
@@ -31,7 +31,7 @@ async function unpair() {
 
 // ===== Chamada ao cofre =====
 
-async function rpc(tool, args = {}) {
+async function postJsonRpc(method, params) {
   const conn = await getConn();
   if (!conn) throw new Error('Extensão não pareada com o app');
 
@@ -40,12 +40,7 @@ async function rpc(tool, args = {}) {
     res = await fetch(conn.url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${conn.token}` },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: ++rpcId,
-        method: 'tools/call',
-        params: { name: tool, arguments: args }
-      })
+      body: JSON.stringify({ jsonrpc: '2.0', id: ++rpcId, method, params })
     });
   } catch (_) {
     throw new Error('App MySecrets fechado ou servidor local parado');
@@ -60,6 +55,11 @@ async function rpc(tool, args = {}) {
 
   const body = await res.json();
   if (body.error) throw new Error(body.error.message);
+  return body;
+}
+
+async function rpc(tool, args = {}) {
+  const body = await postJsonRpc('tools/call', { name: tool, arguments: args });
 
   const text = body.result && body.result.content && body.result.content[0]
     ? body.result.content[0].text
@@ -132,6 +132,112 @@ async function activeTab() {
   return tab;
 }
 
+// ===== Oferecer para salvar logins =====
+//
+// O content script avisa quando um formulário com senha é enviado. Se o login
+// não está no cofre (ou a senha mudou), guarda um "pendente" por aba em
+// chrome.storage.session (só memória, inacessível às páginas) e a página
+// mostra a pergunta — inclusive depois do redirecionamento do login.
+
+const PENDING_KEY = 'mysecrets_pending_save';  // session: { [tabId]: pendente }
+const USER_HINT_KEY = 'mysecrets_user_hint';   // session: { [host]: { username, at } }
+const NEVER_KEY = 'mysecrets_never_save';      // local: [hosts]
+const PENDING_TTL = 3 * 60 * 1000;
+
+async function sessionGet(key) {
+  return (await chrome.storage.session.get(key))[key] || {};
+}
+
+async function getPending(tabId) {
+  const all = await sessionGet(PENDING_KEY);
+  const p = all[tabId];
+  return p && Date.now() - p.at < PENDING_TTL ? p : null;
+}
+
+async function setPending(tabId, pending) {
+  const all = await sessionGet(PENDING_KEY);
+  if (pending) all[tabId] = pending; else delete all[tabId];
+  await chrome.storage.session.set({ [PENDING_KEY]: all });
+}
+
+// O que a página pode ver: nunca a senha
+function promptView(p) {
+  return { mode: p.mode, host: p.host, username: p.username || '', title: p.title || '' };
+}
+
+async function neverList() {
+  return (await chrome.storage.local.get(NEVER_KEY))[NEVER_KEY] || [];
+}
+
+// Login em duas etapas: o usuário é digitado numa tela e a senha na seguinte
+async function rememberUsername(url, username) {
+  const host = displayHost(url);
+  if (!host || !username) return;
+  const hints = await sessionGet(USER_HINT_KEY);
+  hints[host] = { username: String(username).slice(0, 512), at: Date.now() };
+  await chrome.storage.session.set({ [USER_HINT_KEY]: hints });
+}
+
+async function usernameHint(host) {
+  const h = (await sessionGet(USER_HINT_KEY))[host];
+  return h && Date.now() - h.at < PENDING_TTL ? h.username : '';
+}
+
+async function loginSubmitted(msg, sender) {
+  const tab = sender.tab;
+  const host = displayHost(msg.url);
+  const password = typeof msg.password === 'string' ? msg.password : '';
+  if (!tab || !host || !password || password.length > 4096) return {};
+  if ((await neverList()).includes(host)) return {};
+
+  const st = await status();
+  if (!st.unlocked) return {}; // sem cofre aberto não há como salvar
+
+  const username = String(msg.username || '').trim().slice(0, 512) || await usernameHint(host);
+  const decision = saveDecision(await entriesForUrl(msg.url), username);
+
+  let pending;
+  if (decision.mode === 'check') {
+    const saved = await rpc('get_credentials', { id: decision.id });
+    if (saved.password === password) return {}; // já está salvo
+    pending = { mode: 'update', id: decision.id, title: saved.title, username: username || saved.username || '' };
+  } else {
+    pending = { mode: 'new', username };
+  }
+  pending = { ...pending, url: msg.url, host, password, at: Date.now() };
+  await setPending(tab.id, pending);
+
+  // Página de uma tela só (SPA) segue aberta: pergunta já. Se ela navegar, a
+  // próxima página pede o pendente ao carregar.
+  chrome.tabs.sendMessage(tab.id, { type: 'show_save_prompt', prompt: promptView(pending) }).catch(() => {});
+  return {};
+}
+
+async function saveDecided(msg, sender) {
+  const tab = sender.tab;
+  if (!tab) return {};
+  const pending = await getPending(tab.id);
+  await setPending(tab.id, null);
+  if (!pending) return {};
+
+  if (msg.action === 'never') {
+    const list = await neverList();
+    if (!list.includes(pending.host)) {
+      await chrome.storage.local.set({ [NEVER_KEY]: [...list, pending.host] });
+    }
+    return {};
+  }
+  if (msg.action !== 'save') return {};
+
+  const body = await postJsonRpc('mysecrets/save_login', {
+    id: pending.mode === 'update' ? pending.id : undefined,
+    url: pending.url,
+    username: pending.username,
+    password: pending.password
+  });
+  return { saved: true, mode: (body.result && body.result.mode) || pending.mode };
+}
+
 // ===== Mensagens do popup / content script =====
 
 const handlers = {
@@ -139,6 +245,18 @@ const handlers = {
   pair: (msg) => pair(msg.code),
   unpair: () => unpair().then(() => ({ success: true })),
   find_entries_for_url: async (msg) => ({ entries: await entriesForUrl(msg.url) }),
+  login_submitted: (msg, sender) => loginSubmitted(msg, sender),
+  remember_username: (msg) => rememberUsername(msg.url, msg.username).then(() => ({})),
+  get_pending_save: async (msg, sender) => {
+    const p = sender.tab ? await getPending(sender.tab.id) : null;
+    return { prompt: p ? promptView(p) : null };
+  },
+  save_decision: (msg, sender) => saveDecided(msg, sender),
+  get_never_save: async () => ({ hosts: await neverList() }),
+  remove_never_save: async (msg) => {
+    await chrome.storage.local.set({ [NEVER_KEY]: (await neverList()).filter((h) => h !== msg.host) });
+    return {};
+  },
   autofill: async (msg, sender) => {
     const tab = msg.tabId ? { id: msg.tabId, url: msg.url } : (sender.tab || await activeTab());
     await fillTab(tab.id, msg.id, hostCandidates(msg.url || tab.url || ''));
@@ -167,6 +285,9 @@ chrome.runtime.onInstalled.addListener(() => {
     contexts: ['editable']
   }, () => chrome.runtime.lastError /* já existe */);
 });
+
+// Aba fechada: descarta o login pendente dela
+chrome.tabs.onRemoved.addListener((tabId) => { setPending(tabId, null).catch(() => {}); });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'mysecrets-autofill') {

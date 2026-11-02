@@ -595,6 +595,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true });
       break;
       
+    case 'show_save_prompt':
+      showSavePrompt(message.prompt);
+      sendResponse({ success: true });
+      break;
+
     case 'detect_fields':
       const loginForm = findLoginForm();
       sendResponse({
@@ -614,6 +619,128 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
+// ===== Oferecer para salvar logins =====
+//
+// Quando um formulário com senha é enviado, manda usuário e senha ao background,
+// que decide se o login é novo (ou se a senha mudou). A pergunta aparece nesta
+// página ou na próxima, depois do redirecionamento do login.
+
+let lastSubmitted = '';
+
+function passwordFieldsIn(scope) {
+  return Array.from((scope || document).querySelectorAll('input[type="password"]'))
+    .filter(f => f.value && isVisible(f));
+}
+
+function captureLogin(scope) {
+  const form = scope && scope.tagName === 'FORM' ? scope : (scope && scope.closest ? scope.closest('form') : null);
+  const doForm = form ? passwordFieldsIn(form) : [];
+  const passwords = doForm.length ? doForm : passwordFieldsIn(null);
+  if (passwords.length === 0) return;
+
+  // Troca de senha / cadastro: o último campo é a senha nova (ou a confirmação)
+  const password = passwords[passwords.length - 1].value;
+
+  const candidatos = findUsernameFields().filter(f => f.value && (!form || form.contains(f)));
+  const username = candidatos.length ? candidatos[0].value.trim() : '';
+
+  const chave = username + '\u0000' + password;
+  if (chave === lastSubmitted) return; // submit + clique no mesmo envio
+  lastSubmitted = chave;
+
+  sendToBackground({ type: 'login_submitted', url: window.location.href, username, password });
+}
+
+document.addEventListener('submit', (e) => captureLogin(e.target), true);
+
+// SPAs costumam logar sem submit: clique no botão ou Enter no campo
+document.addEventListener('click', (e) => {
+  const botao = e.target.closest && e.target.closest('button, input[type="submit"], input[type="button"], [role="button"]');
+  if (botao) captureLogin(botao);
+}, true);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target && e.target.tagName === 'INPUT') captureLogin(e.target);
+}, true);
+
+// Login em duas etapas: guarda o usuário digitado na primeira tela
+document.addEventListener('change', (e) => {
+  const campo = e.target;
+  if (campo && campo.tagName === 'INPUT' && campo.value && findUsernameFields().includes(campo)) {
+    sendToBackground({ type: 'remember_username', url: window.location.href, username: campo.value.trim() });
+  }
+}, true);
+
+function showSavePrompt(prompt) {
+  if (!prompt || document.getElementById('mysecrets-save-prompt')) return;
+
+  const host = document.createElement('div');
+  host.id = 'mysecrets-save-prompt';
+  host.style.cssText = 'position: fixed; top: 16px; right: 16px; z-index: 2147483647;';
+  const root = host.attachShadow({ mode: 'closed' });
+
+  const atualizar = prompt.mode === 'update';
+  root.innerHTML = `
+    <style>
+      .card { width: 320px; box-sizing: border-box; padding: 14px 16px; border-radius: 12px;
+        background: #fff; color: #1d1d1f; box-shadow: 0 8px 28px rgba(0,0,0,.22);
+        font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        animation: entrar .25s ease-out; }
+      @media (prefers-color-scheme: dark) { .card { background: #1f2024; color: #ececec; } .sub { color: #a0a4ab !important; } }
+      @keyframes entrar { from { transform: translateY(-12px); opacity: 0; } to { transform: none; opacity: 1; } }
+      .topo { display: flex; gap: 10px; align-items: center; }
+      img { width: 28px; height: 28px; border-radius: 6px; }
+      .titulo { font-weight: 600; }
+      .sub { color: #5f6368; font-size: 13px; margin-top: 2px; word-break: break-all; }
+      .acoes { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+      button { font: inherit; border: 0; border-radius: 8px; padding: 7px 14px; cursor: pointer; }
+      .salvar { background: #5b5bd6; color: #fff; font-weight: 600; }
+      .depois { background: rgba(127,127,127,.15); color: inherit; }
+      .nunca { background: none; color: inherit; opacity: .7; padding: 7px 4px; margin-left: auto; font-size: 12px; text-decoration: underline; }
+    </style>
+    <div class="card" role="dialog" aria-label="MySecrets">
+      <div class="topo">
+        <img alt="">
+        <div>
+          <div class="titulo"></div>
+          <div class="sub"></div>
+        </div>
+      </div>
+      <div class="acoes">
+        <button class="salvar"></button>
+        <button class="depois">Agora não</button>
+        <button class="nunca">Nunca neste site</button>
+      </div>
+    </div>`;
+
+  root.querySelector('img').src = chrome.runtime.getURL('icons/icon48.png');
+  root.querySelector('.titulo').textContent = atualizar ? 'Atualizar a senha no MySecrets?' : 'Salvar este login no MySecrets?';
+  root.querySelector('.sub').textContent = atualizar
+    ? `${prompt.title || prompt.host}${prompt.username ? ' · ' + prompt.username : ''}`
+    : `${prompt.username || '(sem usuário)'} · ${prompt.host}`;
+  root.querySelector('.salvar').textContent = atualizar ? 'Atualizar' : 'Salvar';
+
+  const fechar = () => host.remove();
+  const decidir = (action) => {
+    fechar();
+    sendToBackground({ type: 'save_decision', action }, (response) => {
+      if (action !== 'save') return;
+      if (response && response.success && response.saved) {
+        showNotification(atualizar ? 'Senha atualizada no MySecrets' : 'Login salvo no MySecrets', 'success');
+      } else {
+        showNotification('Não foi possível salvar: ' + ((response && response.error) || 'app indisponível'), 'error');
+      }
+    });
+  };
+
+  root.querySelector('.salvar').addEventListener('click', () => decidir('save'));
+  root.querySelector('.depois').addEventListener('click', () => decidir('dismiss'));
+  root.querySelector('.nunca').addEventListener('click', () => decidir('never'));
+  setTimeout(fechar, 60000);
+
+  document.documentElement.appendChild(host);
+}
+
 // ===== Inicialização =====
 
 // Detecta formulários ao carregar
@@ -621,6 +748,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // (ex.: tela do código 2FA do GitLab): aí o evento nunca viria.
 function detectOnLoad() {
   console.log('Página carregada, detectando formulários...');
+
+  // Login enviado na página anterior (antes do redirecionamento) esperando resposta
+  sendToBackground({ type: 'get_pending_save' }, (response) => {
+    if (response?.success && response.prompt) showSavePrompt(response.prompt);
+  });
   
   if (findLoginForm() || findMfaField()) {
     console.log('Formulário de login detectado');

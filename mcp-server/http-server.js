@@ -81,6 +81,65 @@ function sendJson(res, status, obj, extraHeaders = {}) {
   res.end(body);
 }
 
+// ===== Salvar login vindo da extensão =====
+//
+// Método fora do MCP ('mysecrets/save_login'): o cofre aberto vive no app, então
+// o pedido sobe pelo canal IPC do processo pai (o app que iniciou este servidor)
+// e o app grava a entrada. Sem o app como pai, não há como salvar.
+
+const SAVE_TIMEOUT = 15000;
+const pendingSaves = new Map();
+
+if (process.send) {
+  process.on('message', (msg) => {
+    if (!msg || msg.type !== 'save_login_result') return;
+    const p = pendingSaves.get(msg.reqId);
+    if (!p) return;
+    pendingSaves.delete(msg.reqId);
+    clearTimeout(p.timer);
+    p.resolve(msg.result || { success: false, error: 'Resposta vazia do app' });
+  });
+}
+
+function validSaveParams(p) {
+  if (!p || typeof p !== 'object') return 'Parâmetros ausentes';
+  if (typeof p.url !== 'string' || p.url.length > 2048 || !/^https?:\/\//i.test(p.url)) return 'URL inválida';
+  if (p.username != null && (typeof p.username !== 'string' || p.username.length > 512)) return 'Usuário inválido';
+  if (typeof p.password !== 'string' || !p.password || p.password.length > 4096) return 'Senha inválida';
+  if (p.id != null && (typeof p.id !== 'string' || p.id.length > 128)) return 'Id inválido';
+  return null;
+}
+
+function askAppToSave(params) {
+  return new Promise((resolve) => {
+    if (!process.send) {
+      resolve({ success: false, error: 'Servidor não foi iniciado pelo app MySecrets' });
+      return;
+    }
+    const reqId = crypto.randomUUID();
+    const timer = setTimeout(() => {
+      pendingSaves.delete(reqId);
+      resolve({ success: false, error: 'O app não respondeu' });
+    }, SAVE_TIMEOUT);
+    pendingSaves.set(reqId, { resolve, timer });
+    process.send({
+      type: 'save_login',
+      reqId,
+      payload: { id: params.id || null, url: params.url, username: params.username || '', password: params.password }
+    });
+  });
+}
+
+async function handleSaveLogin(msg, reply) {
+  const erro = validSaveParams(msg.params);
+  if (erro) return reply(200, { jsonrpc: '2.0', id: msg.id, error: { code: -32602, message: erro } });
+  const result = await askAppToSave(msg.params);
+  if (!result.success) {
+    return reply(200, { jsonrpc: '2.0', id: msg.id, error: { code: -32000, message: result.error || 'Falha ao salvar' } });
+  }
+  return reply(200, { jsonrpc: '2.0', id: msg.id, result: { saved: true, id: result.id, mode: result.mode } });
+}
+
 const server = http.createServer((req, res) => {
   const url = (req.url || '').split('?')[0];
   const cors = corsHeaders(req.headers.origin);
@@ -157,6 +216,10 @@ const server = http.createServer((req, res) => {
       return reply(200, responses);
     }
 
+    if (parsed && parsed.method === 'mysecrets/save_login') {
+      return handleSaveLogin(parsed, reply);
+    }
+
     const response = dispatch(parsed);
     if (!response) {
       res.writeHead(202, cors); // notificação
@@ -191,4 +254,4 @@ if (require.main === module) server.listen(PORT, HOST, () => {
 process.on('SIGINT', () => server.close(() => process.exit(0)));
 process.on('SIGTERM', () => server.close(() => process.exit(0)));
 
-module.exports = { originOk, corsHeaders, server };
+module.exports = { originOk, corsHeaders, server, validSaveParams };

@@ -23,7 +23,7 @@ test('authorize: PKCE, state e troca do código por tokens', async () => {
   global.fetch = async (url, opts = {}) => {
     if (String(url).startsWith('https://oauth2.googleapis.com/token')) {
       tokenBody = new URLSearchParams(opts.body.toString());
-      return json({ access_token: 'acc', refresh_token: 'ref', expires_in: 3600 });
+      return json({ access_token: 'acc', refresh_token: 'ref', expires_in: 3600, scope: 'openid https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email' });
     }
     if (String(url).startsWith('https://openidconnect.googleapis.com/v1/userinfo')) {
       assert.strictEqual(opts.headers.Authorization, 'Bearer acc');
@@ -56,6 +56,31 @@ test('authorize: PKCE, state e troca do código por tokens', async () => {
   const desafio = crypto.createHash('sha256').update(tokenBody.get('code_verifier')).digest('base64')
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   assert.strictEqual(desafio, globalThis.__challenge);
+});
+
+test('authorize: caixinha do Drive desmarcada na tela do Google', async () => {
+  let revogado = false;
+  global.fetch = async (url) => {
+    url = String(url);
+    if (url.startsWith('https://oauth2.googleapis.com/token')) {
+      return json({ access_token: 'acc', refresh_token: 'ref', expires_in: 3600, scope: 'openid https://www.googleapis.com/auth/userinfo.email' });
+    }
+    if (url.startsWith('https://oauth2.googleapis.com/revoke')) { revogado = true; return json({}); }
+    throw new Error('URL inesperada ' + url);
+  };
+  await assert.rejects(authorize(cfg, (authUrl) => {
+    const u = new URL(authUrl);
+    httpGet(`${u.searchParams.get('redirect_uri')}/?code=c&state=${u.searchParams.get('state')}`);
+  }), (e) => e.code === 'insufficient_scope' && /permissão do Google Drive/.test(e.message));
+  assert.ok(revogado, 'o acesso parcial deve ser revogado');
+});
+
+test('DriveClient: 403 por falta de escopo vira insufficient_scope', async () => {
+  global.fetch = async (url) => String(url).includes('oauth2.googleapis.com/token')
+    ? json({ access_token: 'a', expires_in: 3600 })
+    : json({ error: { code: 403, message: 'Request had insufficient authentication scopes.', errors: [{ reason: 'insufficientPermissions' }] } }, 403);
+  const c = new DriveClient(cfg, 'refresh');
+  await assert.rejects(c.ensureFolder('MySecrets'), (e) => e.code === 'insufficient_scope');
 });
 
 test('authorize: login cancelado', async () => {

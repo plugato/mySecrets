@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-01
+
+### Added
+- Browser extension (1.4.0) offers to save logins: when a form with a password is submitted on a site that isn't in the vault, a prompt asks "Salvar este login no MySecrets?" (or "Atualizar a senha?" when the saved password changed). Works across the post-login redirect and two-step logins; "Nunca neste site" can be undone from the popup. The password stays in the extension's session memory until the user decides and is saved by the app through the local server (new `mysecrets/save_login` method, forwarded to the app over IPC).
+
+### Fixed
+- Google sign-in: if the Google Drive permission checkbox is left unchecked on Google's consent screen, the app now explains it instead of failing every minute with HTTP 403.
+
 ## [1.7.0] - 2026-11-01
 
 ### Added
