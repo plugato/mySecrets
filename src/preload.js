@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   helloEnroll: (masterPassword) => ipcRenderer.invoke('hello-enroll', masterPassword),
   helloLogin: () => ipcRenderer.invoke('hello-login'),
   helloDisable: () => ipcRenderer.invoke('hello-disable'),
+  helloCancel: () => ipcRenderer.invoke('hello-cancel'),
 
   // Servidor MCP (integração com assistentes de IA)
   mcpStatus: () => ipcRenderer.invoke('mcp-status'),

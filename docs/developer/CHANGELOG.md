@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-11-03
+
+### Fixed
+- Windows Hello no longer hangs the login screen. The prompt is now opened with `RequestVerificationForWindowAsync`, tied to the app window, so it always shows in front and focus returns to the app when it closes (previously it could open hidden behind the window, leaving "Aguardando Windows Hello..." stuck for up to 2 minutes, or leave the keyboard unresponsive). The old method remains as a fallback.
+- The Windows Hello prompt can be cancelled: the button turns into "clique para cancelar" while waiting, and signing in with the master password closes the pending prompt. Waiting time reduced from 2 minutes to 60 seconds.
+
 ## [1.9.0] - 2026-11-03
 
 ### Added

@@ -244,7 +244,7 @@ function getPowerShellPath() {
  * Executa um script PowerShell e retorna o stdout (trim).
  * Usa -EncodedCommand para evitar problemas de escaping/aspas.
  */
-function runPowerShell(script, timeoutMs) {
+function runPowerShell(script, timeoutMs, onSpawn) {
   return new Promise((resolve, reject) => {
     const psPath = getPowerShellPath();
     if (!psPath) {
@@ -252,7 +252,7 @@ function runPowerShell(script, timeoutMs) {
       return;
     }
     const encoded = Buffer.from(script, 'utf16le').toString('base64');
-    execFile(
+    const child = execFile(
       psPath,
       ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
       { timeout: timeoutMs, windowsHide: true },
@@ -264,6 +264,7 @@ function runPowerShell(script, timeoutMs) {
         }
       }
     );
+    if (onSpawn) onSpawn(child);
   });
 }
 
@@ -326,23 +327,72 @@ try {
   }
 }
 
+// IID de IAsyncOperation<UserConsentVerificationResult>: GUID paramétrico do
+// WinRT, derivado (SHA-1) da assinatura do tipo. Conferido em
+// tests/windows-hello.test.js.
+const HELLO_ASYNC_OP_IID = 'fd596ffd-2318-558f-9dbe-d21df43764a5';
+
+// Prompt em andamento: um só por vez, e cancelável (login com senha)
+let helloPending = null; // { promise, child }
+
+function cancelHelloVerification() {
+  if (helloPending && helloPending.child) {
+    try { helloPending.child.kill(); } catch (_) { /* já encerrou */ }
+  }
+}
+
 /**
  * Abre o prompt do Windows Hello (digital/PIN/rosto).
  * Retorna true somente se o usuário for verificado.
  */
-async function requestHelloVerification(message) {
+function requestHelloVerification(message) {
+  if (helloPending) return helloPending.promise;
+  const pending = { child: null };
+  pending.promise = runHelloPrompt(message, (child) => { pending.child = child; })
+    .finally(() => { if (helloPending === pending) helloPending = null; });
+  helloPending = pending;
+  return pending.promise;
+}
+
+async function runHelloPrompt(message, onSpawn) {
   // A mensagem é fixa (definida abaixo neste arquivo); escape defensivo de aspas simples
   const safeMessage = String(message).replace(/'/g, "''");
-  // HWND da janela do app, para devolver o foco quando o prompt fechar
+  // HWND da janela do app: o prompt nasce preso a ela
   let appHwnd = '0';
   if (process.platform === 'win32' && mainWindow && !mainWindow.isDestroyed()) {
     const handle = mainWindow.getNativeWindowHandle();
     appHwnd = (handle.length >= 8 ? handle.readBigUInt64LE(0) : BigInt(handle.readUInt32LE(0))).toString();
   }
+  // Caminho principal: RequestVerificationForWindowAsync (IUserConsentVerifierInterop),
+  // a API da Microsoft para apps desktop. O prompt fica preso à janela do app,
+  // sempre na frente, e o foco volta sozinho ao fechar.
+  //
+  // Reserva (interop falhou, ou WSL sem janela): RequestVerificationAsync, que
+  // abre o prompt em segundo plano porque quem chama é um processo sem janela.
+  // Aí é preciso caçar a janela do prompt e trazê-la para a frente.
   const script = `${HELLO_PS_PRELUDE}
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
+
+[ComImport, Guid("39E050C3-4E74-441A-8DC0-B81104DF949C"), InterfaceType(ComInterfaceType.InterfaceIsIInspectable)]
+public interface IUserConsentVerifierInterop {
+    [return: MarshalAs(UnmanagedType.IInspectable)]
+    object RequestVerificationForWindowAsync(IntPtr appWindow, [MarshalAs(UnmanagedType.HString)] string message, [In] ref Guid riid);
+}
+
+public static class HelloInterop {
+    [DllImport("combase.dll", PreserveSig = false)]
+    static extern void RoGetActivationFactory([MarshalAs(UnmanagedType.HString)] string activatableClassId, [In] ref Guid iid, [MarshalAs(UnmanagedType.IInspectable)] out object factory);
+
+    public static object Request(IntPtr hwnd, string message) {
+        Guid factoryIid = typeof(IUserConsentVerifierInterop).GUID;
+        Guid opIid = new Guid("${HELLO_ASYNC_OP_IID}");
+        object factory;
+        RoGetActivationFactory("Windows.Security.Credentials.UI.UserConsentVerifier", ref factoryIid, out factory);
+        return ((IUserConsentVerifierInterop)factory).RequestVerificationForWindowAsync(hwnd, message, ref opIid);
+    }
+}
 
 public static class Win32Focus {
     [DllImport("user32.dll")]
@@ -355,49 +405,65 @@ public static class Win32Focus {
     public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 }
 "@
+function Focus-Window($hwnd) {
+  # O toque de Alt libera a permissão de SetForegroundWindow
+  [Win32Focus]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero)
+  [Win32Focus]::SetForegroundWindow($hwnd) | Out-Null
+  [Win32Focus]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)
+}
+
+$resultType = [Windows.Security.Credentials.UI.UserConsentVerificationResult]
+$app = [IntPtr]::new([Int64]${appHwnd})
 try {
-  $task = $asTask.MakeGenericMethod([Windows.Security.Credentials.UI.UserConsentVerificationResult]).Invoke($null, @([Windows.Security.Credentials.UI.UserConsentVerifier]::RequestVerificationAsync('${safeMessage}')))
+  # Só cai na reserva se o prompt preso à janela nem chegou a abrir
+  $op = $null
+  try {
+    if ($app -ne [IntPtr]::Zero) { $op = [HelloInterop]::Request($app, '${safeMessage}') }
+  } catch { }
 
-  # O prompt do Hello nasce em segundo plano porque quem o invoca é um
-  # processo sem janela (o Windows bloqueia roubo de foco). Localiza a
-  # janela do prompt (CredentialUIBroker) e a traz para a frente — o toque
-  # de Alt libera a permissão de SetForegroundWindow.
-  for ($i = 0; $i -lt 50 -and -not $task.IsCompleted; $i++) {
-    $hwnd = [Win32Focus]::FindWindow('Credential Dialog Xaml Host', $null)
-    if ($hwnd -ne [IntPtr]::Zero) {
-      [Win32Focus]::ShowWindow($hwnd, 5) | Out-Null
-      [Win32Focus]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero)
-      [Win32Focus]::SetForegroundWindow($hwnd) | Out-Null
-      [Win32Focus]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)
-      break
+  if ($op -ne $null) {
+    $mode = 'INTEROP'
+    $task = $asTask.MakeGenericMethod($resultType).Invoke($null, @($op))
+    $null = $task.Wait(60000)
+  } else {
+    $mode = 'LEGACY'
+    $task = $asTask.MakeGenericMethod($resultType).Invoke($null, @([Windows.Security.Credentials.UI.UserConsentVerifier]::RequestVerificationAsync('${safeMessage}')))
+    # Espera até 60 s e, enquanto isso, traz o prompt para a frente assim
+    # que ele aparecer (pode demorar alguns segundos)
+    $shown = $false
+    for ($i = 0; $i -lt 300 -and -not $task.IsCompleted; $i++) {
+      if (-not $shown) {
+        $hwnd = [Win32Focus]::FindWindow('Credential Dialog Xaml Host', $null)
+        if ($hwnd -ne [IntPtr]::Zero) {
+          [Win32Focus]::ShowWindow($hwnd, 5) | Out-Null
+          Focus-Window $hwnd
+          $shown = $true
+        }
+      }
+      Start-Sleep -Milliseconds 200
     }
-    Start-Sleep -Milliseconds 100
   }
 
-  $null = $task.Wait(120000)
-
-  # Ao fechar, o prompt deixa o foco com este processo sem janela e o
-  # teclado para de responder até um Alt+Tab. Devolve o foco ao app com o
-  # mesmo toque de Alt.
-  $app = [IntPtr]::new([Int64]${appHwnd})
-  if ($app -ne [IntPtr]::Zero) {
+  # No modo reserva o foco fica com este processo sem janela e o teclado
+  # para de responder até um Alt+Tab: devolve o foco ao app.
+  if ($mode -eq 'LEGACY' -and $app -ne [IntPtr]::Zero) {
     Start-Sleep -Milliseconds 150
-    [Win32Focus]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero)
-    [Win32Focus]::SetForegroundWindow($app) | Out-Null
-    [Win32Focus]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)
+    Focus-Window $app
   }
 
-  Write-Output ([int]$task.Result)
+  if ($task.IsCompleted) { Write-Output "$mode $([int]$task.Result)" } else { Write-Output "$mode TIMEOUT" }
 } catch {
-  Write-Output 'ERR'
+  Write-Output "ERR $($_.Exception.Message)"
 }`;
 
   try {
-    const output = await runPowerShell(script, 130000);
+    const output = await runPowerShell(script, 75000, onSpawn);
+    console.log('Windows Hello:', output);
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.focus();
     // UserConsentVerificationResult: 0 = Verified
-    return parseInt(output, 10) === 0;
+    return /^(INTEROP|LEGACY) 0$/.test(output);
   } catch (error) {
+    // Inclui o cancelamento (processo morto pelo login com senha)
     console.error('Erro na verificação Windows Hello:', error.message);
     return false;
   }
@@ -521,6 +587,12 @@ ipcMain.handle('hello-login', async () => {
     console.error('Erro no login Windows Hello:', error);
     return { success: false, error: 'Não foi possível recuperar as credenciais. Use a senha mestra.' };
   }
+});
+
+// Usuário entrou com a senha ou desistiu: fecha o prompt pendente
+ipcMain.handle('hello-cancel', async () => {
+  cancelHelloVerification();
+  return { success: true };
 });
 
 // Desabilita o login por digital

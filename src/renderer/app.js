@@ -485,7 +485,10 @@ function setupEventListeners() {
     // Autenticação
     loginBtn.addEventListener('click', handleLogin);
     setupBtn.addEventListener('click', handleSetup);
-    helloLoginBtn.addEventListener('click', () => handleHelloLogin(false));
+    helloLoginBtn.addEventListener('click', () => {
+        if (helloWaiting) cancelHelloLogin();
+        else handleHelloLogin(false);
+    });
     forgotPasswordBtn.addEventListener('click', showResetConfirmation);
     masterPasswordInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleLogin();
@@ -1214,17 +1217,30 @@ async function autoHelloLogin() {
     }
 }
 
+// Prompt do Hello aberto: o botão vira "cancelar" e a senha continua liberada
+let helloWaiting = false;
+let helloCancelled = false;
+
+function cancelHelloLogin() {
+    helloCancelled = true;
+    window.electronAPI.helloCancel().catch(() => {});
+}
+
 async function handleHelloLogin(auto = false) {
     hideError(loginError);
-    helloLoginBtn.disabled = true;
+    helloWaiting = true;
+    helloCancelled = false;
     const label = helloLoginBtn.querySelector('span');
     const originalLabel = label.textContent;
     label.textContent = helloSilentMode
-        ? '👆 Encoste o dedo no leitor...'
-        : 'Aguardando Windows Hello...';
+        ? '👆 Encoste o dedo no leitor... (clique para cancelar)'
+        : 'Aguardando Windows Hello... (clique para cancelar)';
 
     try {
         const helloResult = await window.electronAPI.helloLogin();
+
+        // Cancelado, ou o usuário já entrou com a senha enquanto isso
+        if (helloCancelled || mainScreen.style.display === 'block') return;
 
         if (!helloResult.success) {
             // Na tentativa automática, cancelar o Hello não é erro:
@@ -1249,7 +1265,7 @@ async function handleHelloLogin(auto = false) {
     } catch (error) {
         showError(loginError, 'Erro no login por digital');
     } finally {
-        helloLoginBtn.disabled = false;
+        helloWaiting = false;
         label.textContent = originalLabel;
     }
 }
@@ -1307,7 +1323,10 @@ async function handleLogin() {
         showError(loginError, 'Digite a senha mestra');
         return;
     }
-    
+
+    // Entrou com a senha: fecha o prompt do Hello que ficou aberto
+    if (helloWaiting) cancelHelloLogin();
+
     try {
         const result = await window.electronAPI.loadData(password);
         
