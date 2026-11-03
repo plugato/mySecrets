@@ -1,15 +1,18 @@
 // MySecrets Chrome Extension — Background Service Worker
 //
 // Conversa com o app desktop pelo servidor local que o próprio app sobe
-// (127.0.0.1, token bearer). O token chega aqui por pareamento: o usuário copia
-// o código no app (MCP > Extensão) e cola no popup.
+// (127.0.0.1, token bearer). O token chega aqui por pareamento automático: a
+// extensão pede em POST /pair e o app aprova (pergunta ao usuário só na primeira
+// vez). Colar o código do app (MCP > Extensão) continua como alternativa.
 //
 // Consequência: sem app aberto e cofre desbloqueado a extensão não tem dados.
 // Nada de senha mestra nem cópia do cofre no navegador.
 
-import { hostCandidates, parsePairingCode, saveDecision, displayHost } from './lib.mjs';
+import { hostCandidates, parsePairingCode, validConn, pairUrl, saveDecision, displayHost } from './lib.mjs';
 
 const CONN_KEY = 'mysecrets_conn'; // { url, token }
+const UNPAIRED_KEY = 'mysecrets_unpaired'; // usuário desconectou: não reconectar sozinho
+const DEFAULT_URL = 'http://127.0.0.1:8765/mcp';
 let rpcId = 0;
 
 // ===== Pareamento =====
@@ -19,14 +22,48 @@ async function getConn() {
   return stored[CONN_KEY] || null;
 }
 
-async function pair(code) {
-  const conn = parsePairingCode(code);
+async function savePairing(conn) {
   await chrome.storage.local.set({ [CONN_KEY]: conn });
+  await chrome.storage.local.remove(UNPAIRED_KEY);
   return status();
+}
+
+async function pair(code) {
+  return savePairing(parsePairingCode(code));
+}
+
+// Pede o token ao app. Pode demorar: na primeira vez o app espera o usuário
+// responder se permite a conexão.
+async function autoPair() {
+  const conn = await getConn();
+  let res;
+  try {
+    res = await fetch(pairUrl(conn ? conn.url : DEFAULT_URL), { method: 'POST' });
+  } catch (_) {
+    throw new Error('App MySecrets fechado ou servidor local parado');
+  }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || `Servidor respondeu ${res.status}`);
+  return savePairing(validConn(body));
+}
+
+// Sem pareamento ou com token trocado: tenta parear sozinho, a menos que o
+// usuário tenha desconectado de propósito. Devolve o erro, se houver.
+async function ensurePaired() {
+  if ((await chrome.storage.local.get(UNPAIRED_KEY))[UNPAIRED_KEY]) return null;
+  const st = await status();
+  if (st.paired && !st.badToken) return null;
+  try {
+    await autoPair();
+    return null;
+  } catch (err) {
+    return err.message;
+  }
 }
 
 async function unpair() {
   await chrome.storage.local.remove(CONN_KEY);
+  await chrome.storage.local.set({ [UNPAIRED_KEY]: true });
 }
 
 // ===== Chamada ao cofre =====
@@ -241,7 +278,18 @@ async function saveDecided(msg, sender) {
 // ===== Mensagens do popup / content script =====
 
 const handlers = {
-  check_status: () => status(),
+  check_status: async () => {
+    const pairError = await ensurePaired();
+    return { ...(await status()), pairError };
+  },
+  connect: async () => {
+    await chrome.storage.local.remove(UNPAIRED_KEY);
+    try {
+      return await autoPair();
+    } catch (err) {
+      return { ...(await status()), pairError: err.message };
+    }
+  },
   pair: (msg) => pair(msg.code),
   unpair: () => unpair().then(() => ({ success: true })),
   find_entries_for_url: async (msg) => ({ entries: await entriesForUrl(msg.url) }),
@@ -279,6 +327,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // ===== Menu de contexto e atalho =====
 
 chrome.runtime.onInstalled.addListener(() => {
+  // Recém-instalada: já pede a conexão ao app (se estiver aberto)
+  ensurePaired().catch(() => {});
   chrome.contextMenus.create({
     id: 'mysecrets-autofill',
     title: 'Preencher com MySecrets',

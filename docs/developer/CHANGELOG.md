@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-03
+
+### Added
+- Browser extension (1.5.0) pairs with the app automatically: no more copying the pairing code. The extension asks the local server (new `POST /pair` route) and the app asks the user once whether to allow that extension id; approved ids are remembered in `extension-origins.json` and later connections are silent. The pairing code remains as a fallback (e.g. a port other than 8765). "Desconectar" in the popup stops automatic reconnection until "Conectar ao app" is clicked.
+
 ## [1.8.1] - 2026-11-01
 
 ### Added

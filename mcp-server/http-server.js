@@ -11,6 +11,7 @@
  *   - Exige cabeçalho `Authorization: Bearer <token>` — o token é gerado pelo
  *     app e passado via env MYSECRETS_MCP_TOKEN. Sem o token correto, tudo é 401.
  *   - Valida o cabeçalho Origin para mitigar DNS rebinding a partir de páginas web.
+ *   - POST /pair entrega o token à extensão só depois que o app aprova o id dela.
  *   - Só devolve segredos com o cofre aberto e desbloqueado (via .session).
  *
  * Configuração por ambiente:
@@ -81,25 +82,46 @@ function sendJson(res, status, obj, extraHeaders = {}) {
   res.end(body);
 }
 
-// ===== Salvar login vindo da extensão =====
+// ===== Pedidos ao app (processo pai) =====
 //
-// Método fora do MCP ('mysecrets/save_login'): o cofre aberto vive no app, então
-// o pedido sobe pelo canal IPC do processo pai (o app que iniciou este servidor)
-// e o app grava a entrada. Sem o app como pai, não há como salvar.
+// O cofre aberto e a decisão do usuário vivem no app, então salvar login e
+// parear a extensão sobem pelo canal IPC do processo pai. Sem o app como pai,
+// nenhum dos dois funciona.
 
 const SAVE_TIMEOUT = 15000;
-const pendingSaves = new Map();
+const PAIR_TIMEOUT = 60000; // o usuário pode precisar responder a pergunta no app
+const pendingAsks = new Map();
 
 if (process.send) {
   process.on('message', (msg) => {
-    if (!msg || msg.type !== 'save_login_result') return;
-    const p = pendingSaves.get(msg.reqId);
+    if (!msg || (msg.type !== 'save_login_result' && msg.type !== 'pair_result')) return;
+    const p = pendingAsks.get(msg.reqId);
     if (!p) return;
-    pendingSaves.delete(msg.reqId);
+    pendingAsks.delete(msg.reqId);
     clearTimeout(p.timer);
     p.resolve(msg.result || { success: false, error: 'Resposta vazia do app' });
   });
 }
+
+function askApp(type, payload, timeout) {
+  return new Promise((resolve) => {
+    if (!process.send) {
+      resolve({ success: false, error: 'Servidor não foi iniciado pelo app MySecrets' });
+      return;
+    }
+    const reqId = crypto.randomUUID();
+    const timer = setTimeout(() => {
+      pendingAsks.delete(reqId);
+      resolve({ success: false, error: 'O app não respondeu' });
+    }, timeout);
+    pendingAsks.set(reqId, { resolve, timer });
+    process.send({ type, reqId, payload });
+  });
+}
+
+// ===== Salvar login vindo da extensão =====
+//
+// Método fora do MCP ('mysecrets/save_login'): quem grava a entrada é o app.
 
 function validSaveParams(p) {
   if (!p || typeof p !== 'object') return 'Parâmetros ausentes';
@@ -111,23 +133,28 @@ function validSaveParams(p) {
 }
 
 function askAppToSave(params) {
-  return new Promise((resolve) => {
-    if (!process.send) {
-      resolve({ success: false, error: 'Servidor não foi iniciado pelo app MySecrets' });
-      return;
-    }
-    const reqId = crypto.randomUUID();
-    const timer = setTimeout(() => {
-      pendingSaves.delete(reqId);
-      resolve({ success: false, error: 'O app não respondeu' });
-    }, SAVE_TIMEOUT);
-    pendingSaves.set(reqId, { resolve, timer });
-    process.send({
-      type: 'save_login',
-      reqId,
-      payload: { id: params.id || null, url: params.url, username: params.username || '', password: params.password }
-    });
-  });
+  return askApp('save_login', {
+    id: params.id || null, url: params.url, username: params.username || '', password: params.password
+  }, SAVE_TIMEOUT);
+}
+
+// ===== Pareamento automático da extensão =====
+//
+// POST /pair devolve url + token, sem o usuário copiar código nenhum. Quem
+// identifica a extensão é o Origin (chrome-extension://<id>): página web não
+// consegue enviá-lo e cada extensão tem o seu. O app pergunta ao usuário na
+// primeira vez que um id pede e lembra a resposta.
+
+async function handlePair(req, res, reply) {
+  const origin = req.headers.origin;
+  if (!origin || !EXTENSION_ORIGIN.test(origin)) {
+    return reply(403, { error: 'Só a extensão pode parear' });
+  }
+  const result = await askApp('pair_request', { origin }, PAIR_TIMEOUT);
+  if (!result.success) {
+    return reply(403, { error: result.error || 'Conexão recusada no app' });
+  }
+  return reply(200, { url: `http://${HOST}:${req.socket.localPort}/mcp`, token: TOKEN });
 }
 
 async function handleSaveLogin(msg, reply) {
@@ -155,7 +182,7 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  if (url !== '/mcp') {
+  if (url !== '/mcp' && url !== '/pair') {
     return sendJson(res, 404, { error: 'Not found' });
   }
 
@@ -167,6 +194,11 @@ const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, cors);
     return res.end();
+  }
+
+  if (url === '/pair') {
+    if (req.method !== 'POST') return reply(405, { error: 'Use POST' }, { 'Allow': 'POST' });
+    return handlePair(req, res, reply);
   }
 
   if (!tokenOk(req.headers.authorization)) {

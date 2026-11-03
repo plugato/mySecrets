@@ -174,3 +174,56 @@ test('save_login: servidor repassa ao app por IPC e devolve o resultado', async 
   assert.strictEqual(r.status, 401);
   assert.strictEqual(recebidos.length, 2, 'sem token não chega ao app');
 });
+
+// ===== Pareamento automático =====
+
+test('pair: entrega o token só para extensão aprovada pelo app', async (t) => {
+  const { fork } = require('node:child_process');
+  const path = require('node:path');
+  const port = 20000 + Math.floor(Math.random() * 20000);
+  const child = fork(path.join(__dirname, '..', 'mcp-server', 'http-server.js'), [], {
+    env: { ...process.env, MYSECRETS_MCP_PORT: String(port), MYSECRETS_MCP_TOKEN: 'tk', MYSECRETS_MCP_HOST: '127.0.0.1' },
+    stdio: ['ignore', 'pipe', 'pipe', 'ipc']
+  });
+  t.after(() => child.kill());
+
+  await new Promise((resolve, reject) => {
+    child.stdout.once('data', resolve);
+    child.once('exit', () => reject(new Error('servidor saiu')));
+  });
+
+  // Faz o papel do app: só confia em EXT_ORIGIN
+  const pedidos = [];
+  child.on('message', (msg) => {
+    pedidos.push(msg);
+    const result = msg.payload.origin === EXT_ORIGIN ? { success: true } : { success: false, error: 'Conexão recusada no app' };
+    child.send({ type: 'pair_result', reqId: msg.reqId, result });
+  });
+
+  const parear = (origin) => fetch(`http://127.0.0.1:${port}/pair`, {
+    method: 'POST',
+    headers: origin ? { Origin: origin } : {}
+  });
+
+  let r = await parear(EXT_ORIGIN);
+  assert.strictEqual(r.status, 200);
+  assert.deepStrictEqual(await r.json(), { url: `http://127.0.0.1:${port}/mcp`, token: 'tk' });
+  assert.strictEqual(pedidos[0].type, 'pair_request');
+
+  r = await parear('chrome-extension://outraextensao');
+  assert.strictEqual(r.status, 403, 'extensão não aprovada não recebe o token');
+  assert.doesNotMatch(await r.text(), /tk/);
+
+  r = await parear('https://evil.example.com');
+  assert.strictEqual(r.status, 403);
+  r = await parear(null);
+  assert.strictEqual(r.status, 403, 'sem Origin não é a extensão');
+  assert.strictEqual(pedidos.length, 2, 'página web e cliente sem Origin nem chegam ao app');
+});
+
+test('validConn e pairUrl: resposta do pareamento só vale para loopback', async () => {
+  const { validConn, pairUrl } = await lib;
+  assert.deepStrictEqual(validConn({ url: 'http://127.0.0.1:8765/mcp', token: 'a' }), { url: 'http://127.0.0.1:8765/mcp', token: 'a' });
+  assert.throws(() => validConn({ url: 'http://evil.example.com/mcp', token: 'a' }), /fora do seu computador/);
+  assert.strictEqual(pairUrl('http://127.0.0.1:9000/mcp'), 'http://127.0.0.1:9000/pair');
+});

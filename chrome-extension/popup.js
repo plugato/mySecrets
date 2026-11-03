@@ -67,6 +67,12 @@ function updateSiteInfo(count) {
   el('entries-count').textContent = `${count} ${count === 1 ? 'entrada' : 'entradas'}`;
 }
 
+function setPairMessage(title, hint, isError = false) {
+  el('pair-title').textContent = title;
+  el('pair-title').style.color = isError ? '#f44336' : '';
+  el('pair-hint').textContent = hint;
+}
+
 function showErrorScreen(message) {
   el('error-text').textContent = message || 'Não foi possível falar com o MySecrets';
   showScreen('error');
@@ -114,27 +120,42 @@ async function updateNeverSave() {
   };
 }
 
-async function initialize() {
-  [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-  const status = await ask({ type: 'check_status' });
-
+function showStatus(status) {
   if (!status || !status.paired || status.badToken) {
-    if (status && status.badToken) {
-      el('pair-message').innerHTML =
-        '<p style="color:#f44336;">O token do app mudou</p><small>No app: <b>MCP</b> → copie o código de pareamento e cole abaixo</small>';
+    if (status && status.pairError) {
+      setPairMessage(status.pairError, 'Abra o MySecrets, desbloqueie o cofre e tente de novo', true);
+    } else {
+      setPairMessage('Extensão desconectada', 'Clique em Conectar e permita no app MySecrets');
     }
+    el('connect-button').disabled = false;
     showScreen('pair');
-    return;
+    return false;
   }
   if (!status.unlocked) {
     showErrorScreen(status.error || status.message);
-    return;
+    return false;
   }
-  await loadEntries();
+  return true;
+}
+
+async function initialize() {
+  [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  // O pareamento automático pode esperar o usuário responder no app
+  setPairMessage('Conectando ao app…', 'Se o MySecrets perguntar, clique em Permitir');
+  el('connect-button').disabled = true;
+  showScreen('pair');
+
+  if (showStatus(await ask({ type: 'check_status' }))) await loadEntries();
 }
 
 // ===== Eventos =====
+
+el('connect-button').addEventListener('click', async () => {
+  setPairMessage('Conectando ao app…', 'Se o MySecrets perguntar, clique em Permitir');
+  el('connect-button').disabled = true;
+  if (showStatus(await ask({ type: 'connect' }))) await loadEntries();
+});
 
 el('pair-button').addEventListener('click', async () => {
   const code = el('pair-code-input').value;
@@ -144,8 +165,7 @@ el('pair-button').addEventListener('click', async () => {
     el('pair-code-input').value = '';
     await initialize();
   } else {
-    el('pair-message').innerHTML =
-      `<p style="color:#f44336;">${(res && res.error) || 'Falha no pareamento'}</p><small>Copie o código novamente no app</small>`;
+    setPairMessage((res && res.error) || 'Falha no pareamento', 'Copie o código novamente no app', true);
   }
 });
 
@@ -166,7 +186,7 @@ el('retry-button').addEventListener('click', () => initialize());
 
 el('unpair-button').addEventListener('click', async () => {
   await ask({ type: 'unpair' });
-  showScreen('pair');
+  showStatus({ paired: false });
 });
 
 el('help-button').addEventListener('click', () => {

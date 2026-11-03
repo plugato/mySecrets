@@ -104,6 +104,13 @@ body {
   padding: 0 20px 20px;
 }
 
+.pair-manual summary {
+  padding: 0 20px 12px;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .input-field {
   width: 100%;
   padding: 12px;

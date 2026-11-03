@@ -16,21 +16,30 @@
         </div>
 
         <div class="status-message" id="pair-message">
-            <p>Conecte ao app desktop</p>
-            <small>No app: botão <b>MCP</b> → <b>Iniciar servidor</b> → copiar o <b>código de pareamento</b></small>
+            <p id="pair-title">Conectando ao app…</p>
+            <small id="pair-hint">Se o MySecrets perguntar, clique em <b>Permitir</b></small>
         </div>
 
         <div class="unlock-form">
-            <input
-                type="password"
-                id="pair-code-input"
-                placeholder="Cole o código de pareamento"
-                class="input-field"
-            >
-            <button id="pair-button" class="btn btn-primary">
-                Conectar
+            <button id="connect-button" class="btn btn-primary">
+                Conectar ao app
             </button>
         </div>
+
+        <details class="pair-manual">
+            <summary>Usar código de pareamento</summary>
+            <div class="unlock-form">
+                <input
+                    type="password"
+                    id="pair-code-input"
+                    placeholder="Cole o código (app: MCP → código de pareamento)"
+                    class="input-field"
+                >
+                <button id="pair-button" class="btn btn-secondary">
+                    Conectar com código
+                </button>
+            </div>
+        </details>
     </div>
 
     <!-- Tela de Entradas -->

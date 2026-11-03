@@ -33,6 +33,7 @@ const sessionPath = path.join(userDataPath, '.session');
 const helloPath = path.join(userDataPath, 'hello.enc');
 const machineSecretPath = path.join(userDataPath, '.machine-secret');
 const mcpTokenPath = path.join(userDataPath, '.mcp-token');
+const trustedExtensionsPath = path.join(userDataPath, 'extension-origins.json');
 
 // Certificar que o diretório userData existe
 if (!fs.existsSync(userDataPath)) {
@@ -691,6 +692,13 @@ const extensionSaves = new Map();
 const EXTENSION_SAVE_TIMEOUT = 10000;
 
 function handleMcpMessage(child, msg) {
+  if (msg && msg.type === 'pair_request') {
+    approveExtension(msg.payload && msg.payload.origin).then((ok) => {
+      const result = ok ? { success: true } : { success: false, error: 'Conexão recusada no app' };
+      try { child.send({ type: 'pair_result', reqId: msg.reqId, result }); } catch (_) { /* filho encerrado */ }
+    });
+    return;
+  }
   if (!msg || msg.type !== 'save_login') return;
   const responder = (result) => {
     try { child.send({ type: 'save_login_result', reqId: msg.reqId, result }); } catch (_) { /* filho encerrado */ }
@@ -704,6 +712,52 @@ function handleMcpMessage(child, msg) {
     if (extensionSaves.delete(msg.reqId)) responder({ success: false, error: 'O app não respondeu' });
   }, EXTENSION_SAVE_TIMEOUT);
   mainWindow.webContents.send('extension-save-login', { reqId: msg.reqId, ...msg.payload });
+}
+
+// ===== Pareamento automático da extensão =====
+//
+// A extensão pede o token em POST /pair (ver mcp-server/http-server.js). Na
+// primeira vez que um id de extensão pede, o app pergunta ao usuário; aprovado,
+// o id fica em extension-origins.json e as próximas conexões são silenciosas.
+
+function trustedExtensions() {
+  try {
+    const list = JSON.parse(fs.readFileSync(trustedExtensionsPath, 'utf8'));
+    return Array.isArray(list) ? list : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+const pairPrompts = new Map(); // origin -> Promise<boolean>, evita perguntar duas vezes
+
+function approveExtension(origin) {
+  if (typeof origin !== 'string' || !/^(chrome|moz)-extension:\/\/[\w-]+$/.test(origin)) return Promise.resolve(false);
+  if (trustedExtensions().includes(origin)) return Promise.resolve(true);
+  if (!mainWindow || mainWindow.isDestroyed()) return Promise.resolve(false);
+
+  if (!pairPrompts.has(origin)) {
+    const ask = (async () => {
+      mainWindow.show();
+      mainWindow.focus();
+      const { response } = await dialog.showMessageBox(mainWindow, {
+        type: 'question',
+        title: 'Conectar extensão',
+        message: 'Uma extensão do navegador quer se conectar ao MySecrets',
+        detail: `${origin}\n\nPermita só se você acabou de instalar ou abrir a extensão MySecrets Autofill. ` +
+          'Ela poderá preencher logins enquanto o cofre estiver desbloqueado.',
+        buttons: ['Permitir', 'Recusar'],
+        defaultId: 1,
+        cancelId: 1,
+        noLink: true
+      });
+      if (response !== 0) return false;
+      fs.writeFileSync(trustedExtensionsPath, JSON.stringify([...trustedExtensions(), origin]), { mode: 0o600 });
+      return true;
+    })().finally(() => pairPrompts.delete(origin));
+    pairPrompts.set(origin, ask);
+  }
+  return pairPrompts.get(origin);
 }
 
 ipcMain.handle('extension-save-result', async (event, reqId, result) => {

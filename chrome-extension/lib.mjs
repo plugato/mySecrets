@@ -33,8 +33,7 @@ export function hostCandidates(url) {
   return [...new Set(out.filter(Boolean))];
 }
 
-// O código de pareamento vem colado pelo usuário: só aceita loopback, senão um
-// código malicioso apontaria a extensão (e o token) para um servidor remoto.
+// O código de pareamento vem colado pelo usuário: decodifica e valida.
 export function parsePairingCode(code) {
   let conn;
   try {
@@ -42,6 +41,12 @@ export function parsePairingCode(code) {
   } catch (_) {
     throw new Error('Código inválido');
   }
+  return validConn(conn);
+}
+
+// Só aceita loopback, senão um código (ou resposta) malicioso apontaria a
+// extensão (e o token) para um servidor remoto.
+export function validConn(conn) {
   if (!conn || typeof conn.url !== 'string' || typeof conn.token !== 'string' || !conn.token) {
     throw new Error('Código incompleto');
   }
@@ -55,6 +60,11 @@ export function parsePairingCode(code) {
     throw new Error('Código aponta para fora do seu computador');
   }
   return { url: conn.url, token: conn.token };
+}
+
+// Endereço do pareamento automático: mesmo servidor do /mcp.
+export function pairUrl(mcpUrl) {
+  return String(mcpUrl).replace(/\/mcp$/, '/pair');
 }
 
 // ===== Oferecer para salvar logins =====
