@@ -898,6 +898,119 @@ if (window.electronAPI && window.electronAPI.onExtensionSaveLogin) {
     });
 }
 
+// ===== Gravação pedida por agente (servidor MCP) =====
+
+/**
+ * O main pede primeiro um resumo ('preview') para o diálogo de confirmação e,
+ * se o usuário aprovar, a gravação ('apply'). A lógica fica em agent-write.js.
+ */
+async function handleAgentWriteRequest({ op, request }) {
+    if (!currentMasterPassword) return { success: false, error: 'Cofre bloqueado' };
+
+    if (op === 'preview') {
+        const plan = planAgentWrite(currentData, request);
+        if (plan.error) return { success: false, error: plan.error };
+        return { success: true, plan };
+    }
+
+    if (op !== 'apply') return { success: false, error: 'Operação desconhecida' };
+
+    const antes = currentData.map(e => ({ ...e }));
+    const { entry, mode } = applyAgentWrite(currentData, request, { newId: generateId });
+    const result = await persistData();
+    if (!result.success) {
+        currentData = antes;
+        return { success: false, error: result.error || 'Erro ao salvar o cofre' };
+    }
+
+    updateEntryCounts();
+    renderTagsSidebar();
+    handleSearch();
+    if (selectedEntry && selectedEntry.id === entry.id) {
+        const atual = currentData.find(e => e.id === entry.id);
+        if (atual) selectEntry(atual);
+    }
+    return { success: true, id: entry.id, mode, title: entry.title };
+}
+
+if (window.electronAPI && window.electronAPI.onAgentWrite) {
+    window.electronAPI.onAgentWrite(async (req) => {
+        let result;
+        try {
+            result = await handleAgentWriteRequest(req);
+        } catch (error) {
+            result = { success: false, error: error.message };
+        }
+        window.electronAPI.agentWriteResult(req.reqId, result);
+    });
+}
+
+// ===== Anexos de arquivo (interface) =====
+
+const MAX_ATTACHMENTS_PER_ENTRY = 20;
+
+async function attachFilesToEntry(entryId) {
+    const entry = currentData.find(e => e.id === entryId);
+    if (!entry) return;
+    const picked = await window.electronAPI.attachmentPick();
+    if (!picked.success) {
+        alert('Não foi possível anexar: ' + picked.error);
+        return;
+    }
+    if (picked.files.length === 0) return;
+
+    const anexos = [...entryAttachments(entry)];
+    const now = new Date().toISOString();
+    for (const f of picked.files) {
+        const idx = anexos.findIndex(a => a.name === f.name);
+        if (idx >= 0) {
+            if (!confirm(`Já existe um anexo "${f.name}" nesta entrada. Substituir?`)) continue;
+            anexos[idx] = { ...f, id: anexos[idx].id, addedAt: anexos[idx].addedAt || now, updatedAt: now };
+        } else {
+            anexos.push({ ...f, id: generateId(), addedAt: now, updatedAt: now });
+        }
+    }
+    if (anexos.length > MAX_ATTACHMENTS_PER_ENTRY) {
+        alert(`No máximo ${MAX_ATTACHMENTS_PER_ENTRY} anexos por entrada.`);
+        return;
+    }
+    await saveEntryAttachments(entry, anexos);
+}
+
+async function removeAttachment(entryId, attachmentId) {
+    const entry = currentData.find(e => e.id === entryId);
+    if (!entry) return;
+    const att = entryAttachments(entry).find(a => a.id === attachmentId);
+    if (!att) return;
+    if (!confirm(`Remover o anexo "${att.name}" do cofre? Baixe uma cópia antes se ainda precisar dele.`)) return;
+    await saveEntryAttachments(entry, entryAttachments(entry).filter(a => a.id !== attachmentId));
+}
+
+async function saveEntryAttachments(entry, anexos) {
+    const anteriores = entry.attachments;
+    const updatedAt = entry.updatedAt;
+    entry.attachments = anexos;
+    entry.updatedAt = new Date().toISOString();
+    const result = await persistData();
+    if (!result.success) {
+        entry.attachments = anteriores;
+        entry.updatedAt = updatedAt;
+        alert('Erro ao salvar o cofre');
+        return;
+    }
+    const atual = currentData.find(e => e.id === entry.id) || entry;
+    handleSearch();
+    selectEntry(atual);
+}
+
+async function downloadAttachment(entryId, attachmentId) {
+    const entry = currentData.find(e => e.id === entryId);
+    const att = entry && entryAttachments(entry).find(a => a.id === attachmentId);
+    if (!att) return;
+    const result = await window.electronAPI.attachmentSave(att);
+    if (!result.success) alert('Não foi possível salvar o arquivo: ' + result.error);
+}
+
 // ===== Atualizações automáticas (UI) =====
 
 function setupUpdateControls() {
@@ -1541,7 +1654,8 @@ function handleSearch() {
             entry.username?.toLowerCase().includes(query) ||
             entry.url?.toLowerCase().includes(query) ||
             entry.notes?.toLowerCase().includes(query) ||
-            (Array.isArray(entry.tags) && entry.tags.some(t => String(t).toLowerCase().includes(query)))
+            (Array.isArray(entry.tags) && entry.tags.some(t => String(t).toLowerCase().includes(query))) ||
+            entryAttachments(entry).some(a => String(a.name).toLowerCase().includes(query))
         );
     }
 
@@ -2295,6 +2409,51 @@ async function renderEntryDetails(entry) {
         detailsHTML += `</div>`;
     }
 
+    // Anexos de arquivo (guardados cifrados dentro do cofre)
+    const anexos = entryAttachments(entry);
+    if (anexos.length > 0 || !inTrash) {
+        detailsHTML += `
+            <div class="detail-custom-fields detail-attachments">
+                <h3>Anexos${anexos.length ? ` (${anexos.length})` : ''}</h3>
+        `;
+        anexos.forEach(att => {
+            const quando = att.updatedAt || att.addedAt;
+            const meta = [
+                formatFileSize(att.size),
+                quando ? new Date(quando).toLocaleDateString('pt-BR') : '',
+                att.note || ''
+            ].filter(Boolean).map(escapeHtml).join(' · ');
+            detailsHTML += `
+                <div class="attachment-row">
+                    <span class="material-symbols-outlined attachment-icon">attach_file</span>
+                    <div class="attachment-info">
+                        <span class="attachment-name">${escapeHtml(att.name)}</span>
+                        <span class="attachment-meta" title="sha256 ${escapeHtml(att.sha256)}">${meta}</span>
+                    </div>
+                    <button class="custom-field-copy-btn" data-att-save="${escapeHtml(att.id)}" title="Salvar uma cópia no disco">
+                        <span class="material-symbols-outlined">download</span>
+                        Baixar
+                    </button>
+                    ${inTrash ? '' : `
+                        <button class="custom-field-copy-btn attachment-remove" data-att-remove="${escapeHtml(att.id)}" title="Remover do cofre">
+                            <span class="material-symbols-outlined">delete</span>
+                        </button>
+                    `}
+                </div>
+            `;
+        });
+        if (!inTrash) {
+            detailsHTML += `
+                <button class="btn btn-secondary attachment-add" data-action="attach">
+                    <span class="material-symbols-outlined">attach_file</span>
+                    Anexar arquivo
+                </button>
+                <p class="attachment-hint">Até 1 MB por arquivo (keystore, .pem, .json, .env...). O conteúdo fica cifrado dentro do cofre e sincroniza junto.</p>
+            `;
+        }
+        detailsHTML += `</div>`;
+    }
+
     detailsHTML += inTrash ? `
         <div class="entry-actions">
             <button class="btn btn-primary" data-action="restore">
@@ -2343,6 +2502,13 @@ async function renderEntryDetails(entry) {
     bindAction('restore', () => restoreEntry(entry.id));
     bindAction('hotp-next', () => updateHOTPCounter(entry.id));
     bindAction('toggle-favorite', () => toggleFavorite(entry.id));
+    bindAction('attach', () => attachFilesToEntry(entry.id));
+    entryDetails.querySelectorAll('[data-att-save]').forEach(el => {
+        el.addEventListener('click', (e) => { e.stopPropagation(); downloadAttachment(entry.id, el.dataset.attSave); });
+    });
+    entryDetails.querySelectorAll('[data-att-remove]').forEach(el => {
+        el.addEventListener('click', (e) => { e.stopPropagation(); removeAttachment(entry.id, el.dataset.attRemove); });
+    });
 
     // Iniciar timer do MFA se necessário
     if (entry.type === 'mfa' && entry.mfaSecret) {
@@ -2927,6 +3093,9 @@ async function saveEntry() {
     if (editingEntry) {
         // Preservar campos que o formulário não gerencia
         if (editingEntry.deletedAt) entry.deletedAt = editingEntry.deletedAt;
+        // Anexos: pega a versão atual (um agente pode ter anexado algo com o formulário aberto)
+        const versaoAtual = currentData.find(e => e.id === editingEntry.id) || editingEntry;
+        if (entryAttachments(versaoAtual).length) entry.attachments = [...versaoAtual.attachments];
         entry.passwordHistory = [...(editingEntry.passwordHistory || [])];
 
         // Histórico de senhas: guarda a anterior quando ela muda (máx. 10)

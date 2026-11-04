@@ -7,6 +7,9 @@ const { execFile, spawn } = require('child_process');
 const vaultCrypto = require('./lib/vault-crypto');
 const vaultSync = require('./lib/vault-sync');
 const googleDrive = require('./lib/google-drive');
+// Anexos de arquivo (ler/conferir/gravar em disco): módulo Node puro, também
+// usado pelo servidor MCP
+const attachmentFiles = require('../mcp-server/files');
 
 // Carregar otplib no processo principal
 let otplib;
@@ -33,6 +36,8 @@ const sessionPath = path.join(userDataPath, '.session');
 const helloPath = path.join(userDataPath, 'hello.enc');
 const machineSecretPath = path.join(userDataPath, '.machine-secret');
 const mcpTokenPath = path.join(userDataPath, '.mcp-token');
+// Porta do servidor local enquanto ele roda: o MCP stdio lê para repassar gravações
+const mcpEndpointPath = path.join(userDataPath, '.mcp-endpoint');
 const trustedExtensionsPath = path.join(userDataPath, 'extension-origins.json');
 
 // Certificar que o diretório userData existe
@@ -698,6 +703,7 @@ function startMcpServer(options = {}) {
               startedAt: Date.now()
             };
             console.log('✅ Servidor MCP iniciado em', mcpInfo.url);
+            writeMcpEndpoint(mcpInfo.port);
             finish({ success: true, status: getMcpStatus() });
           }
         } catch (_) { /* linha não-JSON, ignora */ }
@@ -717,6 +723,7 @@ function startMcpServer(options = {}) {
 
     child.on('exit', (code, signal) => {
       console.log('Servidor MCP encerrado', code, signal || '');
+      if (mcpProcess === child) removeMcpEndpoint();
       if (!settled) {
         mcpLastError = code === 2
           ? `Não foi possível iniciar (porta ${port} em uso?)`
@@ -742,7 +749,20 @@ function startMcpServer(options = {}) {
   });
 }
 
+function writeMcpEndpoint(port) {
+  try {
+    fs.writeFileSync(mcpEndpointPath, JSON.stringify({ port, pid: process.pid }), { mode: 0o600 });
+  } catch (err) {
+    console.warn('⚠️ Não foi possível gravar .mcp-endpoint:', err.message);
+  }
+}
+
+function removeMcpEndpoint() {
+  try { fs.unlinkSync(mcpEndpointPath); } catch (_) { /* já removido */ }
+}
+
 function stopMcpServer() {
+  removeMcpEndpoint();
   if (!mcpProcess) return { success: true, status: getMcpStatus() };
   try {
     mcpProcess.kill('SIGTERM');
@@ -764,6 +784,10 @@ const extensionSaves = new Map();
 const EXTENSION_SAVE_TIMEOUT = 10000;
 
 function handleMcpMessage(child, msg) {
+  if (msg && msg.type === 'agent_write') {
+    handleAgentWrite(child, msg);
+    return;
+  }
   if (msg && msg.type === 'pair_request') {
     approveExtension(msg.payload && msg.payload.origin).then((ok) => {
       const result = ok ? { success: true } : { success: false, error: 'Conexão recusada no app' };
@@ -839,6 +863,161 @@ ipcMain.handle('extension-save-result', async (event, reqId, result) => {
     responder(result);
   }
   return true;
+});
+
+// ===== Gravação pedida por agente (MCP store_secret / store_secret_file) =====
+//
+// O servidor local repassa o pedido por IPC. O app confere os anexos (tamanho
+// e sha256), pede ao renderer um resumo (entrada nova ou existente, campos que
+// mudam, arquivos substituídos), mostra um diálogo nativo e só grava se o
+// usuário aprovar. Os pedidos entram numa fila: um diálogo por vez. Nenhum
+// valor secreto vai para o diálogo nem para o log.
+
+const AGENT_PREVIEW_TIMEOUT = 15000;
+const AGENT_APPLY_TIMEOUT = 30000;
+const rendererAsks = new Map();
+let agentWriteQueue = Promise.resolve();
+
+function askRenderer(op, request, timeout) {
+  return new Promise((resolve) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      resolve({ success: false, error: 'App sem janela aberta' });
+      return;
+    }
+    const reqId = crypto.randomUUID();
+    const timer = setTimeout(() => {
+      if (rendererAsks.delete(reqId)) resolve({ success: false, error: 'O app não respondeu' });
+    }, timeout);
+    rendererAsks.set(reqId, (result) => { clearTimeout(timer); resolve(result); });
+    mainWindow.webContents.send('agent-write', { reqId, op, request });
+  });
+}
+
+ipcMain.handle('agent-write-result', async (event, reqId, result) => {
+  const done = rendererAsks.get(reqId);
+  if (done) {
+    rendererAsks.delete(reqId);
+    done(result || { success: false, error: 'Resposta vazia' });
+  }
+  return true;
+});
+
+// Texto vindo do agente vai para o diálogo numa linha só e curto
+function oneLine(text, max = 120) {
+  const t = String(text == null ? '' : text).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
+  return t.length > max ? t.slice(0, max - 1) + '…' : t;
+}
+
+function validateAgentRequest(req) {
+  if (!req || typeof req !== 'object' || !req.target) throw new Error('Pedido de gravação inválido');
+  if (!Array.isArray(req.files)) req.files = [];
+  if (req.files.length > attachmentFiles.MAX_ATTACHMENTS_PER_ENTRY) throw new Error('Arquivos demais num pedido');
+  req.files.forEach((f) => {
+    attachmentFiles.verifyAttachment(f);
+    f.name = attachmentFiles.sanitizeName(f.name);
+  });
+  return req;
+}
+
+function agentDialogDetail(plan) {
+  const linhas = [];
+  linhas.push(`Tipo: ${plan.type}`);
+  if (plan.tags.length) linhas.push(`Projeto/tags: ${plan.tags.map((t) => oneLine(t, 60)).join(', ')}`);
+  if (plan.fields.length) {
+    linhas.push('Campos: ' + plan.fields.map((f) => f.label + (f.replaces ? ' (substitui)' : '')).join(', '));
+  }
+  if (plan.customFields.length) {
+    linhas.push('Campos personalizados: ' +
+      plan.customFields.map((c) => oneLine(c.name, 60) + (c.replaces ? ' (substitui)' : '')).join(', '));
+  }
+  if (plan.files.length) {
+    linhas.push('Arquivos:');
+    plan.files.forEach((f) => {
+      linhas.push(`  • ${oneLine(f.name, 80)} — ${attachmentFiles.formatSize(f.size)} — sha256 ${String(f.sha256).slice(0, 12)}…` +
+        (f.replaces ? ' (substitui o anexo atual)' : ''));
+    });
+  }
+  linhas.push('');
+  linhas.push('Os valores não aparecem aqui. Permita só se você pediu isto a um assistente agora.');
+  return linhas.join('\n');
+}
+
+async function processAgentWrite(request) {
+  if (!mainWindow || mainWindow.isDestroyed()) return { success: false, error: 'App sem janela aberta' };
+  validateAgentRequest(request);
+
+  // O resumo não precisa do conteúdo dos arquivos
+  const semConteudo = { ...request, files: request.files.map(({ data, ...meta }) => meta) };
+  const preview = await askRenderer('preview', semConteudo, AGENT_PREVIEW_TIMEOUT);
+  if (!preview.success) return preview;
+  const plan = preview.plan;
+
+  mainWindow.show();
+  mainWindow.focus();
+  const titulo = oneLine(plan.title, 80);
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    title: 'Gravação pedida por um agente',
+    message: plan.mode === 'new'
+      ? `Um agente (MCP) quer CRIAR a entrada "${titulo}"`
+      : `Um agente (MCP) quer ATUALIZAR a entrada "${titulo}"`,
+    detail: agentDialogDetail(plan),
+    buttons: ['Gravar no cofre', 'Recusar'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true
+  });
+  if (response !== 0) {
+    console.log('Gravação de agente recusada pelo usuário');
+    return { success: false, declined: true, error: 'O usuário recusou a gravação no app.' };
+  }
+
+  const result = await askRenderer('apply', request, AGENT_APPLY_TIMEOUT);
+  if (result.success) {
+    console.log(`✅ Gravação de agente aplicada (${result.mode}, ${request.files.length} arquivo(s))`);
+  }
+  return result;
+}
+
+function handleAgentWrite(child, msg) {
+  const responder = (result) => {
+    try { child.send({ type: 'agent_write_result', reqId: msg.reqId, result }); } catch (_) { /* filho encerrado */ }
+  };
+  agentWriteQueue = agentWriteQueue
+    .then(() => processAgentWrite(msg.payload))
+    .then(responder, (err) => responder({ success: false, error: err.message }));
+}
+
+// ===== Anexos pela interface =====
+
+ipcMain.handle('attachment-pick', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Anexar arquivo ao cofre',
+    properties: ['openFile', 'multiSelections']
+  });
+  if (result.canceled || result.filePaths.length === 0) return { success: true, files: [] };
+  try {
+    const files = result.filePaths.map((p) => attachmentFiles.readFileAsAttachment(p));
+    return { success: true, files };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('attachment-save', async (event, att) => {
+  try {
+    attachmentFiles.verifyAttachment(att);
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Salvar anexo',
+      defaultPath: path.join(app.getPath('downloads'), attachmentFiles.sanitizeName(att.name))
+    });
+    if (result.canceled || !result.filePath) return { success: true, canceled: true };
+    // O diálogo do sistema já perguntou se pode substituir
+    const saved = attachmentFiles.writeAttachmentToPath(att, result.filePath, { overwrite: true });
+    return { success: true, path: saved.path };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle('mcp-start', async (event, options) => startMcpServer(options || {}));

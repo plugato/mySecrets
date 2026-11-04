@@ -13,6 +13,9 @@
  *   - Valida o cabeçalho Origin para mitigar DNS rebinding a partir de páginas web.
  *   - POST /pair entrega o token à extensão só depois que o app aprova o id dela.
  *   - Só devolve segredos com o cofre aberto e desbloqueado (via .session).
+ *   - Gravações de agente (store_secret, store_secret_file) sobem ao app por IPC
+ *     e só são aplicadas depois que o usuário confirma no diálogo do app.
+ *     Pedidos com Origin (extensão do navegador) não podem gravar por aí.
  *
  * Configuração por ambiente:
  *   MYSECRETS_MCP_PORT   porta TCP (padrão 8765)
@@ -28,7 +31,8 @@ const vault = require('./vault');
 const PORT = parseInt(process.env.MYSECRETS_MCP_PORT || '8765', 10);
 const HOST = process.env.MYSECRETS_MCP_HOST || '127.0.0.1';
 const TOKEN = process.env.MYSECRETS_MCP_TOKEN || crypto.randomBytes(24).toString('hex');
-const MAX_BODY = 1024 * 1024; // 1MB
+// 4 MB: um anexo de até 1 MB chega em base64 dentro do JSON-RPC
+const MAX_BODY = 4 * 1024 * 1024;
 
 function log(...args) {
   process.stderr.write('[mysecrets-mcp-http] ' + args.join(' ') + '\n');
@@ -90,11 +94,15 @@ function sendJson(res, status, obj, extraHeaders = {}) {
 
 const SAVE_TIMEOUT = 15000;
 const PAIR_TIMEOUT = 60000; // o usuário pode precisar responder a pergunta no app
+// Gravação de agente: espera o usuário ler o diálogo. Fica abaixo dos 300 s de
+// timeout padrão do fetch/undici, usado pelo transporte stdio para repassar.
+const AGENT_WRITE_TIMEOUT = 240000;
+const RESULT_TYPES = new Set(['save_login_result', 'pair_result', 'agent_write_result']);
 const pendingAsks = new Map();
 
 if (process.send) {
   process.on('message', (msg) => {
-    if (!msg || (msg.type !== 'save_login_result' && msg.type !== 'pair_result')) return;
+    if (!msg || !RESULT_TYPES.has(msg.type)) return;
     const p = pendingAsks.get(msg.reqId);
     if (!p) return;
     pendingAsks.delete(msg.reqId);
@@ -155,6 +163,14 @@ async function handlePair(req, res, reply) {
     return reply(403, { error: result.error || 'Conexão recusada no app' });
   }
   return reply(200, { url: `http://${HOST}:${req.socket.localPort}/mcp`, token: TOKEN });
+}
+
+// Contexto das ferramentas MCP: gravação vai ao app, que pede confirmação.
+function toolContext(req) {
+  return {
+    allowWrite: !req.headers.origin,
+    submitWrite: (pedido) => askApp('agent_write', pedido, AGENT_WRITE_TIMEOUT)
+  };
 }
 
 async function handleSaveLogin(msg, reply) {
@@ -228,7 +244,7 @@ const server = http.createServer((req, res) => {
       req.destroy();
     }
   });
-  req.on('end', () => {
+  req.on('end', async () => {
     if (tooBig) return;
     let parsed;
     try {
@@ -239,7 +255,8 @@ const server = http.createServer((req, res) => {
 
     // Aceita mensagem única ou batch
     if (Array.isArray(parsed)) {
-      const responses = parsed.map(dispatch).filter(Boolean);
+      const ctx = toolContext(req);
+      const responses = (await Promise.all(parsed.map((m) => dispatch(m, ctx)))).filter(Boolean);
       // Batch só com notificações → 202 sem corpo
       if (responses.length === 0) {
         res.writeHead(202, cors);
@@ -252,7 +269,7 @@ const server = http.createServer((req, res) => {
       return handleSaveLogin(parsed, reply);
     }
 
-    const response = dispatch(parsed);
+    const response = await dispatch(parsed, toolContext(req));
     if (!response) {
       res.writeHead(202, cors); // notificação
       return res.end();

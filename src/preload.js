@@ -57,6 +57,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Extensão pedindo para salvar um login (via servidor local)
   onExtensionSaveLogin: (callback) => ipcRenderer.on('extension-save-login', (event, data) => callback(data)),
   extensionSaveResult: (reqId, result) => ipcRenderer.invoke('extension-save-result', reqId, result),
+  // Agente (MCP) pedindo para gravar: resumo para o diálogo e, aprovado, gravação
+  onAgentWrite: (callback) => ipcRenderer.on('agent-write', (event, data) => callback(data)),
+  agentWriteResult: (reqId, result) => ipcRenderer.invoke('agent-write-result', reqId, result),
+
+  // Anexos de arquivo (seletor e "Salvar como" ficam no processo principal)
+  attachmentPick: () => ipcRenderer.invoke('attachment-pick'),
+  attachmentSave: (attachment) => ipcRenderer.invoke('attachment-save', attachment),
   
   // Utilidades
   generatePassword: (length = 16, includeSymbols = true) => {

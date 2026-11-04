@@ -2,7 +2,7 @@
   "mcpServers": {
     "mysecrets": {
       "command": "node",
-      "args": ["/home/ancalagon/mySecrets/mcp-server/index.js"]
+      "args": ["/caminho/para/mySecrets/mcp-server/index.js"]
     }
   }
 }

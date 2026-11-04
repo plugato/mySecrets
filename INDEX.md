@@ -55,6 +55,14 @@ make                  # Ver todos os comandos
 
 ---
 
+### 🤖 SERVIDOR MCP (ASSISTENTES DE IA)
+
+| Documento | Descrição |
+|-----------|-----------|
+| **[mcp-server/README.md](mcp-server/README.md)** | Ferramentas de leitura e gravação, anexos de arquivo, configuração no Claude Code |
+
+---
+
 ### 📖 GUIAS PRÁTICOS
 
 | Documento | Descrição |
@@ -159,6 +167,11 @@ docs/
 - [docs/extension/INTEGRACAO_EXTENSAO.md](docs/extension/INTEGRACAO_EXTENSAO.md) - Integração
 - [docs/guides/INSTALAR_INTEGRACAO.txt](docs/guides/INSTALAR_INTEGRACAO.txt) - Instalação visual
 - [docs/summaries/RESUMO_INTEGRACAO.md](docs/summaries/RESUMO_INTEGRACAO.md) - Resumo técnico
+
+### Servidor MCP e anexos
+- [mcp-server/README.md](mcp-server/README.md) - `store_secret`, `store_secret_file`, `get_secret_file`
+- Fluxo: agente chama a ferramenta → app mostra o diálogo (entrada, arquivos, tamanhos) → você aprova → grava no cofre cifrado
+- Configurar no Claude Code: `make mcp-config`
 
 ### Instalação
 - [docs/user/INSTALLATION.md](docs/user/INSTALLATION.md) - Detalhado

@@ -518,8 +518,14 @@
             <div class="modal-body">
                 <p class="mcp-intro">
                     Permite que assistentes de IA (Claude Code, Claude Desktop, etc.) acessem
-                    suas senhas, tokens e códigos OTP de forma segura — apenas enquanto o cofre
-                    estiver <strong>aberto e desbloqueado</strong>.
+                    suas senhas, tokens, códigos OTP e arquivos anexados de forma segura — apenas
+                    enquanto o cofre estiver <strong>aberto e desbloqueado</strong>.
+                </p>
+                <p class="mcp-intro">
+                    Um agente também pode <strong>gravar</strong> segredos e arquivos
+                    (<code>store_secret</code>, <code>store_secret_file</code>): cada gravação abre
+                    um diálogo aqui mostrando a entrada e os arquivos, e só acontece se você aprovar.
+                    Para isso o servidor precisa estar ligado.
                 </p>
 
                 <div class="mcp-status-panel">
@@ -753,6 +759,7 @@
 
     <script src="jsQR.js"></script>
     <script src="proton-pass-import.js"></script>
+    <script src="agent-write.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

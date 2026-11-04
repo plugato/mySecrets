@@ -459,7 +459,7 @@ mcp-config:
 	@echo "$(BLUE)═══════════════════════════════════════════════════════$(NC)"
 	@echo ""
 	@echo "$(YELLOW)Claude Code:$(NC)"
-	@echo "  $(GREEN)claude mcp add mysecrets -- node $(shell pwd)/mcp-server/index.js$(NC)"
+	@echo "  $(GREEN)claude mcp add --scope user mysecrets -- node $(shell pwd)/mcp-server/index.js$(NC)"
 	@echo ""
 	@echo "$(YELLOW)Claude Desktop / .mcp.json:$(NC)"
 	@echo '  {'
@@ -470,6 +470,9 @@ mcp-config:
 	@echo '      }'
 	@echo '    }'
 	@echo '  }'
+	@echo ""
+	@echo "$(YELLOW)Gravar (store_secret / store_secret_file):$(NC) app aberto, desbloqueado,"
+	@echo "  servidor local ligado (MCP > Iniciar servidor) e confirmar o diálogo no app."
 	@echo ""
 	@echo "$(BLUE)Detalhes: mcp-server/README.md$(NC)"
 

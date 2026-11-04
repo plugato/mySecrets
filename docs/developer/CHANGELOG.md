@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-11-04
+
+### Added
+- File attachments: an entry can hold one or more files (original name, type, size, sha256, note), up to 1 MB each. The content lives inside the encrypted vault (`entry.attachments[]`, base64), so it uses the same AES-256-GCM file, automatic backups and Google Drive sync. The entry details show the list with "Baixar" (save dialog, file written with mode 600) and remove, plus "Anexar arquivo" (file picker). Search also matches attachment names.
+- MCP write tools: `store_secret` (create/update an entry with text fields, custom fields and files) and `store_secret_file` (attach one local file). Each write is sent to the app, which re-checks size and sha256 and shows a native confirmation dialog (create or update, entry title, project/tags, names of changed fields, file names, sizes and sha256 prefix, what gets replaced) before saving. Values are never shown in the dialog or logged. Declining returns `declined: true` to the agent.
+- MCP read tool `get_secret_file` saves an attachment to a local absolute path (mode 600, no overwrite unless `overwrite: true`). `get_credentials` now also returns `token`, `customFields` and attachment metadata; listings include attachment metadata and custom field names.
+- `project` argument maps to a tag (e.g. `tcg-scanner`) so a project's secrets group together in the sidebar tag filter.
+- The stdio MCP server forwards writes to the app's local server, found through the new `<userData>/.mcp-endpoint` file (port, written while the server runs) and the existing `.mcp-token`.
+
+### Security
+- Writes only work with the app open and unlocked, go through the app (never written by the MCP process), and are refused for requests carrying an `Origin` header (the browser extension). Requests are queued so only one dialog shows at a time.
+
+### Compatibility
+- No vault migration is needed: entries without `attachments` behave as before and the encryption envelope is unchanged (v2). Older app versions open the vault normally but drop attachments of an entry they edit through the form, so update every synced PC.
+
 ## [1.9.1] - 2026-11-03
 
 ### Fixed

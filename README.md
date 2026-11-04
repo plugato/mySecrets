@@ -25,6 +25,8 @@ make dev
 ✅ **Armazena senhas** de forma criptografada (AES-256)  
 ✅ **Gera códigos 2FA** (TOTP/HOTP)  
 ✅ **Extensão Chrome** para autofill automático  
+✅ **Guarda arquivos** (keystore, `.pem`, `.json`, `.env`) cifrados dentro do cofre  
+✅ **Servidor MCP** para assistentes de IA lerem e (com sua confirmação) gravarem segredos  
 ✅ **100% offline** - seus dados nunca saem do seu computador  
 
 ---
@@ -36,6 +38,8 @@ make dev
 - 🔑 Gerenciamento de senhas
 - 📱 Geração de códigos MFA (TOTP/HOTP)
 - 💾 Backup/restore
+- 📎 Anexos de arquivo por entrada (até 1 MB cada), cifrados no mesmo cofre e sincronizados
+- 🏷️ Tags para agrupar por projeto (ex.: `tcg-scanner`), com filtro na barra lateral
 - 🎨 Interface moderna
 
 ### Extensão Chrome
@@ -43,6 +47,14 @@ make dev
 - 🔄 Integração com app desktop (servidor local + token)
 - ⌨️ Atalhos de teclado (`Ctrl+Shift+A`)
 - 🔒 Sem cópia do cofre no navegador: tudo vem do app desbloqueado
+
+### Servidor MCP (assistentes de IA)
+- Ferramentas de leitura: `list_secrets`, `search_secrets`, `get_credentials`, `get_otp`, `get_secret_file`
+- Ferramentas de gravação: `store_secret`, `store_secret_file` — cada gravação abre um diálogo no app
+  com o nome da entrada e os nomes/tamanhos dos arquivos, e só grava se você aprovar
+- Configurar no Claude Code: `make mcp-config` ou
+  `claude mcp add --scope user mysecrets -- node $(pwd)/mcp-server/index.js`
+- Detalhes: **[mcp-server/README.md](mcp-server/README.md)**
 
 ---
 
@@ -111,6 +123,9 @@ make ext-integrate
 #### 🌐 Extensão Chrome
 - **[docs/extension/INTEGRACAO_EXTENSAO.md](docs/extension/INTEGRACAO_EXTENSAO.md)** - Integração com app
 - **[docs/extension/LEIA_ME_EXTENSAO.md](docs/extension/LEIA_ME_EXTENSAO.md)** - README da extensão
+
+#### 🤖 Servidor MCP
+- **[mcp-server/README.md](mcp-server/README.md)** - Ferramentas, gravação por agente com confirmação, anexos
 
 #### 📖 Guias Práticos
 - **[docs/guides/EXECUTAR_PROJETO.md](docs/guides/EXECUTAR_PROJETO.md)** - Executar e buildar

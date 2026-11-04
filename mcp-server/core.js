@@ -8,15 +8,23 @@
  */
 
 const vault = require('./vault');
+const files = require('./files');
 
-const SERVER_INFO = { name: 'mysecrets', version: '1.0.0' };
+const SERVER_INFO = { name: 'mysecrets', version: '1.1.0' };
+
+// Ferramentas que GRAVAM no cofre. Só rodam com o app aberto e desbloqueado e
+// cada chamada pede confirmação ao usuário na janela do app.
+const WRITE_TOOLS = new Set(['store_secret', 'store_secret_file']);
 const PROTOCOL_VERSION = '2024-11-05';
 
 // ===== Utilidades de busca =====
 
 function scoreMatch(entry, query) {
   const q = query.toLowerCase();
-  const fields = [entry.title, entry.url, entry.username, ...(entry.tags || [])]
+  const fields = [
+    entry.title, entry.url, entry.username, ...(entry.tags || []),
+    ...((entry.attachments || []).map((a) => a && a.name))
+  ]
     .filter(Boolean)
     .map((f) => String(f).toLowerCase());
 
@@ -58,7 +66,112 @@ function publicView(e) {
     tags: e.tags || [],
     hasPassword: !!e.password,
     hasOtp: !!(e.mfaSecret || e.linkedMfaId),
-    notes: e.type === 'note' ? e.notes : undefined
+    notes: e.type === 'note' ? e.notes : undefined,
+    customFields: (e.customFields || []).map((c) => c.name),
+    attachments: (e.attachments || []).map(files.attachmentMeta)
+  };
+}
+
+// ===== Pedido de gravação (agente -> app) =====
+//
+// Valida os argumentos da ferramenta e monta o pedido que o app aplica depois
+// da confirmação do usuário (ver src/renderer/agent-write.js). Arquivos são
+// lidos aqui, do caminho local, e seguem com tamanho e sha256.
+
+const TEXT_LIMITS = { username: 512, password: 4096, url: 2048, token: 16384, tokenType: 32, notes: 20000 };
+
+function str(value, label, max, { required = false } = {}) {
+  if (value === undefined || value === null) {
+    if (required) throw new Error(`Informe "${label}".`);
+    return undefined;
+  }
+  if (typeof value !== 'string') throw new Error(`"${label}" precisa ser texto.`);
+  if (required && !value.trim()) throw new Error(`Informe "${label}".`);
+  if (value.length > max) throw new Error(`"${label}" passa do limite de ${max} caracteres.`);
+  return value;
+}
+
+function buildTarget(args) {
+  const id = str(args.id, 'id', 128);
+  const title = str(args.title, 'title', 200, { required: !id });
+  return { id: id || undefined, title: title ? title.trim() : undefined };
+}
+
+function buildCommon(args) {
+  const project = str(args.project, 'project', 60);
+  let tags = [];
+  if (args.tags !== undefined) {
+    if (!Array.isArray(args.tags) || args.tags.length > 20) throw new Error('"tags" precisa ser uma lista (até 20).');
+    tags = args.tags.map((t) => str(t, 'tags[]', 60)).filter((t) => t && t.trim());
+  }
+  return { project: project && project.trim() ? project.trim() : undefined, tags };
+}
+
+function buildFile(spec, label) {
+  if (!spec || typeof spec !== 'object') throw new Error(`"${label}" inválido.`);
+  const filePath = str(spec.path, `${label}.path`, 4096, { required: true });
+  return files.readFileAsAttachment(filePath, {
+    name: str(spec.name, `${label}.name`, files.MAX_NAME_LENGTH),
+    mime: str(spec.mime, `${label}.mime`, 100),
+    note: str(spec.note, `${label}.note`, files.MAX_NOTE_LENGTH)
+  });
+}
+
+function buildWriteRequest(name, args = {}) {
+  const req = { target: buildTarget(args), ...buildCommon(args) };
+
+  if (name === 'store_secret') {
+    if (args.type !== undefined && !['login', 'token', 'note'].includes(args.type)) {
+      throw new Error('"type" precisa ser login, token ou note.');
+    }
+    req.type = args.type;
+    const fields = {};
+    for (const [k, max] of Object.entries(TEXT_LIMITS)) {
+      const v = str(args[k], k, max);
+      if (v !== undefined) fields[k] = v;
+    }
+    req.fields = fields;
+    if (args.customFields !== undefined) {
+      if (!Array.isArray(args.customFields) || args.customFields.length > 50) {
+        throw new Error('"customFields" precisa ser uma lista (até 50).');
+      }
+      req.customFields = args.customFields.map((cf, i) => {
+        if (!cf || typeof cf !== 'object') throw new Error(`customFields[${i}] inválido.`);
+        return {
+          name: str(cf.name, `customFields[${i}].name`, 100, { required: true }).trim(),
+          value: str(cf.value, `customFields[${i}].value`, 16384, { required: true }),
+          type: cf.type === 'password' ? 'password' : 'text'
+        };
+      });
+    }
+    const lista = args.files === undefined ? [] : args.files;
+    if (!Array.isArray(lista)) throw new Error('"files" precisa ser uma lista.');
+    req.files = lista.map((f, i) => buildFile(f, `files[${i}]`));
+  } else {
+    // store_secret_file: um arquivo, com nota opcional
+    req.files = [buildFile({ path: args.path, name: args.name, mime: args.mime, note: args.note }, 'arquivo')];
+  }
+
+  if (req.files.length > files.MAX_ATTACHMENTS_PER_ENTRY) {
+    throw new Error(`No máximo ${files.MAX_ATTACHMENTS_PER_ENTRY} arquivos por gravação.`);
+  }
+  const nomes = req.files.map((f) => f.name);
+  if (new Set(nomes).size !== nomes.length) throw new Error('Dois arquivos com o mesmo nome na mesma gravação.');
+
+  const temAlgo = Object.keys(req.fields || {}).length || (req.customFields || []).length || req.files.length ||
+    req.project || req.tags.length;
+  if (!temAlgo) throw new Error('Nada para gravar: informe campos, customFields ou files.');
+  return req;
+}
+
+// Resumo do pedido para respostas e logs: nunca inclui valores nem conteúdo.
+function describeRequest(req) {
+  return {
+    target: req.target,
+    project: req.project || null,
+    fields: Object.keys(req.fields || {}),
+    customFields: (req.customFields || []).map((c) => c.name),
+    files: req.files.map((f) => ({ name: f.name, size: f.size, sha256: f.sha256 }))
   };
 }
 
@@ -97,7 +210,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        type: { type: 'string', enum: ['login', 'mfa', 'note'], description: 'Filtra por tipo.' },
+        type: { type: 'string', enum: ['login', 'mfa', 'token', 'note'], description: 'Filtra por tipo.' },
         limit: { type: 'number', description: 'Máximo de itens (padrão 100).' }
       },
       additionalProperties: false
@@ -111,8 +224,8 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Texto de busca (ex.: "github", "gitlab.empresa").' },
-        type: { type: 'string', enum: ['login', 'mfa', 'note'] }
+        query: { type: 'string', description: 'Texto de busca (ex.: "github", "gitlab.empresa", "tcg-scanner").' },
+        type: { type: 'string', enum: ['login', 'mfa', 'token', 'note'] }
       },
       required: ['query'],
       additionalProperties: false
@@ -121,8 +234,9 @@ const TOOLS = [
   {
     name: 'get_credentials',
     description:
-      'Retorna usuário e senha de uma entrada. Identifique por "id" (preferível) ' +
-      'ou por "query" (busca textual). Se houver OTP vinculado, retorna o código atual.',
+      'Retorna usuário, senha, token, notas e campos personalizados de uma entrada. ' +
+      'Identifique por "id" (preferível) ou por "query" (busca textual). Se houver OTP ' +
+      'vinculado, retorna o código atual. Anexos aparecem só como metadados: use get_secret_file.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -143,6 +257,102 @@ const TOOLS = [
         id: { type: 'string', description: 'ID exato da entrada.' },
         query: { type: 'string', description: 'Texto para localizar a entrada.' }
       },
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'get_secret_file',
+    description:
+      'Salva um arquivo anexado a uma entrada (keystore, .pem, .json, .env...) num caminho ' +
+      'local. O conteúdo não volta na resposta, só metadados (tamanho, sha256). O arquivo ' +
+      'é gravado com permissão 600 e não sobrescreve um existente sem overwrite: true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'ID exato da entrada.' },
+        query: { type: 'string', description: 'Texto para localizar a entrada (título, tag, nome do anexo).' },
+        name: { type: 'string', description: 'Nome do anexo. Opcional se a entrada tiver um só.' },
+        attachmentId: { type: 'string', description: 'ID do anexo (alternativa a "name").' },
+        outPath: { type: 'string', description: 'Caminho ABSOLUTO onde gravar o arquivo.' },
+        overwrite: { type: 'boolean', description: 'Substitui o arquivo de destino se já existir (padrão false).' }
+      },
+      required: ['outPath'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'store_secret',
+    description:
+      'Cria ou atualiza uma entrada no cofre com campos de texto e, opcionalmente, arquivos. ' +
+      'Com "id" atualiza essa entrada; sem id, atualiza a entrada ativa com o mesmo título ' +
+      '(preferindo a do mesmo projeto) ou cria uma nova. Só os campos informados mudam; ' +
+      'customFields e anexos com o mesmo nome são substituídos. O usuário precisa CONFIRMAR ' +
+      'no app (a chamada espera até 4 minutos pela resposta). Requer o app aberto, ' +
+      'desbloqueado e com o servidor local ligado.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'ID da entrada a atualizar.' },
+        title: { type: 'string', description: 'Título da entrada (obrigatório sem id).' },
+        type: { type: 'string', enum: ['login', 'token', 'note'], description: 'Tipo ao criar (padrão: deduzido dos campos).' },
+        project: { type: 'string', description: 'Projeto/grupo; vira uma tag (ex.: "tcg-scanner").' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Tags extras.' },
+        username: { type: 'string' },
+        password: { type: 'string' },
+        url: { type: 'string' },
+        token: { type: 'string' },
+        tokenType: { type: 'string', description: 'api, jwt, bearer, oauth, access, secret...' },
+        notes: { type: 'string' },
+        customFields: {
+          type: 'array',
+          description: 'Campos extras, ex.: [{"name":"storePassword","value":"...","type":"password"}].',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              value: { type: 'string' },
+              type: { type: 'string', enum: ['text', 'password'] }
+            },
+            required: ['name', 'value']
+          }
+        },
+        files: {
+          type: 'array',
+          description: 'Arquivos a anexar, lidos de caminhos locais absolutos.',
+          items: {
+            type: 'object',
+            properties: {
+              path: { type: 'string', description: 'Caminho absoluto do arquivo.' },
+              name: { type: 'string', description: 'Nome no cofre (padrão: nome do arquivo).' },
+              note: { type: 'string' },
+              mime: { type: 'string' }
+            },
+            required: ['path']
+          }
+        }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'store_secret_file',
+    description:
+      'Anexa UM arquivo local (até 1 MB, binário ou texto) a uma entrada do cofre. Com "id" ' +
+      'usa essa entrada; sem id, usa a entrada com o mesmo título (ou cria uma nota segura). ' +
+      'Um anexo com o mesmo nome é substituído. O usuário precisa CONFIRMAR no app.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Caminho ABSOLUTO do arquivo a guardar.' },
+        id: { type: 'string', description: 'ID da entrada.' },
+        title: { type: 'string', description: 'Título da entrada (obrigatório sem id).' },
+        project: { type: 'string', description: 'Projeto/grupo; vira uma tag.' },
+        tags: { type: 'array', items: { type: 'string' } },
+        name: { type: 'string', description: 'Nome no cofre (padrão: nome do arquivo).' },
+        note: { type: 'string', description: 'Nota sobre o arquivo.' },
+        mime: { type: 'string' }
+      },
+      required: ['path'],
       additionalProperties: false
     }
   }
@@ -192,8 +402,17 @@ function callTool(name, args = {}) {
         username: entry.username || null,
         password: entry.password || null,
         url: entry.url || null,
-        notes: entry.notes || null
+        notes: entry.notes || null,
+        tags: entry.tags || []
       };
+      if (entry.token) {
+        result.token = entry.token;
+        result.tokenType = entry.tokenType || null;
+      }
+      if ((entry.customFields || []).length) {
+        result.customFields = entry.customFields.map((c) => ({ name: c.name, value: c.value, type: c.type || 'text' }));
+      }
+      if ((entry.attachments || []).length) result.attachments = entry.attachments.map(files.attachmentMeta);
       const otp = resolveOtp(entry, entries);
       if (otp) result.otp = otp;
       if (matches.length > 1) {
@@ -224,9 +443,66 @@ function callTool(name, args = {}) {
       };
     }
 
+    case 'get_secret_file': {
+      if (!args.id && !args.query) throw new Error('Informe "id" ou "query".');
+      const entries = vault.loadEntries();
+      const matches = findEntries(entries, { id: args.id, query: args.query })
+        .filter((e) => (e.attachments || []).length > 0);
+      if (matches.length === 0) throw new Error('Nenhuma entrada com anexos encontrada.');
+      const entry = matches[0];
+      const anexos = entry.attachments;
+      let att;
+      if (args.attachmentId) att = anexos.find((a) => a.id === args.attachmentId);
+      else if (args.name) att = anexos.find((a) => a.name === args.name);
+      else if (anexos.length === 1) att = anexos[0];
+      else {
+        throw new Error(`A entrada "${entry.title}" tem ${anexos.length} anexos; informe "name": ` +
+          anexos.map((a) => a.name).join(', '));
+      }
+      if (!att) throw new Error(`Anexo não encontrado em "${entry.title}".`);
+      const saved = files.writeAttachmentToPath(att, args.outPath, { overwrite: args.overwrite === true });
+      return {
+        saved: true,
+        entry: { id: entry.id, title: entry.title },
+        attachment: files.attachmentMeta(att),
+        path: saved.path
+      };
+    }
+
     default:
       throw new Error(`Ferramenta desconhecida: ${name}`);
   }
+}
+
+/**
+ * Ferramentas de gravação. Quem grava é o app: ctx.submitWrite(pedido) leva o
+ * pedido até ele (transporte HTTP, por IPC); ctx.forward(nome, args) repassa a
+ * chamada inteira ao servidor HTTP do app (transporte stdio). Sem nenhum dos
+ * dois, a gravação é recusada.
+ */
+async function callWriteTool(name, args, ctx) {
+  if (ctx.forward) return ctx.forward(name, args);
+  if (!ctx.submitWrite) throw new Error('Gravação indisponível neste transporte.');
+  if (ctx.allowWrite === false) throw new Error('Gravação não é permitida para este cliente.');
+
+  const s = vault.checkSession();
+  if (!s.valid) throw new vault.VaultLockedError(s.reason);
+  if (!s.unlocked) throw new vault.VaultLockedError('LOCKED');
+
+  const req = buildWriteRequest(name, args);
+  const result = await ctx.submitWrite(req);
+  if (!result || !result.success) {
+    const e = new Error((result && result.error) || 'O app não gravou.');
+    if (result && result.declined) e.declined = true;
+    throw e;
+  }
+  return {
+    saved: true,
+    mode: result.mode,
+    id: result.id,
+    title: result.title,
+    ...describeRequest(req)
+  };
 }
 
 // ===== Dispatcher JSON-RPC (independente de transporte) =====
@@ -234,7 +510,7 @@ function callTool(name, args = {}) {
 // Retorna o objeto de resposta JSON-RPC, ou null para notificações
 // (mensagens sem id, que não devem receber resposta).
 
-function dispatch(msg) {
+async function dispatch(msg, ctx = {}) {
   const { id, method, params } = msg;
   const isNotification = id === undefined || id === null;
 
@@ -259,7 +535,9 @@ function dispatch(msg) {
       const toolName = params && params.name;
       const toolArgs = (params && params.arguments) || {};
       try {
-        const data = callTool(toolName, toolArgs);
+        const data = WRITE_TOOLS.has(toolName)
+          ? await callWriteTool(toolName, toolArgs, ctx)
+          : callTool(toolName, toolArgs);
         return ok({ content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] });
       } catch (e) {
         const locked = e instanceof vault.VaultLockedError;
@@ -267,7 +545,12 @@ function dispatch(msg) {
           isError: true,
           content: [{
             type: 'text',
-            text: JSON.stringify({ error: e.message, locked: locked || undefined, reason: e.reason || undefined })
+            text: JSON.stringify({
+              error: e.message,
+              locked: locked || undefined,
+              reason: e.reason || undefined,
+              declined: e.declined || undefined
+            })
           }]
         });
       }
@@ -278,4 +561,14 @@ function dispatch(msg) {
   }
 }
 
-module.exports = { TOOLS, callTool, dispatch, SERVER_INFO, PROTOCOL_VERSION };
+module.exports = {
+  TOOLS,
+  WRITE_TOOLS,
+  callTool,
+  callWriteTool,
+  buildWriteRequest,
+  describeRequest,
+  dispatch,
+  SERVER_INFO,
+  PROTOCOL_VERSION
+};

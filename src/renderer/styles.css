@@ -1629,6 +1629,63 @@ textarea.input-field {
     font-size: 0.95rem;
 }
 
+/* ---------- Anexos de arquivo ---------- */
+.attachment-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 1rem;
+    background: var(--background-secondary);
+    border-radius: var(--radius);
+    margin-bottom: 0.5rem;
+}
+
+.attachment-icon {
+    color: var(--secondary-color);
+    font-size: 1.2rem;
+}
+
+.attachment-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.attachment-name {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.attachment-meta {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.custom-field-copy-btn.attachment-remove {
+    background: var(--danger-light);
+    color: var(--danger-color);
+}
+
+.custom-field-copy-btn.attachment-remove:hover {
+    background: var(--danger-color);
+    color: #fff;
+}
+
+.attachment-add {
+    margin-top: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.attachment-hint {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
 /* ============================================================
    Visão Geral MFA
    ============================================================ */
