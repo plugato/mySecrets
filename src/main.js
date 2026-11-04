@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, ipcMain, dialog, safeStorage, clipboard, nativeImage, globalShortcut, powerMonitor, shell } = require('electron');
+const { app, BrowserWindow, Menu, Tray, ipcMain, dialog, safeStorage, clipboard, nativeImage, globalShortcut, powerMonitor, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -7,6 +7,7 @@ const { execFile, spawn } = require('child_process');
 const vaultCrypto = require('./lib/vault-crypto');
 const vaultSync = require('./lib/vault-sync');
 const googleDrive = require('./lib/google-drive');
+const { createAgentWriteQueue } = require('./lib/agent-queue');
 // Anexos de arquivo (ler/conferir/gravar em disco): módulo Node puro, também
 // usado pelo servidor MCP
 const attachmentFiles = require('../mcp-server/files');
@@ -788,6 +789,10 @@ function handleMcpMessage(child, msg) {
     handleAgentWrite(child, msg);
     return;
   }
+  if (msg && msg.type === 'agent_write_cancel') {
+    agentQueue.cancel(msg.reqId);
+    return;
+  }
   if (msg && msg.type === 'pair_request') {
     approveExtension(msg.payload && msg.payload.origin).then((ok) => {
       const result = ok ? { success: true } : { success: false, error: 'Conexão recusada no app' };
@@ -868,17 +873,23 @@ ipcMain.handle('extension-save-result', async (event, reqId, result) => {
 // ===== Gravação pedida por agente (MCP store_secret / store_secret_file) =====
 //
 // O servidor local repassa o pedido por IPC. O app confere os anexos (tamanho
-// e sha256), pede ao renderer um resumo (entrada nova ou existente, campos que
-// mudam, arquivos substituídos), mostra um diálogo nativo e só grava se o
-// usuário aprovar. Os pedidos entram numa fila: um diálogo por vez. Nenhum
-// valor secreto vai para o diálogo nem para o log.
+// e sha256) e põe o pedido numa fila (src/lib/agent-queue.js). Na vez dele, o
+// renderer mostra um modal de confirmação em destaque, dentro do app, com o
+// resumo (entrada nova ou existente, campos que mudam, arquivos) e o tempo
+// restante. Se a janela estiver atrás de outras, minimizada ou na bandeja, o
+// app chama atenção (notificação, piscar na barra de tarefas, indicador na
+// bandeja). Só grava com o clique em "Gravar no cofre". Nenhum valor secreto
+// vai para o modal, a notificação ou o log.
+//
+// Prazos (do menor para o maior, para o agente sempre receber o resultado
+// verdadeiro): confirmação 240 s desde a chegada (inclui a fila) + gravação até
+// 10 s  <  http-server 260 s  <  index.js (stdio) 275 s.
 
-const AGENT_PREVIEW_TIMEOUT = 15000;
-const AGENT_APPLY_TIMEOUT = 30000;
+const AGENT_WRITE_WINDOW = 240000;
+const AGENT_APPLY_TIMEOUT = 10000;
 const rendererAsks = new Map();
-let agentWriteQueue = Promise.resolve();
 
-function askRenderer(op, request, timeout) {
+function askRenderer(op, payload, timeout) {
   return new Promise((resolve) => {
     if (!mainWindow || mainWindow.isDestroyed()) {
       resolve({ success: false, error: 'App sem janela aberta' });
@@ -889,7 +900,7 @@ function askRenderer(op, request, timeout) {
       if (rendererAsks.delete(reqId)) resolve({ success: false, error: 'O app não respondeu' });
     }, timeout);
     rendererAsks.set(reqId, (result) => { clearTimeout(timer); resolve(result); });
-    mainWindow.webContents.send('agent-write', { reqId, op, request });
+    mainWindow.webContents.send('agent-write', { reqId, op, ...payload });
   });
 }
 
@@ -902,7 +913,7 @@ ipcMain.handle('agent-write-result', async (event, reqId, result) => {
   return true;
 });
 
-// Texto vindo do agente vai para o diálogo numa linha só e curto
+// Texto vindo do agente vai para a notificação numa linha só e curto
 function oneLine(text, max = 120) {
   const t = String(text == null ? '' : text).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
   return t.length > max ? t.slice(0, max - 1) + '…' : t;
@@ -919,73 +930,118 @@ function validateAgentRequest(req) {
   return req;
 }
 
-function agentDialogDetail(plan) {
-  const linhas = [];
-  linhas.push(`Tipo: ${plan.type}`);
-  if (plan.tags.length) linhas.push(`Projeto/tags: ${plan.tags.map((t) => oneLine(t, 60)).join(', ')}`);
-  if (plan.fields.length) {
-    linhas.push('Campos: ' + plan.fields.map((f) => f.label + (f.replaces ? ' (substitui)' : '')).join(', '));
-  }
-  if (plan.customFields.length) {
-    linhas.push('Campos personalizados: ' +
-      plan.customFields.map((c) => oneLine(c.name, 60) + (c.replaces ? ' (substitui)' : '')).join(', '));
-  }
-  if (plan.files.length) {
-    linhas.push('Arquivos:');
-    plan.files.forEach((f) => {
-      linhas.push(`  • ${oneLine(f.name, 80)} — ${attachmentFiles.formatSize(f.size)} — sha256 ${String(f.sha256).slice(0, 12)}…` +
-        (f.replaces ? ' (substitui o anexo atual)' : ''));
-    });
-  }
-  linhas.push('');
-  linhas.push('Os valores não aparecem aqui. Permita só se você pediu isto a um assistente agora.');
-  return linhas.join('\n');
-}
+// ----- Chamar atenção -----
 
-async function processAgentWrite(request) {
-  if (!mainWindow || mainWindow.isDestroyed()) return { success: false, error: 'App sem janela aberta' };
-  validateAgentRequest(request);
+let agentNotification = null;
+let alwaysOnTopTimer = null;
 
-  // O resumo não precisa do conteúdo dos arquivos
-  const semConteudo = { ...request, files: request.files.map(({ data, ...meta }) => meta) };
-  const preview = await askRenderer('preview', semConteudo, AGENT_PREVIEW_TIMEOUT);
-  if (!preview.success) return preview;
-  const plan = preview.plan;
-
+function showAndFocusWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
+  mainWindow.moveTop();
   mainWindow.focus();
-  const titulo = oneLine(plan.title, 80);
-  const { response } = await dialog.showMessageBox(mainWindow, {
-    type: 'question',
-    title: 'Gravação pedida por um agente',
-    message: plan.mode === 'new'
-      ? `Um agente (MCP) quer CRIAR a entrada "${titulo}"`
-      : `Um agente (MCP) quer ATUALIZAR a entrada "${titulo}"`,
-    detail: agentDialogDetail(plan),
-    buttons: ['Gravar no cofre', 'Recusar'],
-    defaultId: 1,
-    cancelId: 1,
-    noLink: true
-  });
-  if (response !== 0) {
-    console.log('Gravação de agente recusada pelo usuário');
-    return { success: false, declined: true, error: 'O usuário recusou a gravação no app.' };
+}
+
+function stopAttention() {
+  if (alwaysOnTopTimer) {
+    clearTimeout(alwaysOnTopTimer);
+    alwaysOnTopTimer = null;
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setAlwaysOnTop(false);
+    mainWindow.flashFrame(false);
+  }
+  if (agentNotification) {
+    try { agentNotification.close(); } catch (_) {}
+    agentNotification = null;
+  }
+}
+
+function callAttention(job) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const wasFocused = mainWindow.isFocused();
+  const inTray = !mainWindow.isVisible() && !mainWindow.isMinimized();
+  console.log(`Pedido de gravação de agente: janela ${wasFocused ? 'em foco' : inTray ? 'na bandeja' : mainWindow.isMinimized() ? 'minimizada' : 'sem foco'}`);
+
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  if (!inTray && !wasFocused) {
+    // Sobe a janela por um instante (sem deixá-la presa no topo) e tenta o foco.
+    // Em desktops Linux com prevenção de roubo de foco, o piscar e a
+    // notificação abaixo cobrem o caso em que o foco não vem.
+    mainWindow.show();
+    mainWindow.setAlwaysOnTop(true);
+    mainWindow.moveTop();
+    mainWindow.focus();
+    if (process.platform === 'darwin') app.focus({ steal: true });
+    if (alwaysOnTopTimer) clearTimeout(alwaysOnTopTimer);
+    alwaysOnTopTimer = setTimeout(() => {
+      alwaysOnTopTimer = null;
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setAlwaysOnTop(false);
+    }, 2000);
   }
 
-  const result = await askRenderer('apply', request, AGENT_APPLY_TIMEOUT);
-  if (result.success) {
-    console.log(`✅ Gravação de agente aplicada (${result.mode}, ${request.files.length} arquivo(s))`);
+  if (!wasFocused) {
+    mainWindow.flashFrame(true); // pisca na barra de tarefas até o usuário focar
+    if (Notification.isSupported()) {
+      const titulo = oneLine(job.request.target.title || 'entrada existente', 80);
+      const qtd = job.request.files.length;
+      if (agentNotification) {
+        try { agentNotification.close(); } catch (_) {}
+      }
+      agentNotification = new Notification({
+        title: 'Pedido de gravação no cofre',
+        body: `Entrada: "${titulo}"${qtd ? ` (${qtd} arquivo${qtd > 1 ? 's' : ''})` : ''}. ` +
+          'Abra o MySecrets para aprovar ou recusar.',
+        urgency: 'critical'
+      });
+      // Clicar só abre o app no modal; nunca grava nada
+      agentNotification.on('click', () => showAndFocusWindow());
+      agentNotification.show();
+    }
   }
-  return result;
 }
+
+// ----- Fila -----
+
+const agentQueue = createAgentWriteQueue({
+  windowMs: AGENT_WRITE_WINDOW,
+  applyTimeoutMs: AGENT_APPLY_TIMEOUT,
+  confirm: (job) => askRenderer('confirm', {
+    jobId: job.id,
+    deadline: job.deadline,
+    total: agentQueue.pending(),
+    // O resumo não precisa do conteúdo dos arquivos
+    request: { ...job.request, files: job.request.files.map(({ data, ...meta }) => meta) }
+  }, job.deadline - Date.now() + 1000),
+  apply: (job) => askRenderer('apply', { jobId: job.id, request: job.request }, AGENT_APPLY_TIMEOUT),
+  cancelConfirm: (job) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('agent-write-cancel', job.id);
+  },
+  onShow: (job) => callAttention(job),
+  onCount: (n) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('agent-write-count', n);
+    updateTrayIndicator(n);
+    if (n === 0) stopAttention();
+  }
+});
 
 function handleAgentWrite(child, msg) {
   const responder = (result) => {
+    if (result && result.success) {
+      console.log(`✅ Gravação de agente aplicada (${result.mode})`);
+    } else {
+      console.log('Gravação de agente não aplicada:', (result && result.error) || 'sem resposta');
+    }
     try { child.send({ type: 'agent_write_result', reqId: msg.reqId, result }); } catch (_) { /* filho encerrado */ }
   };
-  agentWriteQueue = agentWriteQueue
-    .then(() => processAgentWrite(msg.payload))
-    .then(responder, (err) => responder({ success: false, error: err.message }));
+  try {
+    validateAgentRequest(msg.payload);
+  } catch (err) {
+    responder({ success: false, error: err.message });
+    return;
+  }
+  agentQueue.submit(msg.reqId, msg.payload).then(responder);
 }
 
 // ===== Anexos pela interface =====
@@ -1044,6 +1100,10 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
+  // Para de piscar na barra de tarefas quando o usuário volta ao app
+  mainWindow.on('focus', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.flashFrame(false);
+  });
 
   // Mostrar janela quando estiver pronta.
   // O evento ready-to-show nao dispara de forma confiavel em ambientes com
@@ -2132,6 +2192,46 @@ ipcMain.handle('check-for-updates', async () => {
 // ===== Bandeja do sistema (tray) e atalho global =====
 
 let tray = null;
+let trayBaseIcon = null;
+
+// Ícone da bandeja com um ponto vermelho: há pedido de gravação esperando
+function trayBadgeIcon(base) {
+  const size = base.getSize();
+  const bmp = Buffer.from(base.toBitmap());
+  const r = Math.max(3, Math.round(size.width * 0.28));
+  const cx = size.width - r;
+  const cy = r - 1;
+  for (let y = 0; y < size.height; y++) {
+    for (let x = 0; x < size.width; x++) {
+      if ((x - cx) ** 2 + (y - cy) ** 2 > r * r) continue;
+      const i = (y * size.width + x) * 4; // BGRA
+      bmp[i] = 40; bmp[i + 1] = 40; bmp[i + 2] = 230; bmp[i + 3] = 255;
+    }
+  }
+  return nativeImage.createFromBitmap(bmp, { width: size.width, height: size.height });
+}
+
+function updateTrayIndicator(pending) {
+  if (!tray || !trayBaseIcon) return;
+  try {
+    tray.setImage(pending > 0 ? trayBadgeIcon(trayBaseIcon) : trayBaseIcon);
+  } catch (_) { /* sem bitmap: fica só o texto */ }
+  tray.setToolTip(pending > 0
+    ? `MySecrets — ${pending} pedido${pending > 1 ? 's' : ''} de gravação aguardando`
+    : 'MySecrets');
+  const itens = [];
+  if (pending > 0) {
+    itens.push({ label: `Revisar pedido de gravação (${pending})`, click: () => showAndFocusWindow() });
+    itens.push({ type: 'separator' });
+  }
+  itens.push(
+    { label: 'Mostrar/Ocultar', click: () => toggleMainWindow() },
+    { label: 'Bloquear', click: () => sendLockToRenderer() },
+    { type: 'separator' },
+    { label: 'Sair', click: () => app.quit() }
+  );
+  tray.setContextMenu(Menu.buildFromTemplate(itens));
+}
 
 function sendLockToRenderer() {
   destroySession();
@@ -2163,14 +2263,9 @@ function createTray() {
     trayIcon = trayIcon.resize({ width: 16, height: 16 });
 
     tray = new Tray(trayIcon);
-    tray.setToolTip('MySecrets');
-    tray.setContextMenu(Menu.buildFromTemplate([
-      { label: 'Mostrar/Ocultar', click: () => toggleMainWindow() },
-      { label: 'Bloquear', click: () => sendLockToRenderer() },
-      { type: 'separator' },
-      { label: 'Sair', click: () => app.quit() }
-    ]));
-    tray.on('click', () => toggleMainWindow());
+    trayBaseIcon = trayIcon;
+    updateTrayIndicator(agentQueue.pending());
+    tray.on('click', () => (agentQueue.pending() > 0 ? showAndFocusWindow() : toggleMainWindow()));
   } catch (error) {
     console.warn('⚠️ Não foi possível criar o ícone na bandeja:', error.message);
   }

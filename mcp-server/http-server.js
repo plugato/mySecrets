@@ -94,13 +94,18 @@ function sendJson(res, status, obj, extraHeaders = {}) {
 
 const SAVE_TIMEOUT = 15000;
 const PAIR_TIMEOUT = 60000; // o usuário pode precisar responder a pergunta no app
-// Gravação de agente: espera o usuário ler o diálogo. Fica abaixo dos 300 s de
-// timeout padrão do fetch/undici, usado pelo transporte stdio para repassar.
-const AGENT_WRITE_TIMEOUT = 240000;
+// Gravação de agente: o app dá 240 s para a confirmação (contando a fila) e
+// até 10 s para gravar, e sempre responde antes deste limite. Se mesmo assim
+// ele estourar, o pedido é cancelado no app (não grava depois). O transporte
+// stdio (index.js) espera um pouco mais que isto.
+const AGENT_WRITE_TIMEOUT = parseInt(process.env.MYSECRETS_AGENT_WRITE_TIMEOUT || '260000', 10); // env: só para testes
 const RESULT_TYPES = new Set(['save_login_result', 'pair_result', 'agent_write_result']);
 const pendingAsks = new Map();
 
 if (process.send) {
+  // App encerrado (até por sinal, sem passar pelo before-quit): sai junto, em
+  // vez de ficar órfão segurando a porta
+  process.on('disconnect', () => process.exit(0));
   process.on('message', (msg) => {
     if (!msg || !RESULT_TYPES.has(msg.type)) return;
     const p = pendingAsks.get(msg.reqId);
@@ -165,11 +170,48 @@ async function handlePair(req, res, reply) {
   return reply(200, { url: `http://${HOST}:${req.socket.localPort}/mcp`, token: TOKEN });
 }
 
+// Gravação de agente: como askApp, mas avisa o app para cancelar o pedido se o
+// cliente desconectar ou o prazo estourar, para nada ser gravado depois de o
+// agente já ter recebido um erro.
+function submitAgentWrite(pedido, res) {
+  return new Promise((resolve) => {
+    if (!process.send) {
+      resolve({ success: false, error: 'Servidor não foi iniciado pelo app MySecrets' });
+      return;
+    }
+    const reqId = crypto.randomUUID();
+    let done = false;
+    const cancelInApp = () => {
+      try { process.send({ type: 'agent_write_cancel', reqId }); } catch (_) { /* app encerrado */ }
+    };
+    const finish = (result) => {
+      if (done) return;
+      done = true;
+      pendingAsks.delete(reqId);
+      clearTimeout(timer);
+      if (res) res.removeListener('close', onClose);
+      resolve(result);
+    };
+    const timer = setTimeout(() => {
+      cancelInApp();
+      finish({ success: false, expired: true, error: 'O app não respondeu a tempo; o pedido foi cancelado e nada foi gravado.' });
+    }, AGENT_WRITE_TIMEOUT);
+    const onClose = () => {
+      if (res.writableEnded) return;
+      cancelInApp();
+      finish({ success: false, cancelled: true, error: 'Cliente desconectou' });
+    };
+    if (res) res.on('close', onClose);
+    pendingAsks.set(reqId, { resolve: finish, timer });
+    process.send({ type: 'agent_write', reqId, payload: pedido });
+  });
+}
+
 // Contexto das ferramentas MCP: gravação vai ao app, que pede confirmação.
-function toolContext(req) {
+function toolContext(req, res) {
   return {
     allowWrite: !req.headers.origin,
-    submitWrite: (pedido) => askApp('agent_write', pedido, AGENT_WRITE_TIMEOUT)
+    submitWrite: (pedido) => submitAgentWrite(pedido, res)
   };
 }
 
@@ -255,7 +297,7 @@ const server = http.createServer((req, res) => {
 
     // Aceita mensagem única ou batch
     if (Array.isArray(parsed)) {
-      const ctx = toolContext(req);
+      const ctx = toolContext(req, res);
       const responses = (await Promise.all(parsed.map((m) => dispatch(m, ctx)))).filter(Boolean);
       // Batch só com notificações → 202 sem corpo
       if (responses.length === 0) {
@@ -269,7 +311,7 @@ const server = http.createServer((req, res) => {
       return handleSaveLogin(parsed, reply);
     }
 
-    const response = await dispatch(parsed, toolContext(req));
+    const response = await dispatch(parsed, toolContext(req, res));
     if (!response) {
       res.writeHead(202, cors); // notificação
       return res.end();

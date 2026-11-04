@@ -170,7 +170,7 @@ docs/
 
 ### Servidor MCP e anexos
 - [mcp-server/README.md](mcp-server/README.md) - `store_secret`, `store_secret_file`, `get_secret_file`
-- Fluxo: agente chama a ferramenta → app mostra o diálogo (entrada, arquivos, tamanhos) → você aprova → grava no cofre cifrado
+- Fluxo: agente chama a ferramenta → app mostra o pedido de confirmação (entrada, arquivos, tamanhos; notifica se estiver escondido) → você aprova → grava no cofre cifrado
 - Configurar no Claude Code: `make mcp-config`
 
 ### Instalação

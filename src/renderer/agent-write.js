@@ -204,6 +204,103 @@ function formatFileSize(bytes) {
     return `${(n / (1024 * 1024)).toFixed(2).replace('.', ',')} MB`;
 }
 
+/** "3:59" (minutos:segundos) para o tempo restante do pedido. */
+function formatRemaining(ms) {
+    const total = Math.max(0, Math.ceil((Number(ms) || 0) / 1000));
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/**
+ * Linhas do resumo mostrado no modal de confirmação. Só nomes, tamanhos e
+ * início do sha256: nunca valores nem conteúdo.
+ */
+function planSummary(plan) {
+    const tipos = { login: 'Login', token: 'Token', note: 'Nota segura', mfa: 'MFA' };
+    return {
+        heading: plan.mode === 'new' ? 'Criar entrada nova' : 'Atualizar entrada existente',
+        title: plan.title,
+        type: tipos[plan.type] || plan.type,
+        tags: plan.tags,
+        fields: plan.fields.map(f => ({ name: f.label, replaces: f.replaces })),
+        customFields: plan.customFields.map(c => ({ name: c.name, replaces: c.replaces })),
+        files: plan.files.map(f => ({
+            name: f.name,
+            size: formatFileSize(f.size),
+            sha256: String(f.sha256 || '').slice(0, 12),
+            replaces: f.replaces
+        }))
+    };
+}
+
+/**
+ * Controla o modal de confirmação: um pedido por vez, com prazo. Sem DOM:
+ * render(state) desenha (state = null fecha o modal). Respostas possíveis:
+ *   { success: true, approved: true }          clicou "Gravar no cofre"
+ *   { success: true, approved: false }         clicou "Recusar"
+ *   { success: true, approved: false, expired: true }   prazo acabou
+ *   { success: false, cancelled: true, error }  agente cancelou
+ *   { success: false, error }                  cofre bloqueado, etc.
+ */
+function createConfirmController({ render, now = () => Date.now(), setTimer = setInterval, clearTimer = clearInterval }) {
+    let current = null;
+    let total = 1;
+    let timer = null;
+
+    function state() {
+        if (!current) return null;
+        return {
+            jobId: current.jobId,
+            summary: planSummary(current.plan),
+            remainingMs: Math.max(0, current.deadline - now()),
+            remaining: formatRemaining(current.deadline - now()),
+            position: 1,
+            total: Math.max(1, total)
+        };
+    }
+
+    function draw() { render(state()); }
+
+    function finish(result) {
+        if (!current) return false;
+        const c = current;
+        current = null;
+        if (timer) { clearTimer(timer); timer = null; }
+        draw();
+        c.resolve(result);
+        return true;
+    }
+
+    function tick() {
+        if (current && now() >= current.deadline) finish({ success: true, approved: false, expired: true });
+        else draw();
+    }
+
+    return {
+        request(jobId, plan, deadline, pending) {
+            finish({ success: false, error: 'Substituído por outro pedido' });
+            total = pending || 1;
+            return new Promise(resolve => {
+                current = { jobId, plan, deadline, resolve };
+                if (now() >= deadline) {
+                    finish({ success: true, approved: false, expired: true });
+                    return;
+                }
+                timer = setTimer(tick, 1000);
+                draw();
+            });
+        },
+        answer(approved) { return finish({ success: true, approved: approved === true }); },
+        cancel(jobId) {
+            if (!current || current.jobId !== jobId) return false;
+            return finish({ success: false, cancelled: true, error: 'O agente cancelou o pedido. Nada foi gravado.' });
+        },
+        cancelAll(error) { return finish({ success: false, error }); },
+        setTotal(n) { total = n || 1; if (current) draw(); },
+        tick,
+        active() { return current ? current.jobId : null; }
+    };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         AGENT_FIELD_NAMES,
@@ -212,6 +309,9 @@ if (typeof module !== 'undefined' && module.exports) {
         planAgentWrite,
         applyAgentWrite,
         entryAttachments,
-        formatFileSize
+        formatFileSize,
+        formatRemaining,
+        planSummary,
+        createConfirmController
     };
 }

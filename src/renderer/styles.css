@@ -1629,6 +1629,124 @@ textarea.input-field {
     font-size: 0.95rem;
 }
 
+/* ---------- Confirmação de gravação por agente ---------- */
+.modal.agent-write-modal {
+    z-index: 5000; /* acima de qualquer outro modal e da tela de bloqueio */
+    background: rgba(8, 10, 24, 0.72);
+}
+
+.agent-write-content {
+    max-width: 560px;
+    width: 100%;
+    border: 2px solid var(--warning-color);
+    box-shadow: 0 0 0 6px var(--warning-light), 0 24px 60px rgba(0, 0, 0, 0.35);
+    padding: 1.4rem 1.5rem;
+}
+
+.agent-write-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+}
+
+.agent-write-top h2 {
+    margin: 0.1rem 0 0;
+    font-size: 1.15rem;
+}
+
+.agent-write-icon {
+    font-size: 2rem;
+    color: var(--warning-color);
+}
+
+.agent-write-kicker {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--warning-color);
+}
+
+.agent-write-queue {
+    margin-left: auto;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.agent-write-body dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.4rem 0.9rem;
+    margin: 0;
+}
+
+.agent-write-body dt {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.agent-write-body dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.agent-write-body ul {
+    margin: 0;
+    padding-left: 1.1rem;
+}
+
+.agent-write-replace {
+    color: var(--warning-color);
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.agent-write-sha {
+    font-family: monospace;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.agent-write-warning {
+    margin: 1rem 0 0;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.agent-write-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.1rem;
+    flex-wrap: wrap;
+}
+
+.agent-write-timer {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.agent-write-timer.urgent {
+    color: var(--danger-color);
+}
+
+.agent-write-actions {
+    display: flex;
+    gap: 0.6rem;
+    margin-left: auto;
+}
+
+.agent-write-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
 /* ---------- Anexos de arquivo ---------- */
 .attachment-row {
     display: flex;

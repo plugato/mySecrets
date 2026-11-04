@@ -524,7 +524,8 @@
                 <p class="mcp-intro">
                     Um agente também pode <strong>gravar</strong> segredos e arquivos
                     (<code>store_secret</code>, <code>store_secret_file</code>): cada gravação abre
-                    um diálogo aqui mostrando a entrada e os arquivos, e só acontece se você aprovar.
+                    um pedido de confirmação aqui mostrando a entrada e os arquivos (com notificação
+                    se o app estiver escondido), e só acontece se você aprovar em até 4 minutos.
                     Para isso o servidor precisa estar ligado.
                 </p>
 
@@ -753,6 +754,34 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-primary" id="settings-close-btn">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmação de gravação pedida por agente (MCP). Fica acima de tudo. -->
+    <div id="agent-write-modal" class="modal agent-write-modal" role="alertdialog" aria-modal="true" aria-labelledby="agent-write-heading">
+        <div class="modal-content agent-write-content">
+            <div class="agent-write-top">
+                <span class="material-symbols-outlined agent-write-icon">smart_toy</span>
+                <div>
+                    <div class="agent-write-kicker">Pedido de gravação no cofre</div>
+                    <h2 id="agent-write-heading">Um agente (MCP) quer gravar no cofre</h2>
+                </div>
+                <span class="agent-write-queue" id="agent-write-queue"></span>
+            </div>
+            <div class="agent-write-body" id="agent-write-body"></div>
+            <p class="agent-write-warning">
+                Os valores não aparecem aqui. Aprove só se você pediu isto a um assistente agora.
+            </p>
+            <div class="agent-write-footer">
+                <span class="agent-write-timer" id="agent-write-timer"></span>
+                <div class="agent-write-actions">
+                    <button id="agent-write-decline" class="btn btn-secondary">Recusar</button>
+                    <button id="agent-write-approve" class="btn btn-primary">
+                        <span class="material-symbols-outlined">lock</span>
+                        Gravar no cofre
+                    </button>
+                </div>
             </div>
         </div>
     </div>

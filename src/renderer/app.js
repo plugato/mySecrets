@@ -901,16 +901,67 @@ if (window.electronAPI && window.electronAPI.onExtensionSaveLogin) {
 // ===== Gravação pedida por agente (servidor MCP) =====
 
 /**
- * O main pede primeiro um resumo ('preview') para o diálogo de confirmação e,
- * se o usuário aprovar, a gravação ('apply'). A lógica fica em agent-write.js.
+ * O main pede a confirmação ('confirm') de um pedido por vez e, se o usuário
+ * aprovar, a gravação ('apply'). A confirmação é um modal em destaque dentro
+ * do app, com o prazo correndo; a lógica fica em agent-write.js.
  */
-async function handleAgentWriteRequest({ op, request }) {
-    if (!currentMasterPassword) return { success: false, error: 'Cofre bloqueado' };
+const agentModal = document.getElementById('agent-write-modal');
 
-    if (op === 'preview') {
+function renderAgentConfirm(state) {
+    if (!state) {
+        agentModal.style.display = 'none';
+        return;
+    }
+    const s = state.summary;
+    const marca = (r, texto = 'substitui') => r ? ` <span class="agent-write-replace">(${texto})</span>` : '';
+    const lista = (itens) => `<ul>${itens.join('')}</ul>`;
+    let html = `<dl>
+        <dt>Ação</dt><dd><strong>${escapeHtml(s.heading)}</strong></dd>
+        <dt>Entrada</dt><dd>${escapeHtml(s.title)}</dd>
+        <dt>Tipo</dt><dd>${escapeHtml(s.type)}</dd>`;
+    if (s.tags.length) html += `<dt>Projeto/tags</dt><dd>${s.tags.map(escapeHtml).join(', ')}</dd>`;
+    if (s.fields.length) {
+        html += `<dt>Campos</dt><dd>${s.fields.map(f => escapeHtml(f.name) + marca(f.replaces)).join(', ')}</dd>`;
+    }
+    if (s.customFields.length) {
+        html += `<dt>Campos extras</dt><dd>${s.customFields.map(c => escapeHtml(c.name) + marca(c.replaces)).join(', ')}</dd>`;
+    }
+    if (s.files.length) {
+        html += `<dt>Arquivos</dt><dd>${lista(s.files.map(f =>
+            `<li>${escapeHtml(f.name)} — ${escapeHtml(f.size)} <span class="agent-write-sha">sha256 ${escapeHtml(f.sha256)}…</span>` +
+            `${marca(f.replaces, 'substitui o anexo atual')}</li>`))}</dd>`;
+    }
+    html += `</dl>`;
+
+    const body = document.getElementById('agent-write-body');
+    // Redesenha o corpo só quando o pedido muda (o timer atualiza a cada segundo)
+    if (body.dataset.jobId !== state.jobId) {
+        body.innerHTML = html;
+        body.dataset.jobId = state.jobId;
+        setTimeout(() => document.getElementById('agent-write-decline').focus(), 0);
+    }
+    document.getElementById('agent-write-queue').textContent =
+        state.total > 1 ? `Pedido 1 de ${state.total}` : '';
+    const timerEl = document.getElementById('agent-write-timer');
+    timerEl.textContent = `Vence em ${state.remaining} — depois disso nada é gravado`;
+    timerEl.classList.toggle('urgent', state.remainingMs < 30000);
+    agentModal.style.display = 'flex';
+}
+
+const agentConfirm = createConfirmController({ render: renderAgentConfirm });
+
+document.getElementById('agent-write-approve').addEventListener('click', () => agentConfirm.answer(true));
+document.getElementById('agent-write-decline').addEventListener('click', () => agentConfirm.answer(false));
+
+async function handleAgentWriteRequest({ op, jobId, request, deadline, total }) {
+    if (!currentMasterPassword) {
+        return { success: false, error: 'O cofre está bloqueado. Desbloqueie o MySecrets e peça a gravação de novo. Nada foi gravado.' };
+    }
+
+    if (op === 'confirm') {
         const plan = planAgentWrite(currentData, request);
         if (plan.error) return { success: false, error: plan.error };
-        return { success: true, plan };
+        return agentConfirm.request(jobId, plan, deadline, total);
     }
 
     if (op !== 'apply') return { success: false, error: 'Operação desconhecida' };
@@ -943,6 +994,8 @@ if (window.electronAPI && window.electronAPI.onAgentWrite) {
         }
         window.electronAPI.agentWriteResult(req.reqId, result);
     });
+    window.electronAPI.onAgentWriteCancel((jobId) => agentConfirm.cancel(jobId));
+    window.electronAPI.onAgentWriteCount((n) => agentConfirm.setTotal(n));
 }
 
 // ===== Anexos de arquivo (interface) =====
@@ -1574,6 +1627,9 @@ async function purgeExpiredTrash() {
 
 function lockApp() {
     console.log('Bloqueando aplicação');
+
+    // Pedido de agente aberto: bloqueou, então não grava
+    agentConfirm.cancelAll('O cofre foi bloqueado antes da confirmação. Nada foi gravado.');
 
     // Fechar todos os modais primeiro
     closeModals();

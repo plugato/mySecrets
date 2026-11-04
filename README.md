@@ -50,7 +50,7 @@ make dev
 
 ### Servidor MCP (assistentes de IA)
 - Ferramentas de leitura: `list_secrets`, `search_secrets`, `get_credentials`, `get_otp`, `get_secret_file`
-- Ferramentas de gravação: `store_secret`, `store_secret_file` — cada gravação abre um diálogo no app
+- Ferramentas de gravação: `store_secret`, `store_secret_file` — cada gravação abre um pedido de confirmação em destaque no app (com notificação se ele estiver escondido)
   com o nome da entrada e os nomes/tamanhos dos arquivos, e só grava se você aprovar
 - Configurar no Claude Code: `make mcp-config` ou
   `claude mcp add --scope user mysecrets -- node $(pwd)/mcp-server/index.js`

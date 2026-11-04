@@ -472,7 +472,7 @@ mcp-config:
 	@echo '  }'
 	@echo ""
 	@echo "$(YELLOW)Gravar (store_secret / store_secret_file):$(NC) app aberto, desbloqueado,"
-	@echo "  servidor local ligado (MCP > Iniciar servidor) e confirmar o diálogo no app."
+	@echo "  servidor local ligado (MCP > Iniciar servidor) e confirmar o pedido no app (4 min)."
 	@echo ""
 	@echo "$(BLUE)Detalhes: mcp-server/README.md$(NC)"
 

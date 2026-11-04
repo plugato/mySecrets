@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-11-04
+
+### Changed
+- Agent write confirmation is now an in-app modal (above everything, including other modals) instead of the native dialog, which opened behind other windows on Linux. It shows the same summary (never values), "Pedido 1 de N" for queued requests and a countdown. When the window isn't focused the app raises it for 2 s (without pinning it on top), restores it if minimized, flashes it in the taskbar until focused and shows a system notification ("Pedido de gravação no cofre", entry title only); clicking the notification only opens the app. When hidden in the tray, the tray icon gets a red dot, a tooltip and a "Revisar pedido de gravação" menu item.
+
+### Fixed
+- False negatives on agent writes: the agent got "O app não respondeu" while the write was still applied later (the 240 s limit in the local server didn't reach the app, the native dialog had no deadline and time waiting in the queue wasn't counted). Each request now has a deadline from its arrival (queue time included); a confirmation after the deadline, a cancelled request (agent disconnected) or a server-side timeout never writes, and the agent gets the real result (`expired`/`cancelled`/`declined`). Timeouts are ordered: app 240 s + 10 s apply < local server 260 s < stdio 275 s.
+- The stdio MCP server no longer crashes with `write EPIPE` when the client goes away while a write waits for confirmation: it exits cleanly and cancels the pending request in the app.
+- The local server exits when the app process goes away (IPC disconnect) instead of staying orphaned on the port.
+
 ## [1.10.0] - 2026-11-04
 
 ### Added

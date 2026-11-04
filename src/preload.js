@@ -60,6 +60,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Agente (MCP) pedindo para gravar: resumo para o diálogo e, aprovado, gravação
   onAgentWrite: (callback) => ipcRenderer.on('agent-write', (event, data) => callback(data)),
   agentWriteResult: (reqId, result) => ipcRenderer.invoke('agent-write-result', reqId, result),
+  onAgentWriteCancel: (callback) => ipcRenderer.on('agent-write-cancel', (event, jobId) => callback(jobId)),
+  onAgentWriteCount: (callback) => ipcRenderer.on('agent-write-count', (event, n) => callback(n)),
 
   // Anexos de arquivo (seletor e "Salvar como" ficam no processo principal)
   attachmentPick: () => ipcRenderer.invoke('attachment-pick'),

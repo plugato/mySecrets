@@ -24,7 +24,10 @@ const http = require('http');
 const { dispatch } = require('./core');
 const vault = require('./vault');
 
-const FORWARD_TIMEOUT = 250000; // o usuário tem até 4 min para confirmar no app
+// Maior que o limite do servidor do app (260 s), que por sua vez é maior que o
+// prazo de confirmação (240 s) + gravação (10 s): a resposta verdadeira chega antes.
+const FORWARD_TIMEOUT = 275000;
+const activeForwards = new Set();
 
 function appEndpoint() {
   let port = null;
@@ -77,7 +80,7 @@ function forwardToApp(name, args) {
             const e = parsed.locked
               ? new vault.VaultLockedError(parsed.reason)
               : new Error(parsed.error || 'Falha ao gravar');
-            if (parsed.declined) e.declined = true;
+            ['declined', 'expired', 'cancelled'].forEach((k) => { if (parsed[k]) e[k] = true; });
             return reject(e);
           }
           resolve(parsed);
@@ -86,7 +89,10 @@ function forwardToApp(name, args) {
         }
       });
     });
-    req.on('timeout', () => req.destroy(new Error('O app não respondeu a tempo.')));
+    activeForwards.add(req);
+    req.on('close', () => activeForwards.delete(req));
+    // Fechar a conexão faz o servidor do app cancelar o pedido: nada é gravado depois
+    req.on('timeout', () => req.destroy(new Error('O app não respondeu a tempo; o pedido foi cancelado.')));
     req.on('error', (err) => reject(err.code === 'ECONNREFUSED'
       ? new Error('O servidor local do MySecrets não está rodando. Abra e desbloqueie o app.')
       : err));
@@ -96,8 +102,32 @@ function forwardToApp(name, args) {
 
 const ctx = { forward: forwardToApp };
 
+// O cliente MCP pode fechar o pipe enquanto um pedido espera confirmação:
+// escrever no stdout fechado dá EPIPE. Encerra limpo em vez de cair.
+let shuttingDown = false;
+
+function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  // Cancela gravações em espera (o servidor do app fecha o modal e não grava)
+  for (const req of activeForwards) req.destroy();
+  setImmediate(() => process.exit(0));
+}
+
+process.stdout.on('error', (err) => {
+  if (err.code !== 'EPIPE' && err.code !== 'ERR_STREAM_DESTROYED') {
+    process.stderr.write('[mysecrets-mcp] erro no stdout: ' + err.message + '\n');
+  }
+  shutdown();
+});
+
 function send(msg) {
-  process.stdout.write(JSON.stringify(msg) + '\n');
+  if (shuttingDown || process.stdout.destroyed || !process.stdout.writable) return;
+  try {
+    process.stdout.write(JSON.stringify(msg) + '\n');
+  } catch (_) {
+    shutdown();
+  }
 }
 
 // Leitura de mensagens JSON-RPC delimitadas por newline
@@ -117,13 +147,16 @@ process.stdin.on('data', (chunk) => {
       process.stderr.write('[mysecrets-mcp] JSON inválido: ' + err.message + '\n');
       continue;
     }
-    dispatch(msg, ctx).then((response) => { if (response) send(response); });
+    dispatch(msg, ctx).then((response) => { if (response) send(response); }, () => {});
   }
 });
 
-// Espera respostas pendentes (ex.: gravação aguardando confirmação) antes de sair
-process.stdin.on('end', () => { process.exitCode = 0; });
-process.on('SIGINT', () => process.exit(0));
-process.on('SIGTERM', () => process.exit(0));
+// stdin fechado = cliente foi embora: ninguém vai ler as respostas pendentes
+process.stdin.on('end', shutdown);
+process.stdin.on('close', shutdown);
+process.stdin.on('error', shutdown);
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+process.on('SIGPIPE', shutdown);
 
 process.stderr.write('[mysecrets-mcp] Servidor MCP (stdio) iniciado. Cofre: ' + vault.USER_DATA_PATH + '\n');

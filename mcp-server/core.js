@@ -287,7 +287,8 @@ const TOOLS = [
       'Com "id" atualiza essa entrada; sem id, atualiza a entrada ativa com o mesmo título ' +
       '(preferindo a do mesmo projeto) ou cria uma nova. Só os campos informados mudam; ' +
       'customFields e anexos com o mesmo nome são substituídos. O usuário precisa CONFIRMAR ' +
-      'no app (a chamada espera até 4 minutos pela resposta). Requer o app aberto, ' +
+      'no app (a chamada espera até 4 minutos; se vencer, nada é gravado e o erro traz ' +
+      'expired: true). Requer o app aberto, ' +
       'desbloqueado e com o servidor local ligado.',
     inputSchema: {
       type: 'object',
@@ -493,7 +494,7 @@ async function callWriteTool(name, args, ctx) {
   const result = await ctx.submitWrite(req);
   if (!result || !result.success) {
     const e = new Error((result && result.error) || 'O app não gravou.');
-    if (result && result.declined) e.declined = true;
+    ['declined', 'expired', 'cancelled'].forEach((k) => { if (result && result[k]) e[k] = true; });
     throw e;
   }
   return {
@@ -549,7 +550,9 @@ async function dispatch(msg, ctx = {}) {
               error: e.message,
               locked: locked || undefined,
               reason: e.reason || undefined,
-              declined: e.declined || undefined
+              declined: e.declined || undefined,
+              expired: e.expired || undefined,
+              cancelled: e.cancelled || undefined
             })
           }]
         });
