@@ -1,15 +1,15 @@
 {
   "chrome-extension/background.js": {
-    "mtime": 1793551602.0787823,
-    "seen": 1793551994.99245,
-    "ast_hash": "f0399033cdffcdaedad1e7bd9eb4cfd5",
-    "semantic_hash": "f0399033cdffcdaedad1e7bd9eb4cfd5"
+    "mtime": 1793718070.821572,
+    "seen": 1793827628.0961595,
+    "ast_hash": "bfe76a94b82674c2d60a49ab3eef42c4",
+    "semantic_hash": ""
   },
   "chrome-extension/content.js": {
-    "mtime": 1793551602.0789773,
-    "seen": 1793551994.992453,
-    "ast_hash": "71eab860a0429b966ac7b9cc7fe67dc9",
-    "semantic_hash": "71eab860a0429b966ac7b9cc7fe67dc9"
+    "mtime": 1793586205.489568,
+    "seen": 1793827628.0961618,
+    "ast_hash": "fe51b1007347b803e3d5bf4c009da1c4",
+    "semantic_hash": ""
   },
   "chrome-extension/icons/create-icons.sh": {
     "mtime": 1770132505.837637,
@@ -24,58 +24,58 @@
     "semantic_hash": "e3abbae04e29e994fc44e7f96a9d43c4"
   },
   "chrome-extension/lib.mjs": {
-    "mtime": 1793551602.0792577,
-    "seen": 1793551994.9924564,
-    "ast_hash": "3d8819230ba74119ddb9fcd67c084f47",
-    "semantic_hash": "3d8819230ba74119ddb9fcd67c084f47"
+    "mtime": 1793718070.8207986,
+    "seen": 1793827628.0961668,
+    "ast_hash": "030ece833190f3e80a981f93b83b5e4b",
+    "semantic_hash": ""
   },
   "chrome-extension/manifest.json": {
-    "mtime": 1793551602.0793145,
-    "seen": 1793551994.9924579,
-    "ast_hash": "73b305ba86a5a3e5e83a425b4b74527c",
-    "semantic_hash": "73b305ba86a5a3e5e83a425b4b74527c"
+    "mtime": 1793718364.0066214,
+    "seen": 1793827628.096168,
+    "ast_hash": "a75e52bf7aefe0a65a1ebe8f898ddfb5",
+    "semantic_hash": ""
   },
   "chrome-extension/popup.js": {
-    "mtime": 1793551602.0794654,
-    "seen": 1793551994.992459,
-    "ast_hash": "8b9baf28cc58d5281edcb54af1a91271",
-    "semantic_hash": "8b9baf28cc58d5281edcb54af1a91271"
+    "mtime": 1793718105.3983743,
+    "seen": 1793827628.0961692,
+    "ast_hash": "d438c9ad4a6e08ac6227d3383fa685b7",
+    "semantic_hash": ""
   },
   "dev-app-update.yml": {
-    "mtime": 1793551602.0794654,
-    "seen": 1793551994.992461,
-    "ast_hash": "64f03afa3035445edee699f1ce862c2d",
-    "semantic_hash": "64f03afa3035445edee699f1ce862c2d"
+    "mtime": 1793577238.7556496,
+    "seen": 1793827628.0961707,
+    "ast_hash": "b8e6a91182c56bfb94d122bfce4f5ecf",
+    "semantic_hash": ""
   },
   "mcp-server/core.js": {
-    "mtime": 1793551602.0801287,
-    "seen": 1793551994.9924626,
-    "ast_hash": "218bda4ad6dd541f7813d659fc49ec95",
-    "semantic_hash": "218bda4ad6dd541f7813d659fc49ec95"
+    "mtime": 1793829011.132051,
+    "seen": 1793829357.0835912,
+    "ast_hash": "3338b0973a2491902e6980117639456b",
+    "semantic_hash": ""
   },
   "mcp-server/http-server.js": {
-    "mtime": 1793551602.0802455,
-    "seen": 1793551994.9924634,
-    "ast_hash": "77e1d99bdfdde299142a3debea4eae89",
-    "semantic_hash": "77e1d99bdfdde299142a3debea4eae89"
+    "mtime": 1793829304.5766501,
+    "seen": 1793829357.0835934,
+    "ast_hash": "d492f387bf057bb5ea6bd0142fff36c1",
+    "semantic_hash": ""
   },
   "mcp-server/index.js": {
-    "mtime": 1793551602.0802844,
-    "seen": 1793551994.992464,
-    "ast_hash": "bf02ca0036e8b5f1e355b94723a924e6",
-    "semantic_hash": "bf02ca0036e8b5f1e355b94723a924e6"
+    "mtime": 1793829024.921834,
+    "seen": 1793829357.0835943,
+    "ast_hash": "2b6da19b3f3aef2209536fec26806320",
+    "semantic_hash": ""
   },
   "mcp-server/mcp-config.example.json": {
-    "mtime": 1793551602.0802844,
-    "seen": 1793551994.9924653,
-    "ast_hash": "42aed639fbed9602f93f3de7129cea19",
-    "semantic_hash": "42aed639fbed9602f93f3de7129cea19"
+    "mtime": 1793827549.7116516,
+    "seen": 1793827628.0961769,
+    "ast_hash": "c1a4e8826edb78216e2c8abf5e6b87dd",
+    "semantic_hash": ""
   },
   "mcp-server/vault.js": {
-    "mtime": 1793551602.0803976,
-    "seen": 1793551994.992466,
-    "ast_hash": "9c7224358517495be0cf289d91cb9c05",
-    "semantic_hash": "9c7224358517495be0cf289d91cb9c05"
+    "mtime": 1793579382.170496,
+    "seen": 1793827628.0961778,
+    "ast_hash": "948fa76d2ed9b24addc7c91bbb22ee58",
+    "semantic_hash": ""
   },
   "native-host/com.mysecrets.native.json": {
     "mtime": 1770132505.8403337,
@@ -90,10 +90,10 @@
     "semantic_hash": "420c150f173248c485ae25a5ceac131f"
   },
   "native-host/mysecrets-host.js": {
-    "mtime": 1793551602.0807774,
-    "seen": 1793551994.992468,
-    "ast_hash": "ba6b87d7afa9cef01544788cd7f1b73e",
-    "semantic_hash": "ba6b87d7afa9cef01544788cd7f1b73e"
+    "mtime": 1793579372.2803679,
+    "seen": 1793827628.0961823,
+    "ast_hash": "5f852b2a929c097a07e002cba9f7c91f",
+    "semantic_hash": ""
   },
   "native-host/mysecrets-wrapper.sh": {
     "mtime": 1770132505.8403337,
@@ -114,10 +114,10 @@
     "semantic_hash": "4890a0003400d59831b22b1b5ff00b7e"
   },
   "package.json": {
-    "mtime": 1793551602.0819423,
-    "seen": 1793551994.9924712,
-    "ast_hash": "4e122442a4512e71d768a63e125da0e7",
-    "semantic_hash": "4e122442a4512e71d768a63e125da0e7"
+    "mtime": 1793829355.523706,
+    "seen": 1793829357.0836024,
+    "ast_hash": "c15ec8f73531438aa87360e1a87fc008",
+    "semantic_hash": ""
   },
   "src/lib/vault-crypto.js": {
     "mtime": 1793551602.0820203,
@@ -126,10 +126,10 @@
     "semantic_hash": "c00dc70ce067d1d9f09bec91643d8f06"
   },
   "src/main.js": {
-    "mtime": 1793551602.0822673,
-    "seen": 1793551994.992473,
-    "ast_hash": "63f043990cea1cb0d1a1c5f66a836050",
-    "semantic_hash": "63f043990cea1cb0d1a1c5f66a836050"
+    "mtime": 1793829197.8692634,
+    "seen": 1793829357.0836089,
+    "ast_hash": "6364f36a422072c1d260b6e3947fd432",
+    "semantic_hash": ""
   },
   "src/preload-test.js": {
     "mtime": 1759809078.8816228,
@@ -138,16 +138,16 @@
     "semantic_hash": "96fd256b46db6f23e69668e45033b924"
   },
   "src/preload.js": {
-    "mtime": 1793551602.0823672,
-    "seen": 1793551994.9924746,
-    "ast_hash": "9012d2add6172ead1702e4e35f909a09",
-    "semantic_hash": "9012d2add6172ead1702e4e35f909a09"
+    "mtime": 1793829085.6690552,
+    "seen": 1793829357.0836105,
+    "ast_hash": "97505f21f526644cb9ea1bd610bbdee1",
+    "semantic_hash": ""
   },
   "src/renderer/app.js": {
-    "mtime": 1793551602.0829072,
-    "seen": 1793551994.9924755,
-    "ast_hash": "0ee370216f114f094b51b6248d57a2ed",
-    "semantic_hash": "0ee370216f114f094b51b6248d57a2ed"
+    "mtime": 1793829085.670836,
+    "seen": 1793829357.0836122,
+    "ast_hash": "b53de8ba0b80e41be2bddaf1073314e6",
+    "semantic_hash": ""
   },
   "src/renderer/jsQR.js": {
     "mtime": 1793551602.0837066,
@@ -156,40 +156,40 @@
     "semantic_hash": "c5749c2591188b6c833dbe21cfd56b04"
   },
   "test-app-fix.js": {
-    "mtime": 1759809814.0777943,
-    "seen": 1793551994.992477,
-    "ast_hash": "2d12b99c747b5797022afecb32b5acaf",
-    "semantic_hash": "2d12b99c747b5797022afecb32b5acaf"
+    "mtime": 1793560815.9822943,
+    "seen": 1793827628.096202,
+    "ast_hash": "e663497c7606740104dbc5592cfb4258",
+    "semantic_hash": ""
   },
   "test-conversion.js": {
-    "mtime": 1759812227.581954,
-    "seen": 1793551994.9924777,
-    "ast_hash": "c70c38aa12c60bdcdf56b8fcc361460c",
-    "semantic_hash": "c70c38aa12c60bdcdf56b8fcc361460c"
+    "mtime": 1793575469.7962232,
+    "seen": 1793827628.096203,
+    "ast_hash": "10c0bb6902500f3110844b945c4b9ed0",
+    "semantic_hash": ""
   },
   "test-exact-simulation.js": {
-    "mtime": 1759809888.8775678,
-    "seen": 1793551994.9924784,
-    "ast_hash": "6875cf91fb58b23e89f011dc1b53d72a",
-    "semantic_hash": "6875cf91fb58b23e89f011dc1b53d72a"
+    "mtime": 1793560806.2035046,
+    "seen": 1793827628.0962043,
+    "ast_hash": "d99f74cf01f80ae17107f1caa5d8982d",
+    "semantic_hash": ""
   },
   "test-methods.js": {
-    "mtime": 1759809814.0777943,
-    "seen": 1793551994.9924793,
-    "ast_hash": "eb434bc7bfb67b3e37feed14077c5399",
-    "semantic_hash": "eb434bc7bfb67b3e37feed14077c5399"
+    "mtime": 1793560806.20336,
+    "seen": 1793827628.0962055,
+    "ast_hash": "991f6a8e2bd759b0fdcd3e00c7749d31",
+    "semantic_hash": ""
   },
   "test-totp.js": {
-    "mtime": 1759809814.0777943,
-    "seen": 1793551994.9924798,
-    "ast_hash": "b2ef0b0e676c4a4a509a837b1ab6aaf7",
-    "semantic_hash": "b2ef0b0e676c4a4a509a837b1ab6aaf7"
+    "mtime": 1793560806.2031887,
+    "seen": 1793827628.0962067,
+    "ast_hash": "20dc09ce4571ab416dcea6ef6f43f605",
+    "semantic_hash": ""
   },
   "tests/autofill.test.js": {
-    "mtime": 1793551602.0841448,
-    "seen": 1793551994.9924805,
-    "ast_hash": "d3e3fd0e20075b1bc32faa4d364f15bd",
-    "semantic_hash": "d3e3fd0e20075b1bc32faa4d364f15bd"
+    "mtime": 1793718123.116332,
+    "seen": 1793827628.0962088,
+    "ast_hash": "54b6efed550adf4d8f47866079a9198d",
+    "semantic_hash": ""
   },
   "tests/vault-crypto.test.js": {
     "mtime": 1793551602.0842025,
@@ -210,10 +210,10 @@
     "semantic_hash": "df2c285f6387120998a08a221d3ec6f6"
   },
   "INDEX.md": {
-    "mtime": 1770132505.8351989,
-    "seen": 1793551994.9924839,
-    "ast_hash": "f54676b714c45f23c09d2a9956b70b1d",
-    "semantic_hash": "f54676b714c45f23c09d2a9956b70b1d"
+    "mtime": 1793829355.5228202,
+    "seen": 1793829357.0836303,
+    "ast_hash": "ff7091c052fe6a401a0980e61f386597",
+    "semantic_hash": ""
   },
   "QUICK_START.md": {
     "mtime": 1770132505.8359752,
@@ -222,16 +222,16 @@
     "semantic_hash": "6309a83ba80e8ec9ce2b0e91ce2657fc"
   },
   "README.md": {
-    "mtime": 1793551602.0784066,
-    "seen": 1793551994.9924853,
-    "ast_hash": "709497b99ea03570030873ead1269b8c",
-    "semantic_hash": "709497b99ea03570030873ead1269b8c"
+    "mtime": 1793829355.522701,
+    "seen": 1793829357.0836322,
+    "ast_hash": "37de909e3709c6e7610ad24d73285034",
+    "semantic_hash": ""
   },
   "chrome-extension/README_EXTENSION.md": {
-    "mtime": 1793551602.0786932,
-    "seen": 1793551994.9924865,
-    "ast_hash": "c3683987b727438644691044266f1b49",
-    "semantic_hash": "c3683987b727438644691044266f1b49"
+    "mtime": 1793575469.995579,
+    "seen": 1793827628.0962236,
+    "ast_hash": "bc7e7d43af9ba83100e2c62eddd96e1d",
+    "semantic_hash": ""
   },
   "chrome-extension/icons/README_ICONS.md": {
     "mtime": 1770132505.836975,
@@ -240,16 +240,16 @@
     "semantic_hash": "375ac1503a6584e28bdf931c87fe853c"
   },
   "chrome-extension/popup.html": {
-    "mtime": 1793551602.0793867,
-    "seen": 1793551994.9924881,
-    "ast_hash": "0b9de7ca1a4148b454eb71412cd8942e",
-    "semantic_hash": "0b9de7ca1a4148b454eb71412cd8942e"
+    "mtime": 1793718084.4102437,
+    "seen": 1793827628.0962257,
+    "ast_hash": "8b74ba7fc4cb1c1c5241f4ca964d63ed",
+    "semantic_hash": ""
   },
   "docs/developer/CHANGELOG.md": {
-    "mtime": 1793551602.0797763,
-    "seen": 1793551994.9924889,
-    "ast_hash": "103d807b8f66e677eb07c2a68ea3c2bb",
-    "semantic_hash": "103d807b8f66e677eb07c2a68ea3c2bb"
+    "mtime": 1793829355.5236027,
+    "seen": 1793829357.0836358,
+    "ast_hash": "2970b3da7ab42d61a881e499b25c6097",
+    "semantic_hash": ""
   },
   "docs/developer/CONTRIBUTING.md": {
     "mtime": 1770132505.8384979,
@@ -306,10 +306,10 @@
     "semantic_hash": "5a8735bb04b09db1ffcdf2a043fe87e5"
   },
   "docs/privacy-site/index.html": {
-    "mtime": 1793551602.0798821,
-    "seen": 1793551994.9924977,
-    "ast_hash": "37da1283cc81ca2d755f0d41d196b273",
-    "semantic_hash": "37da1283cc81ca2d755f0d41d196b273"
+    "mtime": 1793582806.6778593,
+    "seen": 1793827628.0962398,
+    "ast_hash": "2edd3c8ae9f439191050b4a546862b7f",
+    "semantic_hash": ""
   },
   "docs/summaries/DOCS_INDEX.md": {
     "mtime": 1770132505.839282,
@@ -354,10 +354,10 @@
     "semantic_hash": "127d522e3fe8b64ee43f3e5f597942b7"
   },
   "mcp-server/README.md": {
-    "mtime": 1793551602.0798821,
-    "seen": 1793551994.9925036,
-    "ast_hash": "0ecf07b6b7f2d43a3403f033651e5245",
-    "semantic_hash": "0ecf07b6b7f2d43a3403f033651e5245"
+    "mtime": 1793829355.5225651,
+    "seen": 1793829357.083654,
+    "ast_hash": "476e30c6d4fc13189f432a1ef9549f03",
+    "semantic_hash": ""
   },
   "native-host/README.md": {
     "mtime": 1770132505.8403337,
@@ -394,5 +394,125 @@
     "seen": 1793551994.9925108,
     "ast_hash": "30fe47b751657280f91a601b7d8bf85d",
     "semantic_hash": "30fe47b751657280f91a601b7d8bf85d"
+  },
+  ".github/workflows/build.yml": {
+    "mtime": 1793587776.1663795,
+    "seen": 1793827628.0961554,
+    "ast_hash": "7183e69e02e6ebb8aa65f64bc432cd2a",
+    "semantic_hash": ""
+  },
+  "mcp-server/files.js": {
+    "mtime": 1793827030.3901975,
+    "seen": 1793827628.096173,
+    "ast_hash": "9af784a2f3fb19780a7a8ddc62048258",
+    "semantic_hash": ""
+  },
+  "scripts/publish-chrome-extension.js": {
+    "mtime": 1793587755.927459,
+    "seen": 1793827628.0961883,
+    "ast_hash": "de531315ce8936bb38c3a73191a639a0",
+    "semantic_hash": ""
+  },
+  "src/lib/google-drive.js": {
+    "mtime": 1793585751.4057102,
+    "seen": 1793827628.0961895,
+    "ast_hash": "45eeffea794a473315b97ff630ac44e6",
+    "semantic_hash": ""
+  },
+  "src/lib/vault-sync.js": {
+    "mtime": 1793579484.3677464,
+    "seen": 1793827628.0961926,
+    "ast_hash": "edac5a3964e7018ed7ed8873d1d94032",
+    "semantic_hash": ""
+  },
+  "src/renderer/agent-write.js": {
+    "mtime": 1793829051.346745,
+    "seen": 1793829357.0836115,
+    "ast_hash": "2a2b04d6223f0cabf36f189da3738e4d",
+    "semantic_hash": ""
+  },
+  "src/renderer/proton-pass-import.js": {
+    "mtime": 1793565124.7942007,
+    "seen": 1793827628.0962007,
+    "ast_hash": "1da56567dff7ab9537979c1bc5f09e30",
+    "semantic_hash": ""
+  },
+  "tests/attachments.test.js": {
+    "mtime": 1793827331.0450737,
+    "seen": 1793827628.0962076,
+    "ast_hash": "d9c276489cf0459dcc5b5da68bce6d5b",
+    "semantic_hash": ""
+  },
+  "tests/google-drive.test.js": {
+    "mtime": 1793585764.7022333,
+    "seen": 1793827628.0962098,
+    "ast_hash": "d08d06039076e765253eac01372fd6f1",
+    "semantic_hash": ""
+  },
+  "tests/proton-pass-import.test.js": {
+    "mtime": 1793565228.7128513,
+    "seen": 1793827628.0962107,
+    "ast_hash": "8e72f2d330b2994611b63ebd2c314c40",
+    "semantic_hash": ""
+  },
+  "tests/publish-chrome-extension.test.js": {
+    "mtime": 1793587756.694613,
+    "seen": 1793827628.0962117,
+    "ast_hash": "e62de4a6d882ec24efaf8654b0dd06a8",
+    "semantic_hash": ""
+  },
+  "tests/vault-sync.test.js": {
+    "mtime": 1793579459.943869,
+    "seen": 1793827628.0962143,
+    "ast_hash": "4b7924d72554694126a5a600fdad69ff",
+    "semantic_hash": ""
+  },
+  "tests/windows-hello.test.js": {
+    "mtime": 1793727369.52042,
+    "seen": 1793827628.096215,
+    "ast_hash": "6fda1626ea4eb745617202631ddf44af",
+    "semantic_hash": ""
+  },
+  ".github/copilot-instructions.md": {
+    "mtime": 1759806901.2918215,
+    "seen": 1793827628.096216,
+    "ast_hash": "6855b6a7578e58e8a409d7f6a3cbe937",
+    "semantic_hash": ""
+  },
+  "docs/index.html": {
+    "mtime": 1793582805.8925614,
+    "seen": 1793827628.0962389,
+    "ast_hash": "21db6ac165339a566d32767eff740ad4",
+    "semantic_hash": ""
+  },
+  "docs/termos/index.html": {
+    "mtime": 1793582807.450034,
+    "seen": 1793827628.0962462,
+    "ast_hash": "71ec58e2869bd7a79606412bf23a81b7",
+    "semantic_hash": ""
+  },
+  "src/renderer/index.html": {
+    "mtime": 1793829355.5234003,
+    "seen": 1793829357.0836556,
+    "ast_hash": "eca58f2baaf78ea4eafd582da7aaa878",
+    "semantic_hash": ""
+  },
+  "src/lib/agent-queue.js": {
+    "mtime": 1793828940.0224311,
+    "seen": 1793829357.0836048,
+    "ast_hash": "330b40884259d6a5824e49c68d7336ba",
+    "semantic_hash": ""
+  },
+  "tests/agent-confirm.test.js": {
+    "mtime": 1793829177.221557,
+    "seen": 1793829357.0836194,
+    "ast_hash": "970603ad1160dad17c4d55d896ca947b",
+    "semantic_hash": ""
+  },
+  "package-lock.json": {
+    "mtime": 1793551602.0818129,
+    "seen": 1793827628.0962586,
+    "ast_hash": "7247a988ffd5f98ff5f704cf87f4b0e9",
+    "semantic_hash": ""
   }
 }
