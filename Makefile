@@ -40,8 +40,8 @@ help:
 	@echo "  $(GREEN)make icons$(NC)         - Gera ícones temporários"
 	@echo ""
 	@echo "$(YELLOW)🧪 Testes:$(NC)"
-	@echo "  $(GREEN)make test$(NC)          - Executa testes"
-	@echo "  $(GREEN)make test-totp$(NC)     - Testa geração TOTP"
+	@echo "  $(GREEN)make test$(NC)          - Executa a suíte de testes (npm test)"
+	@echo "  $(GREEN)make test-android$(NC)  - Testes unitários do app Android"
 	@echo "  $(GREEN)make test-import$(NC)   - Testa importação MFA"
 	@echo ""
 	@echo "$(YELLOW)🧹 Limpeza:$(NC)"
@@ -187,19 +187,15 @@ icons:
 # 🧪 TESTES
 # ============================================
 
-# Executa testes
+# Executa a suíte de testes (tests/**/*.test.js)
 test:
 	@echo "$(YELLOW)🧪 Executando testes...$(NC)"
-	@if [ -f "test-totp.js" ]; then \
-		node test-totp.js; \
-	else \
-		echo "$(RED)❌ Arquivo de teste não encontrado$(NC)"; \
-	fi
+	npm test
 
-# Testa TOTP
-test-totp:
-	@echo "$(YELLOW)🔐 Testando geração TOTP...$(NC)"
-	node test-totp.js
+# Testes unitários do app Android
+test-android:
+	@echo "$(YELLOW)🤖 Testando o app Android...$(NC)"
+	cd android && ./gradlew testDebugUnitTest
 
 # Testa importação MFA
 test-import:
@@ -257,9 +253,9 @@ ext-icons:
 ext-pack:
 	@echo "$(YELLOW)📦 Empacotando extensão...$(NC)"
 	@if [ -d "chrome-extension" ]; then \
-		cd chrome-extension && \
-		zip -r ../mySecrets-extension.zip . -x "*.git*" "*README*.md" "TESTE*.md" "*.sh"; \
-		echo "$(GREEN)✅ Extensão empacotada: mySecrets-extension.zip$(NC)"; \
+		mkdir -p dist && cd chrome-extension && \
+		zip -r ../dist/MySecrets-Autofill-extensao-chrome.zip . -x "*.git*" "*README*.md" "TESTE*.md" "*.sh"; \
+		echo "$(GREEN)✅ Extensão empacotada: dist/MySecrets-Autofill-extensao-chrome.zip$(NC)"; \
 	else \
 		echo "$(RED)❌ Pasta chrome-extension não encontrada$(NC)"; \
 	fi

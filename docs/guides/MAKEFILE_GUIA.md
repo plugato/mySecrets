@@ -57,7 +57,7 @@ make setup        # Setup inicial completo
 
 ```bash
 make test         # Executa testes
-make test-totp    # Testa geração TOTP/MFA
+make test-android # Testes do app Android
 make test-import  # Testa importação de MFA
 ```
 
@@ -334,7 +334,7 @@ make dev
 # 3. Desenvolver...
 
 # 4. Testar
-make test-totp
+make test
 
 # 5. Buildar se OK
 make build-linux
@@ -400,7 +400,7 @@ make size
 - Verifica dependências
 
 ### `make ext-pack`
-- Cria `mySecrets-extension.zip`
+- Cria `dist/MySecrets-Autofill-extensao-chrome.zip`
 - Pronto para distribuir
 - Inclui apenas arquivos necessários
 
@@ -507,7 +507,7 @@ make quick
 | Ver status | `make status` |
 | Limpar | `make clean` |
 | Reinstalar | `make reinstall` |
-| Testar MFA | `make test-totp` |
+| Rodar os testes | `make test` |
 | Ver versões | `make version` |
 | Ajuda | `make` ou `make help` |
 
