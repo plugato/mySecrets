@@ -85,6 +85,7 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
     val scope = rememberCoroutineScope()
     val sync by DriveSync.status.collectAsState()
     val pcs by Pairings.list.collectAsState()
+    val entradas by Vault.entries.collectAsState()
     var busy by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<String?>(null) }
     // Mensagens também em aviso flutuante: o texto do topo some quando a tela está rolada
@@ -208,7 +209,7 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
             }
 
             Section("Cofre neste aparelho") {
-                Text("Entradas: ${Vault.entries.value.count { !it.has("deletedAt") }}")
+                Text("Entradas: ${entradas.count { !it.has("deletedAt") }}")
                 OutlinedButton(onClick = { confirmWipe = true }) { Text("Apagar o cofre deste celular") }
                 Text("Versão ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall)
             }
@@ -219,13 +220,16 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
         AlertDialog(
             onDismissRequest = { confirmWipe = false },
             title = { Text("Apagar o cofre deste celular?") },
-            text = { Text("Remove o cofre, a digital e a conta Google só deste aparelho. O cofre no PC e no Google Drive continua intacto.") },
+            text = { Text("Remove o cofre, a digital, os PCs pareados e a conta Google só deste aparelho. O cofre no PC e no Google Drive continua intacto.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmWipe = false
                     DriveSync.disconnect()
                     Settings.bioUnlockBlob = null
                     Keys.delete(Keys.BIO_UNLOCK)
+                    // Sem isto o celular continuaria aprovando o login dos PCs
+                    Pairings.clear()
+                    Keys.delete(Keys.BIO_LINK)
                     Vault.wipe()
                     onWiped()
                 }) { Text("Apagar") }

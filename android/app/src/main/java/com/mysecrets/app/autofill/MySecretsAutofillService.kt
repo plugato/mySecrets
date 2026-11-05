@@ -141,6 +141,9 @@ class MySecretsAutofillService : AutofillService() {
             }
 
         @RequiresApi(Build.VERSION_CODES.R)
+        // content.slice é o uso documentado do androidx.autofill para sugestões
+        // inline; o lint marca RestrictedApi por engano (falso positivo conhecido).
+        @android.annotation.SuppressLint("RestrictedApi")
         fun inlinePresentation(ctx: Context, spec: InlinePresentationSpec, title: String, sub: String?, auth: android.content.IntentSender?): InlinePresentation? {
             val style = spec.style
             if (!androidx.autofill.inline.UiVersions.getVersions(style).contains(androidx.autofill.inline.UiVersions.INLINE_UI_VERSION_1)) return null

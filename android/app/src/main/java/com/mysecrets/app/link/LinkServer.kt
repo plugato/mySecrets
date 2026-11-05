@@ -10,11 +10,14 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.net.Inet6Address
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketTimeoutException
 import java.util.Collections
+import java.util.concurrent.Semaphore
 
 /**
  * Escuta pedidos do PC na rede local enquanto o app está aberto.
@@ -82,11 +85,38 @@ object LinkServer {
         _request.value = null
     }
 
+    // Conexões atendidas ao mesmo tempo: um PC usa uma; o limite evita que uma
+    // enxurrada de conexões crie threads sem fim.
+    private val slots = Semaphore(8)
+
     private fun acceptLoop(s: ServerSocket) {
         while (!s.isClosed) {
             val sock = try { s.accept() } catch (_: Exception) { break }
-            Thread({ handle(sock) }, "mysecrets-link-conn").apply { isDaemon = true; start() }
+            // O PC está na mesma rede local. Conexão de fora (dados móveis, IPv6
+            // público) é fechada sem ler nada.
+            if (!isLocalNetwork(sock.inetAddress) || !slots.tryAcquire()) {
+                try { sock.close() } catch (_: Exception) {}
+                continue
+            }
+            Thread({
+                try { handle(sock) } finally { slots.release() }
+            }, "mysecrets-link-conn").apply { isDaemon = true; start() }
         }
+    }
+
+    /** Endereço de rede local: privado (RFC 1918), link-local, loopback ou IPv6 ULA (fc00::/7). */
+    internal fun isLocalNetwork(a: InetAddress?): Boolean {
+        if (a == null) return false
+        if (a.isLoopbackAddress || a.isLinkLocalAddress || a.isSiteLocalAddress) return true
+        if (a is Inet6Address) {
+            val b = a.address
+            // IPv4 mapeado em IPv6 (::ffff:192.168.0.10)
+            if (b.size == 16 && (0..9).all { b[it].toInt() == 0 } && b[10].toInt() == -1 && b[11].toInt() == -1) {
+                return isLocalNetwork(InetAddress.getByAddress(b.copyOfRange(12, 16)))
+            }
+            return (b[0].toInt() and 0xfe) == 0xfc
+        }
+        return false
     }
 
     private fun send(sock: Socket, o: JSONObject) {

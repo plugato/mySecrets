@@ -126,6 +126,9 @@ class DriveClient(private val refreshToken: String) {
  * desktop (src/main.js): baixa só se o md5 mudou, mescla por entrada com
  * lápides, envia se a nuvem não tem o resultado.
  */
+/** A nuvem mudou entre a leitura e o envio: a rodada recomeça. */
+class RemoteChanged : Exception("O cofre no Google Drive mudou durante a sincronização.")
+
 object DriveSync {
     const val FOLDER = "MySecrets"
     private const val LEIA_ME = """MySecrets — cofre sincronizado
@@ -206,7 +209,9 @@ MySecrets e entre com a mesma conta Google e a mesma senha mestra.
         debounce?.cancel()
         debounce = scope.launch {
             delay(delayMs)
-            syncNow()
+            // Fora do job do atraso: um novo pedido cancela só a espera, nunca
+            // uma sincronização já em andamento
+            scope.launch { syncNow() }
         }
     }
 
@@ -218,10 +223,14 @@ MySecrets e entre com a mesma conta Google e a mesma senha mestra.
             try {
                 // Rede pode estar bloqueada por instantes (app voltando do segundo plano)
                 var tentativa = 0
+                var mudouNaNuvem = 0
                 while (true) {
                     try {
                         run(c)
                         break
+                    } catch (e: RemoteChanged) {
+                        // Outro aparelho enviou no meio da rodada: mescla de novo
+                        if (++mudouNaNuvem >= 3) throw Exception("O cofre no Google Drive mudou durante a sincronização. Tente de novo.")
                     } catch (e: java.io.IOException) {
                         if (++tentativa >= 3) throw Exception("Sem conexão com o Google Drive (${e.message})")
                         delay(1500L * tentativa)
@@ -256,41 +265,55 @@ MySecrets e entre com a mesma conta Google e a mesma senha mestra.
             if (c.findFile("LEIA-ME.txt", folderId) == null) c.upload("LEIA-ME.txt", folderId, LEIA_ME, null, "text/plain")
         }
 
-        val local = Vault.snapshot()
         val remoteMeta = c.findFile(Vault.VAULT_FILE, folderId)
         val tombMeta = c.findFile(Vault.TOMBSTONES_FILE, folderId)
 
+        // Baixa o cofre só se mudou. Erro de rede sobe como está (nova
+        // tentativa); só a falha ao decifrar vira "outra senha".
         var remote: List<JSONObject>? = null
         if (remoteMeta != null && remoteMeta.md5 != prefs.getString("lastRemoteMd5", null)) {
+            val texto = c.download(remoteMeta.id)
             remote = try {
-                Vault.decryptOther(c.download(remoteMeta.id))
+                Vault.decryptOther(texto)
             } catch (_: Exception) {
                 throw Exception("O cofre no Google Drive usa outra senha mestra (ou está corrompido).")
             }
         }
 
-        val localT = Vault.readTombstones()
+        // Exclusões da nuvem: falha ao baixar ou ler interrompe a rodada. Antes
+        // virava "vazia" e era enviada por cima da lista dos outros aparelhos.
         val remoteT: Map<String, String> = tombMeta?.let {
+            val texto = c.download(it.id)
             try {
-                val o = JSONObject(c.download(it.id))
+                val o = JSONObject(texto)
                 o.keys().asSequence().associateWith { k -> o.getString(k) }
-            } catch (_: Exception) { emptyMap() }
+            } catch (_: Exception) {
+                throw Exception("A lista de exclusões no Google Drive está ilegível. A sincronização foi interrompida para não perder exclusões.")
+            }
         } ?: emptyMap()
-        val tombs = Merge.mergeTombstones(localT, remoteT)
 
-        val merged = Merge.mergeVaults(if (remote != null) listOf(local, remote) else listOf(local), tombs)
-        val mergedHash = hash(merged)
-        if (hash(local) != mergedHash || tombs != localT) Vault.applyMerged(merged, tombs)
+        // Mescla com o estado local atual (atômico com as edições do usuário)
+        val r = Vault.applySync(remote, remoteT)
+        val mergedHash = hash(r.merged)
 
         val remoteHash = if (remote != null) hash(remote) else if (remoteMeta != null) prefs.getString("lastSyncedHash", null) else null
+        val enviarCofre = remoteMeta == null || mergedHash != remoteHash
+        val enviarExclusoes = r.tombstones != remoteT
         var md5 = remoteMeta?.md5
-        if (remoteMeta == null || mergedHash != remoteHash) {
-            md5 = c.upload(Vault.VAULT_FILE, folderId, Vault.encryptForUpload(merged), remoteMeta?.id)
-        }
-        if (tombs != remoteT) {
-            val o = JSONObject()
-            tombs.forEach { (k, v) -> o.put(k, v) }
-            c.upload(Vault.TOMBSTONES_FILE, folderId, o.toString(2), tombMeta?.id, "application/json")
+        if (enviarCofre || enviarExclusoes) {
+            // Outro aparelho enviou desde a leitura? Recomeça em vez de sobrescrever.
+            val agoraV = c.findFile(Vault.VAULT_FILE, folderId)
+            val agoraT = c.findFile(Vault.TOMBSTONES_FILE, folderId)
+            if (agoraV?.md5 != remoteMeta?.md5 || agoraT?.md5 != tombMeta?.md5) throw RemoteChanged()
+            if (enviarExclusoes) {
+                // Exclusões primeiro: se o envio do cofre falhar, a próxima rodada ainda sabe o que foi apagado
+                val o = JSONObject()
+                r.tombstones.forEach { (k, v) -> o.put(k, v) }
+                c.upload(Vault.TOMBSTONES_FILE, folderId, o.toString(2), tombMeta?.id, "application/json")
+            }
+            if (enviarCofre) {
+                md5 = c.upload(Vault.VAULT_FILE, folderId, Vault.encryptForUpload(r.merged), remoteMeta?.id)
+            }
         }
 
         prefs.edit()

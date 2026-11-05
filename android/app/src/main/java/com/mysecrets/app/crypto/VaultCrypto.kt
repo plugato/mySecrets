@@ -54,8 +54,23 @@ object VaultCrypto {
     /** Deriva a chave para um arquivo do cofre. */
     fun keyFor(data: JSONObject, password: String): Key {
         val salt = hex(data.getString("salt"))
-        val iterations = if (isLegacy(data)) V1_ITERATIONS else data.optInt("iterations", V2_ITERATIONS)
+        val iterations = if (isLegacy(data)) V1_ITERATIONS else iterationsOf(data)
         return Key(salt, iterations, deriveKey(password, salt, iterations))
+    }
+
+    // O número vem do próprio arquivo: sem limite, um cofre adulterado no Drive
+    // com bilhões de iterações travaria o app. Mesmo limite do desktop.
+    const val MIN_ITERATIONS = 1000
+    const val MAX_ITERATIONS = 10_000_000
+
+    fun iterationsOf(data: JSONObject): Int {
+        if (!data.has("iterations")) return V2_ITERATIONS
+        val v = data.get("iterations")
+        val n = (v as? Number)?.toDouble() ?: throw IllegalArgumentException("Formato de dados criptografados inválido (iterações)")
+        if (n != Math.floor(n) || n < MIN_ITERATIONS || n > MAX_ITERATIONS) {
+            throw IllegalArgumentException("Formato de dados criptografados inválido (iterações)")
+        }
+        return n.toInt()
     }
 
     /** Descriptografa com a chave já derivada. Lança exceção se a senha estiver errada. */

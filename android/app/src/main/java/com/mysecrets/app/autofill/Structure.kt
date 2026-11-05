@@ -5,6 +5,7 @@ import android.text.InputType
 import android.view.View
 import android.view.autofill.AutofillId
 import org.json.JSONObject
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.URI
 
 /** O que interessa de uma tela para preencher: campos e de onde ela é. */
@@ -113,14 +114,30 @@ object Structure {
         } catch (_: Exception) { null }
     }
 
-    /** Domínio "registrável" aproximado: os dois últimos rótulos (ou três em .com.br etc.). */
-    fun baseDomain(host: String): String {
-        val p = host.removePrefix("www.").split(".")
-        if (p.size <= 2) return p.joinToString(".")
-        val segundo = p[p.size - 2]
-        val take = if (segundo.length <= 3 && p.last().length == 2) 3 else 2
-        return p.takeLast(take).joinToString(".")
-    }
+    /**
+     * Domínio registrável pela Public Suffix List (a do OkHttp, já usado pelo
+     * app): "a.github.io" e "b.github.io" são sites diferentes; "app.exemplo.com.br"
+     * e "exemplo.com.br" são o mesmo. Null para IP, localhost e afins.
+     */
+    fun registrableDomain(host: String): String? =
+        "https://${host.removePrefix("www.")}/".toHttpUrlOrNull()?.topPrivateDomain()
+
+    /**
+     * Navegadores cujo webDomain é confiável (é o endereço da aba). Qualquer
+     * outro app pode declarar o webDomain que quiser, então nele o login é
+     * escolhido pelo pacote, como num app nativo.
+     */
+    val BROWSERS = setOf(
+        "com.android.chrome", "com.chrome.beta", "com.chrome.dev", "com.chrome.canary", "org.chromium.chrome",
+        "org.mozilla.firefox", "org.mozilla.firefox_beta", "org.mozilla.fenix", "org.mozilla.focus", "org.mozilla.fennec_fdroid",
+        "org.mozilla.klar", "us.spotco.fennec_dos", "io.github.forkmaintainers.iceraven",
+        "com.brave.browser", "com.brave.browser_beta", "com.microsoft.emmx", "com.microsoft.emmx.beta",
+        "com.sec.android.app.sbrowser", "com.sec.android.app.sbrowser.beta",
+        "com.opera.browser", "com.opera.browser.beta", "com.opera.mini.native", "com.opera.gx",
+        "com.duckduckgo.mobile.android", "com.vivaldi.browser", "com.kiwibrowser.browser", "com.ecosia.android",
+        "com.mi.globalbrowser", "com.android.browser", "app.vanadium.browser", "com.yandex.browser",
+        "com.cloudmosa.puffin", "mark.via.gp", "com.UCMobile.intl"
+    )
 
     /** 0 = não serve; maior = melhor. */
     fun score(entry: JSONObject, form: ParsedForm): Int {
@@ -130,16 +147,19 @@ object Structure {
         val packages = entry.optJSONArray("androidPackages")
         if (packages != null) for (i in 0 until packages.length()) if (packages.optString(i) == form.packageName) return 100
         val host = hostOf(entry.optString("url")) ?: return 0
-        val web = form.webDomain?.removePrefix("www.")
-        if (web != null) {
+        val web = form.webDomain?.lowercase()?.removePrefix("www.")?.trimEnd('.')
+        if (web != null && form.packageName in BROWSERS) {
             if (web == host) return 90
-            if (web.endsWith(".$host") || host.endsWith(".$web")) return 70
-            if (baseDomain(web) == baseDomain(host)) return 50
-            return 0
+            val site = registrableDomain(web)
+            if (site == null || site != registrableDomain(host)) return 0
+            return if (web.endsWith(".$host") || host.endsWith(".$web")) 70 else 50
         }
-        // App nativo: nome do pacote contém o nome do site (com.netflix.mediaclient ↔ netflix.com)
-        val label = baseDomain(host).substringBefore('.')
-        if (label.length >= 3 && form.packageName.lowercase().split('.').any { it == label }) return 40
+        // App nativo: o pacote começa pelo domínio invertido
+        // (netflix.com ↔ com.netflix.mediaclient). "com.evil.netflix" não serve.
+        val site = registrableDomain(host) ?: return 0
+        val invertido = site.split('.').reversed().joinToString(".")
+        val pkg = form.packageName.lowercase()
+        if (pkg == invertido || pkg.startsWith("$invertido.")) return 40
         return 0
     }
 }

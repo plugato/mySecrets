@@ -137,7 +137,7 @@ class AutofillActivity : FragmentActivity() {
     @androidx.compose.runtime.Composable
     private fun PickScreen() {
         val all by Vault.entries.collectAsState()
-        var q by remember { mutableStateOf(form.webDomain?.let { Structure.baseDomain(it).substringBefore('.') } ?: "") }
+        var q by remember { mutableStateOf(form.webDomain?.let { (Structure.registrableDomain(it) ?: it).substringBefore('.') } ?: "") }
         val list = all.filter { it.optString("type", "login") == "login" && !it.has("deletedAt") }
             .filter { e ->
                 q.isBlank() || listOf(e.optString("title"), e.optString("url"), e.optString("username")).any { it.contains(q, true) }
@@ -166,7 +166,8 @@ class AutofillActivity : FragmentActivity() {
         if (p == null) { androidx.compose.runtime.LaunchedEffect(Unit) { finish() }; return }
         val scope = rememberCoroutineScope()
         val host = p.webDomain?.removePrefix("www.")
-        val existing = Vault.entries.value.firstOrNull { e ->
+        val entries by Vault.entries.collectAsState()
+        val existing = entries.firstOrNull { e ->
             !e.has("deletedAt") && e.optString("type", "login") == "login" &&
                 Structure.score(e, form.copyFor(p)) > 0 && e.optString("username").equals(p.username, true)
         }

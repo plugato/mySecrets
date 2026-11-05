@@ -44,6 +44,11 @@ object Vault {
         dir = context.filesDir
     }
 
+    /** Testes JVM: usa uma pasta qualquer no lugar de context.filesDir. */
+    internal fun initDir(d: File) {
+        dir = d
+    }
+
     private val vaultFile get() = File(dir, VAULT_FILE)
     private val tombFile get() = File(dir, TOMBSTONES_FILE)
 
@@ -145,14 +150,28 @@ object Vault {
 
     // ===== Usado pela sincronização =====
 
-    internal fun snapshot(): List<JSONObject> = _entries.value
+    /** Resultado da mescla de uma rodada de sincronização. */
+    internal class SyncMerge(val merged: List<JSONObject>, val tombstones: Map<String, String>, val localChanged: Boolean)
 
-    internal suspend fun applyMerged(merged: List<JSONObject>, tombstones: Map<String, String>) = withContext(Dispatchers.Default) {
+    /**
+     * Mescla o que veio da nuvem com o estado local ATUAL e grava, tudo dentro
+     * do mutex das edições: o que o usuário salvou ou apagou enquanto a rede
+     * respondia entra na mescla, em vez de ser sobrescrito (ou ressuscitado).
+     */
+    internal suspend fun applySync(remote: List<JSONObject>?, remoteT: Map<String, String>): SyncMerge = withContext(Dispatchers.Default) {
         mutex.withLock {
-            if (!_unlocked.value) return@withLock
-            writeTombstones(tombstones)
-            writeFile(merged)
-            publish(merged)
+            check(_unlocked.value) { "Cofre bloqueado" }
+            val local = _entries.value
+            val localT = readTombstones()
+            val tombs = Merge.mergeTombstones(localT, remoteT)
+            val merged = Merge.mergeVaults(if (remote != null) listOf(local, remote) else listOf(local), tombs)
+            val changed = JSONArray(local).toString() != JSONArray(merged).toString()
+            if (tombs != localT) writeTombstones(tombs)
+            if (changed) {
+                writeFile(merged)
+                publish(merged)
+            }
+            SyncMerge(merged, tombs, changed)
         }
     }
 
@@ -169,11 +188,17 @@ object Vault {
     internal fun encryptForUpload(list: List<JSONObject>): String =
         VaultCrypto.encrypt(JSONArray(list).toString(), key ?: error("Cofre bloqueado")).toString()
 
-    internal fun readTombstones(): MutableMap<String, String> = try {
-        val o = JSONObject(tombFile.readText())
-        o.keys().asSequence().associateWith { o.getString(it) }.toMutableMap()
-    } catch (_: Exception) {
-        mutableMapOf()
+    internal fun readTombstones(): MutableMap<String, String> {
+        if (!tombFile.exists()) return mutableMapOf()
+        return try {
+            val o = JSONObject(tombFile.readText())
+            o.keys().asSequence().associateWith { o.getString(it) }.toMutableMap()
+        } catch (_: Exception) {
+            // Ilegível: guarda uma cópia em vez de deixar a próxima gravação
+            // apagar as exclusões que havia nele
+            tombFile.renameTo(File(dir, ".corrompido-${System.currentTimeMillis()}-${TOMBSTONES_FILE.removePrefix(".")}"))
+            mutableMapOf()
+        }
     }
 
     private fun writeTombstones(t: Map<String, String>) {

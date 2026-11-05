@@ -66,4 +66,7 @@ object Pairings {
     fun markUsed(pairId: String) = save(_list.value.map { if (it.pairId == pairId) it.copy(lastUsedAt = Vault.now()) else it })
 
     fun remove(pairId: String) = save(_list.value.filter { it.pairId != pairId })
+
+    /** Esquece todos os PCs (apagar o cofre deste celular). */
+    fun clear() = save(emptyList())
 }
