@@ -50,7 +50,9 @@ object GoogleAuth {
     private fun b64url(b: ByteArray) = Base64.getUrlEncoder().withoutPadding().encodeToString(b)
 
     /** Abre o login no navegador e espera o retorno. */
-    suspend fun authorize(context: Context): Tokens = withContext(Dispatchers.IO) {
+    suspend fun authorize(context: Context): Tokens = com.mysecrets.app.MySecretsApp.duringExternalFlow { authorizeRaw(context) }
+
+    private suspend fun authorizeRaw(context: Context): Tokens = withContext(Dispatchers.IO) {
         val rnd = SecureRandom()
         val verifier = b64url(ByteArray(32).also(rnd::nextBytes))
         val challenge = b64url(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()))

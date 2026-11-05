@@ -101,7 +101,9 @@ fun copySecret(ctx: Context, label: String, text: String) {
 }
 
 /** Lê um QR code pela câmera (scanner do Google Play Services, sem permissão de câmera). */
-suspend fun scanQr(ctx: Context): String? = suspendCancellableCoroutine { cont ->
+suspend fun scanQr(ctx: Context): String? = com.mysecrets.app.MySecretsApp.duringExternalFlow { scanQrRaw(ctx) }
+
+private suspend fun scanQrRaw(ctx: Context): String? = suspendCancellableCoroutine { cont ->
     val opts = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
     GmsBarcodeScanning.getClient(ctx, opts).startScan()
         .addOnSuccessListener { cont.resume(it.rawValue) }

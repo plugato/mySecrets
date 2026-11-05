@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-11-05
+
+### Fixed
+- Android: "Parear com PC" did nothing after reading the QR code. The QR scanner (and the Google login and "save attachment" screens) put the app in the background, auto-lock locked the vault on return and the pairing was cancelled before the fingerprint prompt. Auto-lock now doesn't count time spent in screens the app itself opened.
+
 ## [2.0.2] - 2026-11-05
 
 ### Fixed

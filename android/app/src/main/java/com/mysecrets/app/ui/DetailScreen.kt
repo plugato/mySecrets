@@ -124,6 +124,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onEdit: () -> Unit) {
     var saving by remember { mutableStateOf<JSONObject?>(null) }
 
     val saveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        com.mysecrets.app.MySecretsApp.endExternalFlow()
         val att = saving
         saving = null
         if (uri != null && att != null) {
@@ -193,7 +194,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onEdit: () -> Unit) {
                                 Text(a.optString("name"))
                                 Text("${a.optLong("size") / 1024} KB", style = MaterialTheme.typography.labelSmall)
                             }
-                            IconButton(onClick = { saving = a; saveLauncher.launch(a.optString("name", "anexo")) }) { Icon(Icons.Default.Download, "Salvar arquivo") }
+                            IconButton(onClick = { saving = a; com.mysecrets.app.MySecretsApp.beginExternalFlow(); saveLauncher.launch(a.optString("name", "anexo")) }) { Icon(Icons.Default.Download, "Salvar arquivo") }
                         }
                     }
                 }
