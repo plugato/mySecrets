@@ -59,6 +59,7 @@ function guessMime(name) {
  */
 function sanitizeName(name) {
   let n = path.basename(String(name || '').replace(/\\/g, '/'));
+  // eslint-disable-next-line no-control-regex -- remove caracteres de controle de nomes de arquivo
   n = n.replace(/[\u0000-\u001f\u007f/\\:*?"<>|]/g, '_').trim();
   if (!n || n === '.' || n === '..') n = 'arquivo';
   return n.slice(0, MAX_NAME_LENGTH);
@@ -126,20 +127,52 @@ function verifyAttachment(att) {
   return buffer;
 }
 
+function lstatOrNull(p) {
+  try { return fs.lstatSync(p); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
+}
+
+function backupStamp(date = new Date()) {
+  return date.toISOString().replace(/[-:]/g, '').replace(/\..*$/, '').replace('T', '-');
+}
+
 /**
- * Grava o anexo em disco (permissão 600). Não sobrescreve um arquivo existente
- * a não ser com overwrite: true. Confere o sha256 antes de gravar.
+ * Grava o anexo em disco (permissão 600). Confere o sha256 antes de gravar.
+ * - Não sobrescreve um arquivo existente a não ser com overwrite: true.
+ * - Nunca grava através de um link simbólico (o destino seria outro arquivo).
+ * - backup: true guarda uma cópia do arquivo substituído em
+ *   "<arquivo>.bak-<data>" antes de sobrescrever (usado pelo MCP: um agente
+ *   não pode destruir um arquivo sem volta).
+ * A gravação é atômica: arquivo temporário na mesma pasta + rename.
  */
-function writeAttachmentToPath(att, outPath, { overwrite = false } = {}) {
+function writeAttachmentToPath(att, outPath, { overwrite = false, backup = false } = {}) {
   if (typeof outPath !== 'string' || !outPath) throw new Error('Informe o caminho de destino');
   if (!path.isAbsolute(outPath)) throw new Error('Use um caminho absoluto para o destino');
   const buffer = verifyAttachment(att);
-  if (fs.existsSync(outPath) && !fs.statSync(outPath).isFile()) throw new Error(`O destino não é um arquivo: ${outPath}`);
-  if (fs.existsSync(outPath) && !overwrite) throw new Error(`Já existe um arquivo em ${outPath} (use overwrite: true para substituir)`);
+  const st = lstatOrNull(outPath);
+  if (st && st.isSymbolicLink()) throw new Error(`O destino é um link simbólico; não gravo através dele: ${outPath}`);
+  if (st && !st.isFile()) throw new Error(`O destino não é um arquivo: ${outPath}`);
+  if (st && !overwrite) throw new Error(`Já existe um arquivo em ${outPath} (use overwrite: true para substituir)`);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, buffer, { mode: 0o600 });
-  try { fs.chmodSync(outPath, 0o600); } catch (_) { /* Windows */ }
-  return { path: outPath, size: buffer.length, sha256: att.sha256 };
+
+  let backupPath;
+  if (st && backup) {
+    backupPath = `${outPath}.bak-${backupStamp()}`;
+    let n = 1;
+    while (lstatOrNull(backupPath)) backupPath = `${outPath}.bak-${backupStamp()}-${n++}`;
+    fs.copyFileSync(outPath, backupPath, fs.constants.COPYFILE_EXCL);
+    try { fs.chmodSync(backupPath, 0o600); } catch (_) { /* Windows */ }
+  }
+
+  const tmp = path.join(path.dirname(outPath), `.${path.basename(outPath)}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`);
+  try {
+    fs.writeFileSync(tmp, buffer, { mode: 0o600, flag: 'wx' });
+    try { fs.chmodSync(tmp, 0o600); } catch (_) { /* Windows */ }
+    fs.renameSync(tmp, outPath);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch (_) { /* já foi */ }
+    throw e;
+  }
+  return { path: outPath, size: buffer.length, sha256: att.sha256, backupPath };
 }
 
 /** Metadados de um anexo, sem o conteúdo. */

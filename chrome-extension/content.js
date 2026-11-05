@@ -1,7 +1,12 @@
 // MySecrets Chrome Extension - Content Script
 // Detecta e preenche campos de formulários
 
-console.log('MySecrets Content Script carregado');
+// Logs de diagnóstico desligados: o console do content script aparece no
+// DevTools de qualquer site. Nunca registre valores (senha, código, entrada).
+const DEBUG = false;
+function debug(...args) { if (DEBUG) console.log('[MySecrets]', ...args); }
+
+debug('content script carregado');
 
 // Extensão recarregada/atualizada com a página aberta: este script fica órfão
 // e qualquer chamada ao chrome.runtime lança "Extension context invalidated".
@@ -138,7 +143,7 @@ function fillField(field, value) {
     
     return true;
   } catch (error) {
-    console.error('Erro ao preencher campo:', error);
+    console.error('[MySecrets] Erro ao preencher campo:', error && error.message);
     return false;
   }
 }
@@ -162,7 +167,7 @@ function fillLoginForm(entry) {
   // Preenche usuário/email
   if (loginForm.usernameField && entry.username) {
     if (fillField(loginForm.usernameField, entry.username)) {
-      console.log('Campo de usuário preenchido');
+      debug('Campo de usuário preenchido');
       filled = true;
     }
   }
@@ -170,35 +175,35 @@ function fillLoginForm(entry) {
   // Preenche senha
   if (loginForm.passwordField && entry.password) {
     if (fillField(loginForm.passwordField, entry.password)) {
-      console.log('Campo de senha preenchido');
+      debug('Campo de senha preenchido');
       filled = true;
     }
   }
   
   // Preenche campo MFA/2FA se existir código
   if (entry.mfaCode) {
-    console.log('🔐 Entry tem código MFA:', entry.mfaCode);
+    debug('entrada tem código MFA');
     const mfaField = findMfaField();
     if (mfaField) {
-      console.log('✅ Campo MFA encontrado:', mfaField);
+      debug('campo MFA encontrado');
       if (fillField(mfaField, entry.mfaCode)) {
-        console.log('✅ Campo 2FA preenchido com código MFA');
+        debug('✅ Campo 2FA preenchido com código MFA');
         highlightField(mfaField);
         filled = true;
       }
     } else {
-      console.log('❌ Código MFA disponível mas campo 2FA não encontrado na página');
-      console.log('📝 Verifique se o campo está visível e não está em iframe');
+      debug('❌ Código MFA disponível mas campo 2FA não encontrado na página');
+      debug('📝 Verifique se o campo está visível e não está em iframe');
     }
   } else {
-    console.log('ℹ️ Entry não tem código MFA vinculado');
+    debug('ℹ️ Entry não tem código MFA vinculado');
   }
   
   // Preenche custom fields
   if (entry.customFields && Array.isArray(entry.customFields)) {
     const customFieldsFilled = fillCustomFields(entry.customFields);
     if (customFieldsFilled > 0) {
-      console.log(`${customFieldsFilled} custom fields preenchidos`);
+      debug(`${customFieldsFilled} custom fields preenchidos`);
       filled = true;
     }
   }
@@ -296,7 +301,7 @@ function fillCustomFields(customFields) {
             if (fillField(input, fieldValue)) {
               highlightField(input);
               filledCount++;
-              console.log(`Custom field "${field.name}" preenchido`);
+              debug(`Custom field "${field.name}" preenchido`);
             }
           }
         });
@@ -410,6 +415,7 @@ function showAutofillButton(count) {
   
   const button = document.createElement('button');
   button.id = 'mysecrets-autofill-button';
+  // eslint-disable-next-line no-unsanitized/property -- count é número
   button.innerHTML = `
     <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
       <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
@@ -579,13 +585,14 @@ function showEntrySelector(entries) {
 // ===== Message Handlers =====
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Content script recebeu mensagem:', message);
+  debug('mensagem recebida:', message && message.type);
   
   switch (message.type) {
-    case 'fill_fields':
+    case 'fill_fields': {
       const success = fillLoginForm(message.entry);
       sendResponse({ success });
       break;
+    }
       
     case 'entries_available':
       // Mostra botão de autofill
@@ -600,7 +607,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true });
       break;
 
-    case 'detect_fields':
+    case 'detect_fields': {
       const loginForm = findLoginForm();
       sendResponse({
         success: true,
@@ -611,7 +618,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       });
       break;
-      
+    }
+
     default:
       sendResponse({ success: false, error: 'Tipo de mensagem desconhecido' });
   }
@@ -747,7 +755,7 @@ function showSavePrompt(prompt) {
 // document_idle costuma injetar este script depois do 'load' em página estática
 // (ex.: tela do código 2FA do GitLab): aí o evento nunca viria.
 function detectOnLoad() {
-  console.log('Página carregada, detectando formulários...');
+  debug('Página carregada, detectando formulários...');
 
   // Login enviado na página anterior (antes do redirecionamento) esperando resposta
   sendToBackground({ type: 'get_pending_save' }, (response) => {
@@ -755,7 +763,7 @@ function detectOnLoad() {
   });
   
   if (findLoginForm() || findMfaField()) {
-    console.log('Formulário de login detectado');
+    debug('Formulário de login detectado');
     
     // Notifica background script
     sendToBackground({
@@ -798,7 +806,7 @@ const observer = new MutationObserver(() => {
     
     // Só envia mensagem se o estado mudou (formulário apareceu/desapareceu)
     if (hasForm && !lastFormFound) {
-      console.log('Novo formulário detectado via MutationObserver');
+      debug('Novo formulário detectado via MutationObserver');
       lastFormFound = true;
       
       sendToBackground({
@@ -822,5 +830,5 @@ observer.observe(document.body, {
   subtree: true
 });
 
-console.log('MySecrets Content Script pronto');
+debug('MySecrets Content Script pronto');
 

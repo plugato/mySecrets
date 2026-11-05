@@ -78,14 +78,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   attachmentSave: (attachment) => ipcRenderer.invoke('attachment-save', attachment),
   
   // Utilidades
+  // Usa o gerador criptográfico (crypto.getRandomValues). Descarta os bytes
+  // acima do maior múltiplo do tamanho do alfabeto (rejection sampling) para
+  // que todos os caracteres tenham a mesma chance, sem viés de módulo.
   generatePassword: (length = 16, includeSymbols = true) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
     const allChars = includeSymbols ? chars + symbols : chars;
-    
+    const n = Math.min(1024, Math.max(0, Math.floor(Number(length) || 0)));
+    const limit = 256 - (256 % allChars.length);
+
     let password = '';
-    for (let i = 0; i < length; i++) {
-      password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+    const buf = new Uint8Array(64);
+    while (password.length < n) {
+      crypto.getRandomValues(buf);
+      for (let i = 0; i < buf.length && password.length < n; i++) {
+        if (buf[i] < limit) password += allChars[buf[i] % allChars.length];
+      }
     }
     return password;
   },
@@ -103,11 +112,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return { code: result.code, remaining: result.remaining, period: result.period };
       } else {
         console.error('Erro no TOTP:', result.error);
-        return { code: '000000', remaining: 30, period: 30 };
+        // Nunca um código falso que pareça válido (000000 podia ser copiado)
+        return { code: 'ERRO', error: result.error || 'Falha ao gerar o código', remaining: 30, period: 30 };
       }
     } catch (error) {
       console.error('Erro ao gerar TOTP:', error);
-      return { code: '000000', remaining: 30, period: 30 };
+      return { code: 'ERRO', error: error.message, remaining: 30, period: 30 };
     }
   },
   
@@ -118,11 +128,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return { code: result.code, counter: result.counter };
       } else {
         console.error('Erro no HOTP:', result.error);
-        return { code: '000000', counter: counter + 1 };
+        return { code: 'ERRO', error: result.error || 'Falha ao gerar o código', counter };
       }
     } catch (error) {
       console.error('Erro ao gerar HOTP:', error);
-      return { code: '000000', counter: counter + 1 };
+      return { code: 'ERRO', error: error.message, counter };
     }
   },
   

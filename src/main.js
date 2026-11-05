@@ -1,10 +1,13 @@
-const { app, BrowserWindow, Menu, Tray, ipcMain, dialog, safeStorage, clipboard, nativeImage, globalShortcut, powerMonitor, shell, Notification } = require('electron');
+const { app, BrowserWindow, Menu, Tray, ipcMain, dialog, safeStorage, clipboard, nativeImage, globalShortcut, powerMonitor, shell, Notification, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const os = require('os');
 const { execFile, spawn } = require('child_process');
 const vaultCrypto = require('./lib/vault-crypto');
+const sessionCrypto = require('./lib/session-crypto');
+const { inspectBackup } = require('./lib/vault-backup');
+const gdriveSyncLib = require('./lib/gdrive-sync');
 const vaultSync = require('./lib/vault-sync');
 const googleDrive = require('./lib/google-drive');
 const { createAgentWriteQueue } = require('./lib/agent-queue');
@@ -96,29 +99,12 @@ function getMachineSecret() {
 }
 
 function generateSessionKey() {
-  return crypto.createHash('sha256')
-    .update('mysecrets-session-v2')
-    .update(getMachineSecret())
-    .digest();
+  return sessionCrypto.sessionKey(getMachineSecret());
 }
 
-/**
- * Criptografa dados da sessão (v2: AES-256-GCM, autenticado)
- */
+/** Criptografa dados da sessão (v2: AES-256-GCM, autenticado). */
 function encryptSession(data) {
-  const key = generateSessionKey();
-  const iv = crypto.randomBytes(12);
-
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-
-  return {
-    version: 2,
-    encrypted,
-    iv: iv.toString('hex'),
-    authTag: cipher.getAuthTag().toString('hex')
-  };
+  return sessionCrypto.encryptSession(data, generateSessionKey());
 }
 
 /**
@@ -126,21 +112,18 @@ function encryptSession(data) {
  * são simplesmente descartadas e recriadas no próximo desbloqueio)
  */
 function decryptSession(encryptedData) {
+  const data = sessionCrypto.decryptSession(encryptedData, generateSessionKey());
+  if (!data) console.error('Sessão inválida ou de formato antigo');
+  return data;
+}
+
+/** Senha mestra da sessão aberta, ou null se o cofre está bloqueado. */
+function currentSessionPassword() {
   try {
-    if (encryptedData.version !== 2 || !encryptedData.authTag) {
-      return null; // formato antigo: inválido a partir de agora
-    }
-    const key = generateSessionKey();
-    const iv = Buffer.from(encryptedData.iv, 'hex');
-
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAuthTag(Buffer.from(encryptedData.authTag, 'hex'));
-    let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-
-    return JSON.parse(decrypted);
-  } catch (error) {
-    console.error('Erro ao descriptografar sessão:', error);
+    const data = decryptSession(JSON.parse(fs.readFileSync(sessionPath, 'utf8')));
+    if (!data || !data.unlocked || Date.now() > data.expiresAt) return null;
+    return data.password || null;
+  } catch (_) {
     return null;
   }
 }
@@ -219,6 +202,8 @@ function refreshSession() {
  * Remove arquivo de sessão quando bloquear ou fechar
  */
 function destroySession() {
+  // Sem sessão = cofre fechado: esquece também a chave derivada em memória
+  try { vaultKeys.clear(); } catch (_) { /* ainda não inicializado */ }
   if (fs.existsSync(sessionPath)) {
     try {
       fs.unlinkSync(sessionPath);
@@ -917,6 +902,7 @@ ipcMain.handle('agent-write-result', async (event, reqId, result) => {
 
 // Texto vindo do agente vai para a notificação numa linha só e curto
 function oneLine(text, max = 120) {
+  // eslint-disable-next-line no-control-regex -- remove caracteres de controle do texto
   const t = String(text == null ? '' : text).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
   return t.length > max ? t.slice(0, max - 1) + '…' : t;
 }
@@ -1094,7 +1080,10 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      enableRemoteModule: false,
+      sandbox: true,
+      // DevTools expõem o cofre destravado: bloqueados fora do modo --dev,
+      // não só escondidos do menu
+      devTools: isDevMode,
       preload: preloadPath
     },
     icon: path.join(__dirname, '../assets/icon.png'),
@@ -1171,7 +1160,8 @@ function createWindow() {
       submenu: [
         { role: 'reload', label: 'Recarregar' },
         { role: 'forceReload', label: 'Forçar Recarregamento' },
-        { role: 'toggleDevTools', label: 'Ferramentas do Desenvolvedor' },
+        // DevTools expõem o cofre destravado: só no modo --dev
+        ...(isDevMode ? [{ role: 'toggleDevTools', label: 'Ferramentas do Desenvolvedor' }] : []),
         { type: 'separator' },
         { role: 'resetZoom', label: 'Zoom Padrão' },
         { role: 'zoomIn', label: 'Aumentar Zoom' },
@@ -1188,7 +1178,11 @@ function createWindow() {
 
 // Criptografia do cofre: ver src/lib/vault-crypto.js
 // (v2: AES-256-GCM + PBKDF2 600k; lê e migra o formato legado v1 CBC)
-const { encryptVault, decryptVault, isLegacyFormat } = vaultCrypto;
+const { isLegacyFormat } = vaultCrypto;
+// Chave derivada em cache: gravar e sincronizar sem PBKDF2 a cada vez
+const vaultKeys = vaultCrypto.createKeyCache();
+const encryptVault = (text, password) => vaultKeys.encrypt(text, password);
+const decryptVault = (data, password) => vaultKeys.decrypt(data, password);
 
 // ===== Backup automático =====
 //
@@ -1245,6 +1239,15 @@ function maybeAutoBackup() {
 // PC (via Google Drive) gravou uma versão nova; os ids revelam exclusões
 // definitivas feitas aqui desde então.
 let vaultState = { hash: null, ids: new Set() };
+
+// O que a TELA recebeu por último (load-data/save-data). A sincronização grava
+// no disco por baixo dela; exclusões são calculadas contra isto, não contra o
+// disco, senão entradas recém-chegadas de outro aparelho pareceriam apagadas.
+let rendererBase = { hash: null, ids: new Set() };
+
+function rememberRendererBase() {
+  rendererBase = { hash: vaultState.hash, ids: new Set(vaultState.ids) };
+}
 
 function fileHash(file) {
   try {
@@ -1360,16 +1363,37 @@ ipcMain.handle('save-data', async (event, data, masterPassword, options = {}) =>
   try {
     let entries = data;
     let merged = false;
+    // Exclusões feitas pelo usuário: comparadas com o que a tela tinha
+    const removidos = vaultSync.removedIds(rendererBase.ids, data);
     if (isGdriveConnected()) {
-      recordLocalTombstones(vaultSync.removedIds(vaultState.ids, data));
+      recordLocalTombstones(removidos);
     }
+
+    // A sincronização gravou o disco depois que a tela carregou: mescla em vez
+    // de sobrescrever (a edição da tela vence empates).
+    const diskHash = fileHash(vaultFile());
+    if (diskHash && rendererBase.hash && diskHash !== rendererBase.hash) {
+      try {
+        const doDisco = readVaultEntries(vaultFile(), masterPassword);
+        const agora = new Date().toISOString();
+        const lapides = { ...vaultSync.readTombstones(userDataPath).tombstones };
+        removidos.forEach((id) => { lapides[id] = agora; });
+        entries = vaultSync.mergeVaults([data, doDisco], lapides);
+        merged = true;
+      } catch (mergeError) {
+        // Ex.: troca de senha mestra (disco ainda com a senha antiga)
+        console.error('Não foi possível mesclar com o cofre do disco:', mergeError.message);
+      }
+    }
+
     if (isSyncEnabled()) {
-      const r = mergeWithSyncFolder(data, masterPassword, vaultSync.removedIds(vaultState.ids, data));
+      const r = mergeWithSyncFolder(entries, masterPassword, removidos);
       entries = r.entries;
-      merged = r.merged;
+      merged = merged || r.merged;
     }
     writeVaultFile(entries, masterPassword);
     rememberVault(entries);
+    rememberRendererBase();
     if (isGdriveConnected()) {
       gdrive.password = masterPassword;
       scheduleGdriveSync();
@@ -1388,6 +1412,7 @@ ipcMain.handle('load-data', async (event, masterPassword) => {
     if (!fs.existsSync(vaultFile())) {
       // Cria sessão mesmo sem dados
       rememberVault([]);
+      rememberRendererBase();
       createSession(masterPassword);
       startVaultWatcher();
       startGdrive(masterPassword);
@@ -1395,6 +1420,8 @@ ipcMain.handle('load-data', async (event, masterPassword) => {
     }
 
     const encryptedData = JSON.parse(fs.readFileSync(vaultFile(), 'utf8'));
+    // Deriva a chave fora da thread principal (a janela não congela ao abrir)
+    await vaultKeys.prime(encryptedData, masterPassword);
     const decryptedData = decryptVault(encryptedData, masterPassword);
     let entries = JSON.parse(decryptedData);
 
@@ -1422,6 +1449,7 @@ ipcMain.handle('load-data', async (event, masterPassword) => {
     }
 
     rememberVault(entries);
+    rememberRendererBase();
 
     // Cria sessão quando desbloquear com sucesso
     createSession(masterPassword);
@@ -1667,69 +1695,36 @@ async function runGdriveSync(masterPassword) {
   const st = readGdriveState() || {};
 
   try {
-    let folderId = st.folderId;
-    if (!folderId) {
-      folderId = await client.ensureFolder(GDRIVE_FOLDER);
-      if (!(await client.findFile('LEIA-ME.txt', folderId))) {
-        await client.upload('LEIA-ME.txt', folderId, GDRIVE_LEIA_ME, null, 'text/plain');
-      }
-    }
+    const r = await gdriveSyncLib.syncWithRetry({
+      client,
+      password: masterPassword,
+      state: st,
+      folderName: GDRIVE_FOLDER,
+      readme: GDRIVE_LEIA_ME,
+      readLocal: () => (fs.existsSync(vaultFile()) ? readVaultEntries(vaultFile(), masterPassword) : []),
+      writeLocal: (entries) => {
+        writeVaultFile(entries, masterPassword);
+        rememberVault(entries);
+      },
+      readLocalTombs: () => vaultSync.readTombstones(userDataPath),
+      writeLocalTombs: (tombs, files) => vaultSync.writeTombstones(userDataPath, tombs, files),
+      encrypt: encryptVault,
+      decrypt: decryptVault,
+      hash: entriesHash
+    });
 
-    const local = fs.existsSync(vaultFile()) ? readVaultEntries(vaultFile(), masterPassword) : [];
-    const remoteMeta = await client.findFile(vaultSync.VAULT_FILE, folderId);
-    const tombMeta = await client.findFile(vaultSync.TOMBSTONES_FILE, folderId);
-
-    // Só baixa o cofre da nuvem se ele mudou desde a última sincronização
-    let remote = null;
-    if (remoteMeta && remoteMeta.md5Checksum !== st.lastRemoteMd5) {
-      try {
-        remote = readEncryptedEntries(await client.download(remoteMeta.id), masterPassword);
-      } catch (_) {
-        throw new Error('O cofre no Google Drive usa outra senha mestra (ou está corrompido).');
-      }
-    }
-
-    const localT = vaultSync.readTombstones(userDataPath);
-    let remoteT = {};
-    if (tombMeta) {
-      try { remoteT = JSON.parse(await client.download(tombMeta.id)); } catch (_) { remoteT = {}; }
-    }
-    const tombs = vaultSync.mergeTombstones(localT.tombstones, remoteT);
-
-    const merged = vaultSync.mergeVaults(remote ? [local, remote] : [local], tombs);
-    const mergedHash = entriesHash(merged);
-
-    // Chegou algo de outro PC: grava localmente e avisa a tela
-    if (entriesHash(local) !== mergedHash) {
-      writeVaultFile(merged, masterPassword);
-      rememberVault(merged);
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('vault-changed');
-    }
-
-    // Envia se a nuvem não tem o resultado da mesclagem
-    const remoteHash = remote ? entriesHash(remote) : (remoteMeta ? st.lastSyncedHash : null);
-    let md5 = remoteMeta ? remoteMeta.md5Checksum : null;
-    if (!remoteMeta || mergedHash !== remoteHash) {
-      const conteudo = JSON.stringify(encryptVault(JSON.stringify(merged), masterPassword));
-      const up = await client.upload(vaultSync.VAULT_FILE, folderId, conteudo, remoteMeta && remoteMeta.id);
-      md5 = up.md5Checksum;
-    }
-
-    if (JSON.stringify(tombs) !== JSON.stringify(remoteT)) {
-      await client.upload(vaultSync.TOMBSTONES_FILE, folderId, JSON.stringify(tombs), tombMeta && tombMeta.id, 'application/json');
-    }
-    if (JSON.stringify(tombs) !== JSON.stringify(localT.tombstones)) {
-      vaultSync.writeTombstones(userDataPath, tombs, localT.files);
-    }
+    // Chegou algo de outro aparelho: a tela recarrega
+    if (r.localChanged && mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('vault-changed');
 
     updateGdriveState({
-      folderId,
-      lastRemoteMd5: md5,
-      lastSyncedHash: mergedHash,
+      folderId: r.folderId,
+      lastRemoteMd5: r.lastRemoteMd5,
+      lastSyncedHash: r.lastSyncedHash,
       lastSyncAt: new Date().toISOString(),
       lastError: null
     });
   } catch (error) {
+    if (error.localChanged && mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('vault-changed');
     if (error.code === 'invalid_grant' || error.code === 'insufficient_scope') {
       // Acesso revogado ou sem a permissão do Drive: precisa entrar de novo
       gdrive.client = null;
@@ -1742,10 +1737,6 @@ async function runGdriveSync(masterPassword) {
     }
     console.error('Sincronização com Google Drive falhou:', error.message);
   }
-}
-
-function readEncryptedEntries(conteudo, masterPassword) {
-  return JSON.parse(decryptVault(JSON.parse(conteudo), masterPassword));
 }
 
 /** Uma sincronização por vez; pedidos durante uma execução geram mais uma rodada. */
@@ -1849,6 +1840,7 @@ ipcMain.handle('lock', async () => {
   destroySession();
   stopVaultWatcher();
   stopGdrive();
+  clearCopiedSecret();
   return { success: true };
 });
 
@@ -1859,10 +1851,24 @@ ipcMain.handle('lock', async () => {
 // que o usuário copiou depois).
 
 let clipboardClearTimer = null;
+let clipboardCopied = null; // último valor copiado pelo app
+
+/** Cofre bloqueado: tira da área de transferência o que o app copiou (só isso). */
+function clearCopiedSecret() {
+  if (clipboardClearTimer) {
+    clearTimeout(clipboardClearTimer);
+    clipboardClearTimer = null;
+  }
+  try {
+    if (clipboardCopied !== null && clipboard.readText() === clipboardCopied) clipboard.clear();
+  } catch (_) { /* clipboard indisponível */ }
+  clipboardCopied = null;
+}
 
 ipcMain.handle('copy-to-clipboard', async (event, text, clearAfterSeconds = 0) => {
   try {
     clipboard.writeText(String(text));
+    clipboardCopied = String(text);
 
     if (clipboardClearTimer) {
       clearTimeout(clipboardClearTimer);
@@ -2205,14 +2211,21 @@ async function exportBackup() {
     ]
   });
   
-  if (!result.canceled && fs.existsSync(vaultFile())) {
-    fs.copyFileSync(vaultFile(), result.filePath);
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Backup Exportado',
-      message: 'Backup exportado com sucesso!'
+  if (result.canceled) return;
+  if (!fs.existsSync(vaultFile())) {
+    await dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      title: 'Exportar Backup',
+      message: 'Ainda não há cofre salvo para exportar.'
     });
+    return;
   }
+  fs.copyFileSync(vaultFile(), result.filePath);
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'Backup Exportado',
+    message: 'Backup exportado com sucesso!'
+  });
 }
 
 async function importBackup() {
@@ -2225,26 +2238,59 @@ async function importBackup() {
     properties: ['openFile']
   });
   
-  if (!result.canceled && result.filePaths.length > 0) {
-    const response = await dialog.showMessageBox(mainWindow, {
-      type: 'warning',
-      title: 'Confirmar Importação',
-      message: 'Esta ação substituirá todos os dados atuais. Deseja continuar?',
-      buttons: ['Cancelar', 'Importar'],
-      defaultId: 0
-    });
-    
-    if (response.response === 1) {
-      fs.copyFileSync(result.filePaths[0], vaultFile());
-      dialog.showMessageBox(mainWindow, {
-        type: 'info',
-        title: 'Backup Importado',
-        message: 'Backup importado com sucesso! A aplicação será reiniciada.'
-      });
-      app.relaunch();
-      app.exit();
-    }
+  if (result.canceled || result.filePaths.length === 0) return;
+  const origem = result.filePaths[0];
+
+  const info = inspectBackup(origem, currentSessionPassword());
+  if (!info.ok) {
+    await dialog.showMessageBox(mainWindow, { type: 'error', title: 'Importar Backup', message: info.error });
+    return;
   }
+
+  let detail = 'O cofre atual será guardado em backups/ antes da troca.';
+  if (info.opensWithCurrent === true) {
+    detail = `O backup abre com a sua senha atual (${info.count} entradas). ` + detail;
+  } else if (info.opensWithCurrent === false) {
+    detail = 'ATENÇÃO: este backup NÃO abre com a sua senha mestra atual. Depois de importar, ' +
+      'você vai precisar da senha usada quando ele foi criado, senão não conseguirá abrir o cofre. ' + detail;
+  } else {
+    detail = 'Não foi possível conferir a senha do backup (cofre bloqueado). Depois de importar, ' +
+      'use a senha com que ele foi criado. ' + detail;
+  }
+
+  const response = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    title: 'Confirmar Importação',
+    message: 'Esta ação substituirá todos os dados atuais. Deseja continuar?',
+    detail,
+    buttons: ['Cancelar', info.opensWithCurrent === false ? 'Importar mesmo assim' : 'Importar'],
+    defaultId: 0,
+    cancelId: 0
+  });
+  if (response.response !== 1) return;
+
+  // Guarda o cofre atual: importar nunca apaga dados sem volta
+  let guardado = null;
+  if (fs.existsSync(vaultFile())) {
+    fs.mkdirSync(backupsPath(), { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    guardado = path.join(backupsPath(), `antes-de-importar-${stamp}.enc`);
+    fs.copyFileSync(vaultFile(), guardado);
+  }
+
+  // Troca atômica: cópia temporária na mesma pasta + rename
+  const tmp = path.join(path.dirname(vaultFile()), '.' + path.basename(vaultFile()) + '.import.tmp');
+  fs.copyFileSync(origem, tmp);
+  fs.renameSync(tmp, vaultFile());
+
+  await dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'Backup Importado',
+    message: 'Backup importado com sucesso! A aplicação será reiniciada.',
+    detail: guardado ? `O cofre anterior foi guardado em:\n${guardado}` : undefined
+  });
+  app.relaunch();
+  app.exit();
 }
 
 // ===== Atualizações automáticas (electron-updater + GitHub Releases) =====
@@ -2484,7 +2530,24 @@ function applyGlobalShortcut(enabled) {
 ipcMain.handle('set-global-shortcut', async (event, enabled) => applyGlobalShortcut(!!enabled));
 
 // Eventos da aplicação
+// Uma instância só: duas brigariam pelo arquivo do cofre e pela porta do MCP.
+// A segunda só traz a janela da primeira para frente.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+}
+
 app.whenReady().then(() => {
+  if (!gotSingleInstanceLock) return;
+  session.defaultSession.setPermissionRequestHandler((wc, permission, callback) => callback(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
   createWindow();
   createTray();
   setupPowerMonitor();
@@ -2515,13 +2578,14 @@ app.on('before-quit', () => {
 });
 
 // Prevenir navegação externa
+// A interface é uma página só (index.html): não abre janelas, não navega e
+// não usa permissões do navegador (câmera, microfone, notificações...).
+// O filtro antigo comparava origin com 'file://', mas a origem de file: é
+// "null": funcionava por acaso, bloqueando tudo.
 app.on('web-contents-created', (event, contents) => {
-  contents.on('will-navigate', (event, navigationUrl) => {
-    const parsedUrl = new URL(navigationUrl);
-    if (parsedUrl.origin !== 'file://') {
-      event.preventDefault();
-    }
-  });
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  contents.on('will-navigate', (e) => e.preventDefault());
+  contents.on('will-attach-webview', (e) => e.preventDefault());
 });
 
 // Teste das funções MFA (apenas para debugging)

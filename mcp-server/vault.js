@@ -14,7 +14,8 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const crypto = require('crypto');
+const vaultCrypto = require('../src/lib/vault-crypto');
+const sessionCrypto = require('../src/lib/session-crypto');
 
 const APP_NAME = 'mysecrets';
 const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutos (igual ao main.js)
@@ -57,33 +58,22 @@ const MACHINE_SECRET_FILE = path.join(USER_DATA_PATH, '.machine-secret');
  * O segredo de máquina é um arquivo de 32 bytes aleatórios (chmod 600)
  * criado pelo app — sem ele, o arquivo de sessão é indecifrável.
  */
-function generateSessionKey() {
-  const secret = fs.readFileSync(MACHINE_SECRET_FILE);
-  return crypto.createHash('sha256')
-    .update('mysecrets-session-v2')
-    .update(secret)
-    .digest();
-}
-
 /**
  * Descriptografa o arquivo de sessão (v2: AES-256-GCM autenticado).
  * Retorna { success, data } | { success:false, error }.
  */
 function decryptSession(encryptedData) {
-  try {
-    if (encryptedData.version !== 2 || !encryptedData.authTag) {
-      return { success: false, error: 'Formato de sessão antigo — desbloqueie o app novamente' };
-    }
-    const key = generateSessionKey();
-    const iv = Buffer.from(encryptedData.iv, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAuthTag(Buffer.from(encryptedData.authTag, 'hex'));
-    let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return { success: true, data: JSON.parse(decrypted) };
-  } catch (_) {
+  let secret;
+  try { secret = fs.readFileSync(MACHINE_SECRET_FILE); } catch (_) {
     return { success: false, error: 'Não foi possível descriptografar a sessão' };
   }
+  const data = sessionCrypto.decryptSession(encryptedData, sessionCrypto.sessionKey(secret));
+  if (!data) {
+    return { success: false, error: encryptedData && encryptedData.version !== 2
+      ? 'Formato de sessão antigo — desbloqueie o app novamente'
+      : 'Não foi possível descriptografar a sessão' };
+  }
+  return { success: true, data };
 }
 
 /**
@@ -98,13 +88,10 @@ function checkSession() {
   let sessionData;
   try {
     const fileData = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
-    if (fileData.encrypted && fileData.iv) {
-      const decrypted = decryptSession(fileData);
-      if (!decrypted.success) return { valid: false, reason: 'DECRYPT_FAILED' };
-      sessionData = decrypted.data;
-    } else {
-      sessionData = fileData; // formato antigo sem criptografia
-    }
+    // Só sessão cifrada (v2). Um .session em texto puro não é aceito.
+    const decrypted = decryptSession(fileData);
+    if (!decrypted.success) return { valid: false, reason: 'DECRYPT_FAILED' };
+    sessionData = decrypted.data;
   } catch (_) {
     return { valid: false, reason: 'INVALID_SESSION' };
   }
@@ -132,35 +119,11 @@ function checkSession() {
 }
 
 /**
- * Descriptografa secrets.enc usando a senha mestra.
- * Espelha src/lib/vault-crypto.js (este processo roda como Node puro e não
- * consegue fazer require de dentro do asar, então a lógica é duplicada):
- *   v2 (atual): AES-256-GCM + PBKDF2-SHA256 600k iterações
- *   v1 (legado): AES-256-CBC + PBKDF2-SHA256 100k iterações
+ * Descriptografa secrets.enc usando a senha mestra (mesmo código do app:
+ * src/lib/vault-crypto.js, que vai desempacotado junto com o MCP).
  */
 function decryptVault(encryptedDataString, password) {
-  const encryptedData = JSON.parse(encryptedDataString);
-  if (!encryptedData.encrypted || !encryptedData.salt || !encryptedData.iv) {
-    throw new Error('Formato de dados criptografados inválido');
-  }
-  const salt = Buffer.from(encryptedData.salt, 'hex');
-  const iv = Buffer.from(encryptedData.iv, 'hex');
-
-  if (!encryptedData.version || encryptedData.version < 2) {
-    const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-    let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return JSON.parse(decrypted);
-  }
-
-  const iterations = encryptedData.iterations || 600000;
-  const key = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-  decipher.setAuthTag(Buffer.from(encryptedData.authTag, 'hex'));
-  let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return JSON.parse(decrypted);
+  return JSON.parse(vaultCrypto.decryptVault(JSON.parse(encryptedDataString), password));
 }
 
 /**
@@ -217,7 +180,11 @@ function generateOtp(mfaEntry) {
   const { authenticator, hotp } = require('otplib');
   const digits = mfaEntry.mfaDigits || 6;
   const period = mfaEntry.mfaPeriod || 30;
-  const algorithm = (mfaEntry.mfaHash || mfaEntry.mfaAlgorithm || 'sha1');
+  // mfaAlgorithm é o TIPO (totp/hotp); o hash fica em mfaHash. Entradas antigas
+  // sem mfaHash usavam o tipo como hash e o otplib recusava ("Received totp").
+  const HASHES = ['sha1', 'sha256', 'sha512'];
+  const pedido = String(mfaEntry.mfaHash || mfaEntry.mfaAlgorithm || '').toLowerCase();
+  const algorithm = HASHES.includes(pedido) ? pedido : 'sha1';
 
   if (mfaEntry.mfaAlgorithm === 'hotp') {
     hotp.options = { digits, algorithm: normalizeAlgo(algorithm) };

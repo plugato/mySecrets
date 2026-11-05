@@ -12,21 +12,44 @@ const EXT_ORIGIN = 'chrome-extension://abcdefghijklmnop';
 
 // ===== Casamento de domínio =====
 
-test('hostCandidates: domínio exato, sem www e domínio base', async () => {
-  const { hostCandidates } = await lib;
-  assert.deepStrictEqual(hostCandidates('https://github.com/login'), ['github.com']);
-  assert.deepStrictEqual(hostCandidates('https://www.github.com/login'), ['www.github.com', 'github.com']);
-  assert.deepStrictEqual(
-    hostCandidates('https://accounts.google.com/signin'),
-    ['accounts.google.com', 'google.com']
-  );
-  // sufixo composto: não pode reduzir para "com.br"
-  assert.deepStrictEqual(
-    hostCandidates('https://app.exemplo.com.br/login'),
-    ['app.exemplo.com.br', 'exemplo.com.br']
-  );
-  assert.deepStrictEqual(hostCandidates('chrome://extensions'), []);
-  assert.deepStrictEqual(hostCandidates('nao-e-url'), []);
+test('matchUrl: só entradas do mesmo site (host ou domínio registrável)', () => {
+  const { matchUrl } = require('../mcp-server/core');
+  const E = [
+    { id: 'gh', type: 'login', url: 'https://github.com' },
+    { id: 'acc', type: 'login', url: 'accounts.google.com' },          // sem esquema
+    { id: 'pa', type: 'login', url: 'https://a.github.io' },
+    { id: 'br', type: 'login', url: 'https://app.exemplo.com.br/login' },
+    { id: 'lh', type: 'login', url: 'http://localhost:3000' },
+    { id: 'ip', type: 'login', url: 'http://192.168.0.10:8080/admin' },
+    { id: 'semurl', type: 'login', title: 'github.com' },
+    { id: 'mfa', type: 'mfa', url: 'https://github.com/settings' }
+  ];
+  const ids = (url, opts) => matchUrl(E, url, opts).map((e) => e.id);
+
+  assert.deepStrictEqual(ids('https://github.com/login'), ['gh', 'mfa']);
+  assert.deepStrictEqual(ids('https://www.github.com/'), ['gh', 'mfa']);
+  assert.deepStrictEqual(ids('https://gist.github.com/'), ['gh', 'mfa'], 'subdomínio do mesmo site');
+  assert.deepStrictEqual(ids('https://mail.google.com/'), ['acc']);
+  assert.deepStrictEqual(ids('https://loja.exemplo.com.br/'), ['br'], 'sufixo composto não vira "com.br"');
+  assert.deepStrictEqual(ids('https://github.com/login', { types: ['login'] }), ['gh']);
+  assert.deepStrictEqual(ids('https://github.com/login', { types: ['mfa'] }), ['mfa']);
+
+  // Ataques que a busca textual deixava passar
+  assert.deepStrictEqual(ids('https://hub.com/login'), [], 'substring de github.com');
+  assert.deepStrictEqual(ids('https://github.com.evil.io/'), [], 'domínio parecido');
+  assert.deepStrictEqual(ids('https://b.github.io/'), [], 'outro inquilino do github.io (sufixo privado)');
+  assert.deepStrictEqual(ids('https://a.github.io/repo'), ['pa']);
+  assert.deepStrictEqual(ids('https://exemplo.com/'), [], 'mesmo nome, outro TLD');
+  assert.deepStrictEqual(ids('http://github.com/login'), [], 'login https não vai para página http');
+
+  // Sem domínio registrável: host e porta
+  assert.deepStrictEqual(ids('http://localhost:3000/x'), ['lh']);
+  assert.deepStrictEqual(ids('http://localhost:8080/'), []);
+  assert.deepStrictEqual(ids('http://192.168.0.10:8080/'), ['ip']);
+  assert.deepStrictEqual(ids('http://192.168.0.11:8080/'), []);
+
+  assert.deepStrictEqual(ids('chrome://extensions'), []);
+  assert.deepStrictEqual(ids('nao-e-url'), []);
 });
 
 // ===== Pareamento =====
@@ -173,6 +196,11 @@ test('save_login: servidor repassa ao app por IPC e devolve o resultado', async 
   r = await chamar({ url: 'https://github.com', password: 'p' }, 'errado');
   assert.strictEqual(r.status, 401);
   assert.strictEqual(recebidos.length, 2, 'sem token não chega ao app');
+
+  // Atualizar senha por id: a entrada precisa ser do site do formulário
+  body = await (await chamar({ id: 'qualquer', url: 'https://hub.com/login', password: 'p' })).json();
+  assert.match(body.error.message, /não é do site/);
+  assert.strictEqual(recebidos.length, 2, 'atualização de outro site não chega ao app');
 });
 
 // ===== Pareamento automático =====

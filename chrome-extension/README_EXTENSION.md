@@ -45,9 +45,18 @@ O código 2FA é buscado no momento do preenchimento, então nunca vai expirado.
 
 ## Correspondência de site
 
-A busca tenta, nesta ordem: domínio exato → sem `www.` → domínio base
-(`app.exemplo.com.br` → `exemplo.com.br`). Cadastre a URL no login do app para que
-ele apareça aqui.
+Um login aparece quando a URL cadastrada nele é do **mesmo site** da página:
+mesmo host (`www.` é ignorado) ou mesmo domínio registrável, segundo a Public
+Suffix List (`app.exemplo.com.br` e `exemplo.com.br` são o mesmo site;
+`fulano.github.io` e `ciclano.github.io` não são). Não há busca por trecho de
+texto: `hub.com` não recebe o login de `github.com`. Um login salvo com `https`
+não é oferecido numa página `http`, e `localhost`/IPs comparam também a porta.
+
+Cadastre a URL no login do app para que ele apareça aqui. Logins sem URL não
+são oferecidos automaticamente.
+
+Antes de preencher, a extensão confere de novo a página da aba: se ela navegou
+para outro site depois de você abrir o popup, nada é enviado.
 
 ## Problemas
 

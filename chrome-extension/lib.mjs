@@ -1,37 +1,6 @@
 // Funções puras usadas pelo background e cobertas por tests/autofill.test.js.
-// Candidatos de busca para uma URL, em ordem de especificidade.
-// Usado pelo background (import) e pelos testes (import dinâmico no Node).
-
-// ponytail: heurística simples de sufixo público, sem baixar a PSL.
-// Se aparecer um sufixo composto fora desta lista (ex.: .co.jp), adicione aqui.
-const COMPOUND_SUFFIX = /^(com|co|net|org|gov|edu|ac)\.[a-z]{2}$/;
-
-export function hostCandidates(url) {
-  let parsed;
-  try {
-    parsed = new URL(url);
-  } catch (_) {
-    return [];
-  }
-  // Páginas internas (chrome://, about:, file://) não têm login a preencher.
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return [];
-
-  const host = parsed.hostname.toLowerCase();
-  if (!host) return [];
-
-  const out = [host];
-
-  const bare = host.replace(/^www\./, '');
-  if (bare !== host) out.push(bare);
-
-  const labels = bare.split('.');
-  if (labels.length > 2) {
-    const tail2 = labels.slice(-2).join('.');
-    out.push(COMPOUND_SUFFIX.test(tail2) ? labels.slice(-3).join('.') : tail2);
-  }
-
-  return [...new Set(out.filter(Boolean))];
-}
+// O casamento de domínio (qual login é de qual site) é feito no app, pela
+// ferramenta match_url (mcp-server/core.js), com a Public Suffix List.
 
 // O código de pareamento vem colado pelo usuário: decodifica e valida.
 export function parsePairingCode(code) {

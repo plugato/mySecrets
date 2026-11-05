@@ -3,7 +3,7 @@ class MFA {
     static async generateTOTP(secret, period = 30, digits = 6, algorithm = 'sha1') {
         if (!window.electronAPI || !window.electronAPI.generateTOTP) {
             console.error('API do Electron não disponível');
-            return { code: '000000', remaining: 30, period };
+            return { code: 'ERRO', error: 'API indisponível', remaining: 30, period };
         }
         
         return await window.electronAPI.generateTOTP(secret, { period, digits, algorithm });
@@ -12,7 +12,7 @@ class MFA {
     static async generateHOTP(secret, counter = 0, digits = 6, algorithm = 'sha1') {
         if (!window.electronAPI || !window.electronAPI.generateHOTP) {
             console.error('API do Electron não disponível');
-            return { code: '000000', counter: counter + 1 };
+            return { code: 'ERRO', error: 'API indisponível', counter };
         }
         
         return await window.electronAPI.generateHOTP(secret, counter, { digits, algorithm });
@@ -937,6 +937,7 @@ function renderAgentConfirm(state) {
     const body = document.getElementById('agent-write-body');
     // Redesenha o corpo só quando o pedido muda (o timer atualiza a cada segundo)
     if (body.dataset.jobId !== state.jobId) {
+        // eslint-disable-next-line no-unsanitized/property -- html montado acima só com escapeHtml
         body.innerHTML = html;
         body.dataset.jobId = state.jobId;
         setTimeout(() => document.getElementById('agent-write-decline').focus(), 0);
@@ -1666,6 +1667,15 @@ function lockApp() {
     selectedTag = null;
     searchInput.value = '';
 
+    // Tirar da tela o que veio do cofre (estava só escondido)
+    entriesList.innerHTML = '';
+    entryDetails.innerHTML = '';
+    mfaCodesGrid.innerHTML = '';
+    const grid = document.getElementById('grid-view');
+    if (grid) grid.innerHTML = '';
+    const health = document.getElementById('health-overview');
+    if (health) health.innerHTML = '';
+
     // Mostrar formulário de login (dados já existem)
     showLoginForm();
 }
@@ -1826,6 +1836,7 @@ function renderTagsSidebar() {
         .forEach(([tag, count]) => {
             const chip = document.createElement('button');
             chip.className = 'tag-chip' + (selectedTag === tag ? ' active' : '');
+            // eslint-disable-next-line no-unsanitized/property -- count é número
             chip.innerHTML = `<span class="tag-name">${escapeHtml(tag)}</span><span class="tag-count">${count}</span>`;
             chip.addEventListener('click', () => {
                 selectedTag = (selectedTag === tag) ? null : tag;
@@ -1921,6 +1932,7 @@ function renderHealthOverview() {
         return html;
     };
 
+    // eslint-disable-next-line no-unsanitized/property -- números e sectionHTML (escapa os dados das entradas)
     healthOverview.innerHTML = `
         <div class="health-header">
             <h2>Saúde das Senhas</h2>
@@ -1955,6 +1967,7 @@ function renderEntries() {
         const message = query ? 
             'Nenhuma entrada encontrada para sua pesquisa' : 
             'Nenhuma entrada nesta categoria';
+        // eslint-disable-next-line no-unsanitized/property -- mensagem constante
         entriesList.innerHTML = `
             <div style="text-align: center; color: var(--text-secondary); padding: 2rem;">
                 <span class="material-symbols-outlined" style="font-size: 3rem; margin-bottom: 1rem; display: block; opacity: 0.5;">search_off</span>
@@ -1971,7 +1984,7 @@ function renderEntries() {
     
     // Atualizar seleção visual se houver entrada selecionada
     if (selectedEntry && filteredData.find(e => e.id === selectedEntry.id)) {
-        const selectedElement = document.querySelector(`[data-id="${selectedEntry.id}"]`);
+        const selectedElement = document.querySelector(`[data-id="${CSS.escape(String(selectedEntry.id))}"]`);
         if (selectedElement) {
             selectedElement.classList.add('active');
         }
@@ -2030,7 +2043,7 @@ const TYPE_LABELS = {
 
 function entrySubtitle(entry) {
     return entry.username || entry.url ||
-           (entry.type === 'token' ? (entry.tokenType ? `Token ${entry.tokenType.toUpperCase()}` : 'Token') : '') ||
+           (entry.type === 'token' ? (entry.tokenType ? `Token ${String(entry.tokenType).toUpperCase()}` : 'Token') : '') ||
            (entry.type === 'note' ? 'Nota segura' : '');
 }
 
@@ -2100,9 +2113,10 @@ function createGridCard(entry) {
         </div>
     `;
 
+    // eslint-disable-next-line no-unsanitized/property -- type/labels de tabela fixa; tags e rodapé escapados
     card.innerHTML = `
         <div class="grid-card-header">
-            <div class="grid-card-icon badge-${entry.type}">
+            <div class="grid-card-icon badge-${escapeHtml(entry.type)}">
                 <span class="material-symbols-outlined">${TYPE_ICONS[entry.type]}</span>
             </div>
             ${entry.favorite && !inTrash ? '<span class="material-symbols-outlined favorite-star" title="Favorito">star</span>' : ''}
@@ -2171,8 +2185,9 @@ function createEntryElement(entry) {
 
     const subtitle = entrySubtitle(entry);
 
+    // eslint-disable-next-line no-unsanitized/property -- ícone de tabela fixa; título e subtítulo escapados
     div.innerHTML = `
-        <div class="entry-item-icon badge-${entry.type}">
+        <div class="entry-item-icon badge-${escapeHtml(entry.type)}">
             <span class="material-symbols-outlined">${TYPE_ICONS[entry.type]}</span>
         </div>
         <div class="entry-item-content">
@@ -2203,7 +2218,7 @@ async function selectEntry(entry) {
         item.classList.remove('active');
     });
     
-    const selectedElement = document.querySelector(`[data-id="${entry.id}"]`);
+    const selectedElement = document.querySelector(`[data-id="${CSS.escape(String(entry.id))}"]`);
     if (selectedElement) {
         selectedElement.classList.add('active');
     }
@@ -2235,7 +2250,7 @@ async function renderEntryDetails(entry) {
             </button>
         </div>
         <h2>
-            <span class="detail-type-icon badge-${entry.type}"><span class="material-symbols-outlined">${TYPE_ICONS[entry.type]}</span></span>
+            <span class="detail-type-icon badge-${escapeHtml(entry.type)}"><span class="material-symbols-outlined">${TYPE_ICONS[entry.type]}</span></span>
             <span class="detail-title-text">${escapeHtml(entry.title)}</span>
             ${inTrash ? '' : `
                 <button class="favorite-btn ${entry.favorite ? 'active' : ''}" data-action="toggle-favorite" title="${entry.favorite ? 'Remover dos favoritos' : 'Marcar como favorito'}">
@@ -2300,12 +2315,12 @@ async function renderEntryDetails(entry) {
                         <span class="detail-label">2FA Vinculado:</span>
                         <div class="detail-value">
                             <span class="mfa-linked-title">${escapeHtml(mfaEntry.title)}</span>
-                            <span class="totp-code" id="linked-mfa-code-${entry.id}">${mfaResult.code}</span>
+                            <span class="totp-code" id="linked-mfa-code-${escapeHtml(entry.id)}">${mfaResult.code}</span>
                             ${mfaEntry.mfaAlgorithm === 'totp' ?
-                                `<div class="totp-timer" id="linked-mfa-timer-${entry.id}">${mfaResult.remaining}s</div>` :
+                                `<div class="totp-timer" id="linked-mfa-timer-${escapeHtml(entry.id)}">${mfaResult.remaining}s</div>` :
                                 ''
                             }
-                            <button class="copy-btn" data-copy-live="linked-mfa-code-${entry.id}">Copiar Código</button>
+                            <button class="copy-btn" data-copy-live="linked-mfa-code-${escapeHtml(entry.id)}">Copiar Código</button>
                         </div>
                     </div>
                 `;
@@ -2325,18 +2340,18 @@ async function renderEntryDetails(entry) {
                 <div class="detail-row">
                     <span class="detail-label">Algoritmo:</span>
                     <div class="detail-value">
-                        <span>${algorithmLabel} (${entry.mfaDigits || 6} dígitos, ${(entry.mfaHash || 'sha1').toUpperCase()})</span>
+                        <span>${algorithmLabel} (${escapeHtml(entry.mfaDigits || 6)} dígitos, ${escapeHtml(String(entry.mfaHash || 'sha1').toUpperCase())})</span>
                     </div>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Código ${algorithmLabel}:</span>
                     <div class="detail-value">
-                        <span class="totp-code" id="mfa-code-${entry.id}">${mfaResult.code}</span>
+                        <span class="totp-code" id="mfa-code-${escapeHtml(entry.id)}">${mfaResult.code}</span>
                         ${entry.mfaAlgorithm === 'totp' ?
-                            `<div class="totp-timer" id="mfa-timer-${entry.id}">${mfaResult.remaining}s</div>` :
-                            `<div class="hotp-counter" id="mfa-counter-${entry.id}">Contador: ${mfaResult.counter}</div>`
+                            `<div class="totp-timer" id="mfa-timer-${escapeHtml(entry.id)}">${mfaResult.remaining}s</div>` :
+                            `<div class="hotp-counter" id="mfa-counter-${escapeHtml(entry.id)}">Contador: ${escapeHtml(mfaResult.counter)}</div>`
                         }
-                        <button class="copy-btn" data-copy-live="mfa-code-${entry.id}">Copiar</button>
+                        <button class="copy-btn" data-copy-live="mfa-code-${escapeHtml(entry.id)}">Copiar</button>
                         ${entry.mfaAlgorithm === 'hotp' ?
                             `<button class="btn btn-secondary" data-action="hotp-next">Próximo</button>` :
                             ''
@@ -2350,7 +2365,7 @@ async function renderEntryDetails(entry) {
                     <div class="detail-row">
                         <span class="detail-label">Período:</span>
                         <div class="detail-value">
-                            <span>${entry.mfaPeriod || 30} segundos</span>
+                            <span>${escapeHtml(entry.mfaPeriod || 30)} segundos</span>
                         </div>
                     </div>
                 `;
@@ -2364,7 +2379,7 @@ async function renderEntryDetails(entry) {
                 <div class="detail-row">
                     <span class="detail-label">Tipo de Token:</span>
                     <div class="detail-value">
-                        <span class="token-badge ${entry.tokenType || 'other'}">${entry.tokenType ? entry.tokenType.toUpperCase() : 'OUTRO'}</span>
+                        <span class="token-badge ${escapeHtml(entry.tokenType || 'other')}">${entry.tokenType ? escapeHtml(String(entry.tokenType).toUpperCase()) : 'OUTRO'}</span>
                     </div>
                 </div>
                 <div class="detail-row">
@@ -2533,6 +2548,7 @@ async function renderEntryDetails(entry) {
         </div>
     `;
 
+    // eslint-disable-next-line no-unsanitized/property -- detailsHTML: dados do cofre passam por escapeHtml (auditado)
     entryDetails.innerHTML = detailsHTML;
 
     // ===== Bind das ações (handlers inline são bloqueados pela CSP) =====
@@ -2548,7 +2564,8 @@ async function renderEntryDetails(entry) {
         el.addEventListener('click', (e) => {
             e.stopPropagation();
             const codeEl = document.getElementById(el.dataset.copyLive);
-            if (codeEl) copyToClipboard(codeEl.textContent.trim());
+            const code = codeEl ? codeEl.textContent.trim() : '';
+            if (code && code !== 'ERRO') copyToClipboard(code);
         });
     });
 
@@ -3270,6 +3287,7 @@ function createMFARow(entry) {
     div.className = 'mfa-code-row';
     div.dataset.id = entry.id;
     
+    // eslint-disable-next-line no-unsanitized/property -- todos os campos com escapeHtml
     div.innerHTML = `
         <div class="mfa-row-title">
             <div class="mfa-row-name">
@@ -3281,23 +3299,23 @@ function createMFARow(entry) {
             </div>
         </div>
         
-        <div class="mfa-row-code" id="mfa-code-${entry.id}">
+        <div class="mfa-row-code" id="mfa-code-${escapeHtml(entry.id)}">
             ••••••
         </div>
 
         <div class="mfa-row-timer">
             ${entry.mfaAlgorithm === 'totp' ? `
-                <div class="mfa-timer" id="mfa-timer-${entry.id}">30</div>
+                <div class="mfa-timer" id="mfa-timer-${escapeHtml(entry.id)}">30</div>
             ` : `
-                <div class="mfa-counter" id="mfa-counter-${entry.id}">
-                    ${entry.mfaCounter || 0}
+                <div class="mfa-counter" id="mfa-counter-${escapeHtml(entry.id)}">
+                    ${escapeHtml(entry.mfaCounter || 0)}
                 </div>
             `}
         </div>
 
         <div class="mfa-row-info">
-            ${entry.mfaAlgorithm.toUpperCase()}<br>
-            <small>${entry.mfaDigits}d • ${entry.mfaPeriod || 30}s</small>
+            ${escapeHtml(String(entry.mfaAlgorithm ?? '').toUpperCase())}<br>
+            <small>${escapeHtml(entry.mfaDigits || 6)}d • ${escapeHtml(entry.mfaPeriod || 30)}s</small>
         </div>
 
         <div class="mfa-row-actions">
@@ -3378,9 +3396,9 @@ function startMFARowTimer(entryId, entry) {
 
 async function copyMFACode(entryId) {
     const mfaCodeElement = document.getElementById(`mfa-code-${entryId}`);
-    const copyBtn = document.querySelector(`[data-id="${entryId}"] .mfa-copy-btn`);
+    const copyBtn = document.querySelector(`[data-id="${CSS.escape(String(entryId))}"] .mfa-copy-btn`);
     
-    if (mfaCodeElement && mfaCodeElement.textContent.trim() !== '••••••') {
+    if (mfaCodeElement && !['••••••', 'ERRO'].includes(mfaCodeElement.textContent.trim())) {
         try {
             await window.electronAPI.copyToClipboard(
                 mfaCodeElement.textContent.trim(),
@@ -3396,6 +3414,7 @@ async function copyMFACode(entryId) {
 
             setTimeout(() => {
                 mfaCodeElement.classList.remove('copying');
+                // eslint-disable-next-line no-unsanitized/property -- restaura o HTML do próprio botão
                 copyBtn.innerHTML = originalText;
                 copyBtn.style.background = '';
                 copyBtn.style.color = '';
@@ -3439,6 +3458,7 @@ function handleFileSelect(event) {
     }
 
     // Mostrar informações do arquivo
+    // eslint-disable-next-line no-unsanitized/property -- nome escapado; tamanho é número
     fileInfo.innerHTML = `
         <strong>Arquivo selecionado:</strong> ${escapeHtml(file.name)}<br>
         <strong>Tamanho:</strong> ${(file.size / 1024).toFixed(2)} KB
@@ -3692,7 +3712,7 @@ function validateImportData(data) {
         // Verificar se é formato MySecrets (já processado)
         if (entry.title && entry.type) {
             // Verificar se é um tipo válido
-            if (!['login', 'mfa', 'note'].includes(entry.type)) {
+            if (!['login', 'mfa', 'token', 'note'].includes(entry.type)) {
                 return false;
             }
             
@@ -3796,12 +3816,6 @@ function showImportPreview(entries) {
         const div = document.createElement('div');
         div.className = 'import-entry-item';
         
-        const typeLabels = {
-            login: 'Login',
-            mfa: 'MFA',
-            note: 'Nota'
-        };
-        
         let details = [];
         if (entry.username) details.push(`Usuário: ${entry.username}`);
         if (entry.url) details.push(`URL: ${entry.url}`);
@@ -3812,9 +3826,9 @@ function showImportPreview(entries) {
         div.innerHTML = `
             <div class="import-entry-info">
                 <h4 class="import-entry-title">${escapeHtml(entry.title)}</h4>
-                <p class="import-entry-details">${details.join(' • ')}</p>
+                <p class="import-entry-details">${escapeHtml(details.join(' • '))}</p>
             </div>
-            <span class="import-entry-badge">${typeLabels[entry.type]}</span>
+            <span class="import-entry-badge">${escapeHtml(TYPE_LABELS[entry.type] || entry.type)}</span>
         `;
         
         importEntriesList.appendChild(div);
@@ -4238,6 +4252,7 @@ function setupPhoneControls() {
         phones.forEach((p) => {
             const li = document.createElement('li');
             const quando = new Date(p.lastUsedAt || p.pairedAt).toLocaleString();
+            // eslint-disable-next-line no-unsanitized/property -- nome e datas escapados
             li.innerHTML = `<span><strong>${escapeHtml(p.phoneName || 'Android')}</strong> <small>${p.lastUsedAt ? 'usado em' : 'pareado em'} ${escapeHtml(quando)}</small></span>`;
             const rm = document.createElement('button');
             rm.className = 'btn btn-secondary btn-small';

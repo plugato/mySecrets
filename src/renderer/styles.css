@@ -8,6 +8,7 @@
 :root,
 body[data-theme="light"] {
     --primary-color: #6366f1;
+    --primary-text: #4c4fef; /* texto primário sobre --primary-light (contraste ≥ 4.5) */
     --primary-hover: #4f46e5;
     --primary-light: #e5e7ff;
     --primary-contrast: #ffffff;
@@ -19,6 +20,7 @@ body[data-theme="light"] {
     --success-color: #0e9f6e;
     --success-light: #d9f5ea;
     --danger-color: #e02424;
+    --danger-contrast: #ffffff; /* texto sobre --danger-color */
     --danger-light: #fde8e8;
     --warning-color: #d97706;
     --warning-light: #fdf1d8;
@@ -43,7 +45,7 @@ body[data-theme="light"] {
 
     --text-primary: #171a2e;
     --text-secondary: #5a6076;
-    --text-tertiary: #999fb4;
+    --text-tertiary: #616883;
     --text-inverse: #ffffff;
 
     --auth-glow-1: rgba(99, 102, 241, 0.25);
@@ -62,6 +64,7 @@ body[data-theme="light"] {
 /* ---------- Tema Escuro ---------- */
 body[data-theme="dark"] {
     --primary-color: #818cf8;
+    --primary-text: #8690f8; /* texto primário sobre --primary-light (contraste ≥ 4.5) */
     --primary-hover: #a5b0ff;
     --primary-light: rgba(129, 140, 248, 0.16);
     --primary-contrast: #0d1020;
@@ -73,6 +76,7 @@ body[data-theme="dark"] {
     --success-color: #34d399;
     --success-light: rgba(52, 211, 153, 0.14);
     --danger-color: #f87171;
+    --danger-contrast: #1f0a0e; /* texto sobre --danger-color */
     --danger-light: rgba(248, 113, 113, 0.14);
     --warning-color: #fbbf24;
     --warning-light: rgba(251, 191, 36, 0.14);
@@ -96,7 +100,7 @@ body[data-theme="dark"] {
 
     --text-primary: #e9ebf8;
     --text-secondary: #a4aacb;
-    --text-tertiary: #6b7194;
+    --text-tertiary: #898ea9;
     --text-inverse: #0d1020;
 
     --auth-glow-1: rgba(129, 140, 248, 0.22);
@@ -115,6 +119,7 @@ body[data-theme="dark"] {
 /* ---------- Tema Oceano ---------- */
 body[data-theme="ocean"] {
     --primary-color: #22d3ee;
+    --primary-text: #22d3ee; /* texto primário sobre --primary-light (contraste ≥ 4.5) */
     --primary-hover: #67e8f9;
     --primary-light: rgba(34, 211, 238, 0.13);
     --primary-contrast: #06222e;
@@ -126,6 +131,7 @@ body[data-theme="ocean"] {
     --success-color: #2dd4bf;
     --success-light: rgba(45, 212, 191, 0.14);
     --danger-color: #fb7185;
+    --danger-contrast: #1f0a0e; /* texto sobre --danger-color */
     --danger-light: rgba(251, 113, 133, 0.14);
     --warning-color: #fbbf24;
     --warning-light: rgba(251, 191, 36, 0.14);
@@ -149,7 +155,7 @@ body[data-theme="ocean"] {
 
     --text-primary: #e6f3f8;
     --text-secondary: #93b7c8;
-    --text-tertiary: #587e92;
+    --text-tertiary: #7d9fb1;
     --text-inverse: #06131d;
 
     --auth-glow-1: rgba(34, 211, 238, 0.20);
@@ -168,6 +174,7 @@ body[data-theme="ocean"] {
 /* ---------- Tema Floresta ---------- */
 body[data-theme="forest"] {
     --primary-color: #059669;
+    --primary-text: #047653; /* texto primário sobre --primary-light (contraste ≥ 4.5) */
     --primary-hover: #047857;
     --primary-light: #d5f0e3;
     --primary-contrast: #ffffff;
@@ -179,6 +186,7 @@ body[data-theme="forest"] {
     --success-color: #16a34a;
     --success-light: #dcf3e3;
     --danger-color: #dc2626;
+    --danger-contrast: #ffffff; /* texto sobre --danger-color */
     --danger-light: #fbe4e4;
     --warning-color: #ca8a04;
     --warning-light: #f8f0d2;
@@ -202,7 +210,7 @@ body[data-theme="forest"] {
 
     --text-primary: #1a2b21;
     --text-secondary: #52685a;
-    --text-tertiary: #8ba194;
+    --text-tertiary: #596d61;
     --text-inverse: #ffffff;
 
     --auth-glow-1: rgba(5, 150, 105, 0.20);
@@ -221,6 +229,7 @@ body[data-theme="forest"] {
 /* ---------- Tema Pôr do Sol ---------- */
 body[data-theme="sunset"] {
     --primary-color: #fb7185;
+    --primary-text: #fb7185; /* texto primário sobre --primary-light (contraste ≥ 4.5) */
     --primary-hover: #fda4af;
     --primary-light: rgba(251, 113, 133, 0.15);
     --primary-contrast: #2b0f18;
@@ -232,6 +241,7 @@ body[data-theme="sunset"] {
     --success-color: #4ade80;
     --success-light: rgba(74, 222, 128, 0.14);
     --danger-color: #f87171;
+    --danger-contrast: #1f0a0e; /* texto sobre --danger-color */
     --danger-light: rgba(248, 113, 113, 0.16);
     --warning-color: #fbbf24;
     --warning-light: rgba(251, 191, 36, 0.14);
@@ -255,7 +265,7 @@ body[data-theme="sunset"] {
 
     --text-primary: #f7ecf3;
     --text-secondary: #c6a8bd;
-    --text-tertiary: #8d6f85;
+    --text-tertiary: #a2889a;
     --text-inverse: #1a0e20;
 
     --auth-glow-1: rgba(251, 113, 133, 0.22);
@@ -452,7 +462,7 @@ body {
 
 .btn-hello:hover:not(:disabled) {
     border-color: var(--primary-color);
-    color: var(--primary-color);
+    color: var(--primary-text);
     background: var(--primary-light);
 }
 
@@ -575,7 +585,7 @@ textarea.input-field {
 
 .btn-danger {
     background: var(--danger-color);
-    color: #ffffff;
+    color: var(--danger-contrast);
 }
 
 .btn-danger:hover:not(:disabled) {
@@ -616,7 +626,7 @@ textarea.input-field {
 }
 
 .btn-icon:hover {
-    color: var(--primary-color);
+    color: var(--primary-text);
     border-color: var(--primary-color);
     background: var(--primary-light);
 }
@@ -945,7 +955,7 @@ textarea.input-field {
 
 .filter-btn.active {
     background: var(--primary-light);
-    color: var(--primary-color);
+    color: var(--primary-text);
     font-weight: 600;
 }
 
@@ -1236,7 +1246,7 @@ textarea.input-field {
     font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
-    color: var(--text-tertiary);
+    color: var(--text-secondary);
     letter-spacing: 0.08em;
     background: var(--background-secondary);
     padding: 0.25rem 0.65rem;
@@ -1281,7 +1291,7 @@ textarea.input-field {
     flex: 1;
     padding: 0.5rem 0.9rem;
     background: var(--primary-light);
-    color: var(--primary-color);
+    color: var(--primary-text);
     border: none;
     border-radius: var(--radius);
     font-size: 0.83rem;
@@ -1320,7 +1330,7 @@ textarea.input-field {
 .grid-card-btn-secondary:hover {
     background: var(--primary-light);
     border-color: var(--primary-color);
-    color: var(--primary-color);
+    color: var(--primary-text);
 }
 
 .grid-card-btn-secondary .material-symbols-outlined {
@@ -1366,7 +1376,7 @@ textarea.input-field {
 .btn-back:hover {
     background: var(--primary-light);
     border-color: var(--primary-color);
-    color: var(--primary-color);
+    color: var(--primary-text);
 }
 
 .btn-back .material-symbols-outlined {
@@ -1446,7 +1456,7 @@ textarea.input-field {
     font-weight: 600;
     font-family: inherit;
     background: var(--primary-light);
-    color: var(--primary-color);
+    color: var(--primary-text);
     border: none;
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -1606,7 +1616,7 @@ textarea.input-field {
 .custom-field-copy-btn {
     padding: 0.35rem 0.6rem;
     background: var(--primary-light);
-    color: var(--primary-color);
+    color: var(--primary-text);
     border: none;
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -1788,7 +1798,7 @@ textarea.input-field {
 
 .custom-field-copy-btn.attachment-remove:hover {
     background: var(--danger-color);
-    color: #fff;
+    color: var(--danger-contrast);
 }
 
 .attachment-add {
@@ -1936,7 +1946,7 @@ textarea.input-field {
 .mfa-row-code:hover {
     background: var(--primary-light);
     border-color: var(--primary-color);
-    color: var(--primary-color);
+    color: var(--primary-text);
 }
 
 .mfa-row-code.copying {
@@ -1999,7 +2009,7 @@ textarea.input-field {
 .mfa-copy-btn,
 .mfa-edit-btn {
     background: var(--primary-light);
-    color: var(--primary-color);
+    color: var(--primary-text);
     border: none;
     border-radius: var(--radius-sm);
     padding: 0.45rem 0.6rem;
@@ -2426,7 +2436,7 @@ input[type="checkbox"] {
 
 .import-entry-badge {
     background: var(--primary-light);
-    color: var(--primary-color);
+    color: var(--primary-text);
     padding: 0.2rem 0.6rem;
     border-radius: var(--radius-full);
     font-size: 0.68rem;
@@ -2514,7 +2524,7 @@ input[type="checkbox"] {
 
 .token-badge.bearer {
     background: var(--primary-light);
-    color: var(--primary-color);
+    color: var(--primary-text);
 }
 
 .token-badge.oauth {
@@ -2639,7 +2649,7 @@ input[type="checkbox"] {
 
 .custom-field-remove-btn:hover {
     background: var(--danger-color);
-    color: #ffffff;
+    color: var(--danger-contrast);
 }
 
 .custom-field-remove-btn .material-symbols-outlined {
@@ -2999,7 +3009,7 @@ input[type="checkbox"] {
 .tag-chip.active {
     background: var(--primary-light);
     border-color: var(--primary-color);
-    color: var(--primary-color);
+    color: var(--primary-text);
     font-weight: 600;
 }
 
@@ -3028,7 +3038,7 @@ input[type="checkbox"] {
 .card-tag {
     padding: 0.12rem 0.55rem;
     background: var(--primary-light);
-    color: var(--primary-color);
+    color: var(--primary-text);
     border-radius: var(--radius-full);
     font-size: 0.7rem;
     font-weight: 600;
@@ -3501,4 +3511,22 @@ kbd {
     background: #fff;
     border-radius: 8px;
     padding: 4px;
+}
+
+/* ===== Acessibilidade ===== */
+
+/* Foco visível ao navegar pelo teclado (o mouse não mostra o contorno) */
+:where(button, a, select, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Quem pediu menos movimento no sistema não vê animações */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }

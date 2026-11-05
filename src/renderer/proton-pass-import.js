@@ -41,14 +41,14 @@ function isProtonPassJson(parsed) {
 
 /** Detecta o CSV do Proton Pass pelo cabeçalho. */
 function isProtonPassCsv(texto) {
-    const cabecalho = String(texto).replace(/^﻿/, '').split(/\r?\n/, 1)[0].toLowerCase();
+    const cabecalho = String(texto).replace(/^\uFEFF/, '').split(/\r?\n/, 1)[0].toLowerCase();
     return ['type', 'name', 'url', 'username', 'password', 'totp', 'vault']
         .every(c => cabecalho.split(',').map(s => s.trim()).includes(c));
 }
 
 /** Parser de CSV (RFC 4180): aspas, aspas escapadas e quebras de linha em campos. */
 function parseCsv(texto) {
-    const s = String(texto).replace(/^﻿/, '');
+    const s = String(texto).replace(/^\uFEFF/, '');
     const linhas = [];
     let linha = [], campo = '', aspas = false;
 

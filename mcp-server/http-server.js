@@ -25,7 +25,7 @@
 
 const http = require('http');
 const crypto = require('crypto');
-const { dispatch } = require('./core');
+const { dispatch, matchUrl } = require('./core');
 const vault = require('./vault');
 
 const PORT = parseInt(process.env.MYSECRETS_MCP_PORT || '8765', 10);
@@ -218,6 +218,15 @@ function toolContext(req, res) {
 async function handleSaveLogin(msg, reply) {
   const erro = validSaveParams(msg.params);
   if (erro) return reply(200, { jsonrpc: '2.0', id: msg.id, error: { code: -32602, message: erro } });
+  // Atualizar a senha de uma entrada existente: ela precisa ser do mesmo site
+  // do formulário enviado, senão um site parecido trocaria a senha de outro.
+  if (msg.params.id) {
+    let doSite = [];
+    try { doSite = matchUrl(vault.loadEntries(), msg.params.url, { types: ['login'] }); } catch (_) { /* bloqueado */ }
+    if (!doSite.some((e) => e.id === msg.params.id)) {
+      return reply(200, { jsonrpc: '2.0', id: msg.id, error: { code: -32602, message: 'Esta entrada não é do site do formulário' } });
+    }
+  }
   const result = await askAppToSave(msg.params);
   if (!result.success) {
     return reply(200, { jsonrpc: '2.0', id: msg.id, error: { code: -32000, message: result.error || 'Falha ao salvar' } });

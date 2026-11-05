@@ -39,6 +39,7 @@ devolve segredos — retorna um erro pedindo para desbloquear o app.
 | `vault_status` | Diz se o cofre está acessível (app aberto e desbloqueado). |
 | `list_secrets` | Lista entradas **sem** expor senhas/segredos. |
 | `search_secrets` | Busca por título, URL/domínio, usuário ou tag (sem senhas). |
+| `match_url` | Entradas do mesmo site de uma URL (host ou domínio registrável, pela Public Suffix List). Usado pela extensão. |
 | `get_credentials` | Retorna usuário + senha (e OTP vinculado, se houver). |
 | `get_otp` | Gera o código OTP/TOTP atual de uma entrada. |
 | `get_secret_file` | Salva um anexo da entrada num caminho local (permissão 600). |
@@ -173,8 +174,11 @@ Baixar de volta (o conteúdo não volta na resposta, só `path`, `size`, `sha256
 ```
 
 Caminhos precisam ser **absolutos**. `get_secret_file` não sobrescreve um
-arquivo existente sem `overwrite: true` e grava com permissão `600`. Se a
-entrada tiver vários anexos, informe `name` (ou `attachmentId`).
+arquivo existente sem `overwrite: true` e grava com permissão `600`. Ao
+sobrescrever, o arquivo anterior é guardado em `<arquivo>.bak-<data>` (o
+caminho volta em `backupPath`). Links simbólicos são recusados e a extensão do
+Chrome não pode usar esta ferramenta. Se a entrada tiver vários anexos, informe
+`name` (ou `attachmentId`).
 
 ### Limites
 

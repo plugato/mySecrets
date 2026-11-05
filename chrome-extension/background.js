@@ -8,7 +8,7 @@
 // Consequência: sem app aberto e cofre desbloqueado a extensão não tem dados.
 // Nada de senha mestra nem cópia do cofre no navegador.
 
-import { hostCandidates, parsePairingCode, validConn, pairUrl, saveDecision, displayHost } from './lib.mjs';
+import { parsePairingCode, validConn, pairUrl, saveDecision, displayHost } from './lib.mjs';
 
 const CONN_KEY = 'mysecrets_conn'; // { url, token }
 const UNPAIRED_KEY = 'mysecrets_unpaired'; // usuário desconectou: não reconectar sozinho
@@ -122,27 +122,47 @@ async function status() {
   }
 }
 
-// Logins do domínio atual — só metadados, sem senha.
-async function entriesForUrl(url) {
-  for (const query of hostCandidates(url)) {
-    const r = await rpc('search_secrets', { query, type: 'login' });
-    if (r.count) return r.results;
-  }
-  return [];
+// Entradas do MESMO site da URL (host ou domínio registrável), só metadados.
+// O app compara pela Public Suffix List: nada de busca textual aqui.
+async function entriesForUrl(url, types = ['login']) {
+  if (!displayHost(url)) return [];
+  const r = await rpc('match_url', { url, types });
+  return r.results || [];
+}
+
+function sameOrigin(a, b) {
+  try { return new URL(a).origin === new URL(b).origin; } catch (_) { return false; }
 }
 
 // Senha e OTP são buscados só no momento de preencher (OTP precisa estar fresco).
-async function fillTab(tabId, id, siteQueries = []) {
+// expectedUrl: a página que o usuário via ao pedir o preenchimento. Se a aba
+// navegou para outro lugar, ou a entrada não é deste site, nada é enviado.
+async function fillTab(tabId, id, expectedUrl) {
+  const tab = await chrome.tabs.get(tabId);
+  if (!tab || !tab.url || (expectedUrl && !sameOrigin(tab.url, expectedUrl))) {
+    throw new Error('A página mudou. Abra o MySecrets de novo nesta página.');
+  }
+  const doSite = await entriesForUrl(tab.url);
+  if (!doSite.some((e) => e.id === id)) {
+    throw new Error('Esta entrada não é deste site.');
+  }
+
   const c = await rpc('get_credentials', { id });
 
   // Se o login não tem MFA vinculado, ainda procura uma entrada MFA do site:
   // muita gente guarda o login e o 2FA como entradas separadas.
   let otp = c.otp || null;
-  for (const query of otp ? [] : siteQueries) {
-    try {
-      otp = await rpc('get_otp', { query });
-      break;
-    } catch (_) { /* nenhuma entrada 2FA com esse domínio */ }
+  if (!otp) {
+    const mfa = await entriesForUrl(tab.url, ['mfa']).catch(() => []);
+    if (mfa.length) {
+      try { otp = await rpc('get_otp', { id: mfa[0].id }); } catch (_) { /* sem OTP */ }
+    }
+  }
+
+  // Confere de novo: as chamadas acima são assíncronas e a aba pode ter navegado
+  const now = await chrome.tabs.get(tabId);
+  if (!now || !sameOrigin(now.url, tab.url)) {
+    throw new Error('A página mudou. Abra o MySecrets de novo nesta página.');
   }
 
   await chrome.tabs.sendMessage(tabId, {
@@ -155,13 +175,13 @@ async function fillTab(tabId, id, siteQueries = []) {
       url: c.url,
       mfaCode: (otp && otp.code) || null
     }
-  });
+  }, { frameId: 0 });
 }
 
 async function fillFirstMatch(tab) {
   if (!tab || !tab.url) return;
   const matches = await entriesForUrl(tab.url);
-  if (matches.length) await fillTab(tab.id, matches[0].id, hostCandidates(tab.url));
+  if (matches.length) await fillTab(tab.id, matches[0].id, tab.url);
 }
 
 async function activeTab() {
@@ -307,7 +327,7 @@ const handlers = {
   },
   autofill: async (msg, sender) => {
     const tab = msg.tabId ? { id: msg.tabId, url: msg.url } : (sender.tab || await activeTab());
-    await fillTab(tab.id, msg.id, hostCandidates(msg.url || tab.url || ''));
+    await fillTab(tab.id, msg.id, msg.url || tab.url || '');
     return { success: true };
   }
 };

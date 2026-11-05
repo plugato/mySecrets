@@ -183,10 +183,24 @@ function readTombstones(dir) {
     });
   } catch (_) { /* pasta inexistente */ }
 
-  const mapas = arquivos.map(f => {
-    try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (_) { return {}; }
+  const lidos = [];
+  const mapas = [];
+  arquivos.forEach(f => {
+    let m = null;
+    try { m = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (_) { m = null; }
+    if (m && typeof m === 'object' && !Array.isArray(m)) {
+      mapas.push(m);
+      lidos.push(f);
+      return;
+    }
+    // Ilegível: guarda uma cópia com outro nome (que não é lido de novo) em vez
+    // de deixar a próxima gravação apagar o que havia nele.
+    try {
+      const guardado = path.join(path.dirname(f), `.corrompido-${Date.now()}-${path.basename(f).replace(/^\./, '')}`);
+      fs.renameSync(f, guardado);
+    } catch (_) { /* sem permissão: segue sem ele */ }
   });
-  return { tombstones: mergeTombstones(...mapas), files: arquivos };
+  return { tombstones: mergeTombstones(...mapas), files: lidos };
 }
 
 /** Grava as lápides e remove as cópias de conflito delas. */

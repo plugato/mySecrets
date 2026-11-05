@@ -9,12 +9,18 @@
 
 const vault = require('./vault');
 const files = require('./files');
+const { getDomain } = require('tldts');
 
 const SERVER_INFO = { name: 'mysecrets', version: '1.1.0' };
 
 // Ferramentas que GRAVAM no cofre. Só rodam com o app aberto e desbloqueado e
 // cada chamada pede confirmação ao usuário na janela do app.
 const WRITE_TOOLS = new Set(['store_secret', 'store_secret_file']);
+
+// O que a extensão do navegador (cliente com Origin) pode chamar: só o
+// necessário para preencher. Se ela for comprometida, não lista nem busca o
+// cofre inteiro e não mexe em anexos.
+const BROWSER_TOOLS = new Set(['vault_status', 'match_url', 'get_credentials', 'get_otp']);
 const PROTOCOL_VERSION = '2024-11-05';
 
 // ===== Utilidades de busca =====
@@ -51,6 +57,54 @@ function findEntries(entries, { id, query, type }) {
   if (!query) return pool;
   return pool
     .map((e) => ({ e, score: scoreMatch(e, query) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((x) => x.e);
+}
+
+// ===== Casamento por URL (preenchimento automático) =====
+//
+// Diferente da busca textual: só devolve entradas cuja URL é do MESMO site da
+// página. "hub.com" não recebe o login de "github.com", e em hospedagens
+// compartilhadas (github.io, vercel.app...) cada inquilino é um site separado,
+// porque o domínio registrável vem da Public Suffix List (tldts, com os
+// sufixos privados).
+
+function parseSiteUrl(raw) {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  let s = raw.trim();
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) s = 'https://' + s;
+  let u;
+  try { u = new URL(s); } catch (_) { return null; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+  const host = u.hostname.toLowerCase().replace(/^www\./, '').replace(/\.$/, '');
+  if (!host) return null;
+  return {
+    protocol: u.protocol,
+    host,
+    // Sem domínio registrável (IP, localhost, intranet): compara host e porta
+    site: getDomain(host, { allowPrivateDomains: true }) || null,
+    hostPort: u.port ? `${host}:${u.port}` : host
+  };
+}
+
+/** 100 = mesmo host; 50 = mesmo domínio registrável; 0 = outro site. */
+function urlMatchScore(entryUrl, page) {
+  const e = parseSiteUrl(entryUrl);
+  if (!e || !page) return 0;
+  // Login salvo em https não vai para uma página http (rebaixamento)
+  if (e.protocol === 'https:' && page.protocol === 'http:') return 0;
+  if (!e.site || !page.site) return e.hostPort === page.hostPort ? 100 : 0;
+  if (e.host === page.host) return 100;
+  return e.site === page.site ? 50 : 0;
+}
+
+function matchUrl(entries, pageUrl, { types } = {}) {
+  const page = parseSiteUrl(pageUrl);
+  if (!page) return [];
+  return entries
+    .filter((e) => !types || types.includes(e.type))
+    .map((e) => ({ e, score: urlMatchScore(e.url, page) }))
     .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .map((x) => x.e);
@@ -232,6 +286,26 @@ const TOOLS = [
     }
   },
   {
+    name: 'match_url',
+    description:
+      'Entradas do MESMO site de uma URL (usado pelo preenchimento automático). Diferente ' +
+      'de search_secrets, não faz busca textual: compara host e domínio registrável. ' +
+      'Retorna metadados SEM senhas.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'URL da página (http ou https).' },
+        types: {
+          type: 'array',
+          items: { type: 'string', enum: ['login', 'mfa', 'token', 'note'] },
+          description: 'Tipos aceitos (padrão: todos).'
+        }
+      },
+      required: ['url'],
+      additionalProperties: false
+    }
+  },
+  {
     name: 'get_credentials',
     description:
       'Retorna usuário, senha, token, notas e campos personalizados de uma entrada. ' +
@@ -265,7 +339,9 @@ const TOOLS = [
     description:
       'Salva um arquivo anexado a uma entrada (keystore, .pem, .json, .env...) num caminho ' +
       'local. O conteúdo não volta na resposta, só metadados (tamanho, sha256). O arquivo ' +
-      'é gravado com permissão 600 e não sobrescreve um existente sem overwrite: true.',
+      'é gravado com permissão 600 e não sobrescreve um existente sem overwrite: true. Ao ' +
+      'sobrescrever, o arquivo anterior é guardado em "<arquivo>.bak-<data>" (backupPath na ' +
+      'resposta). Links simbólicos são recusados.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -274,7 +350,7 @@ const TOOLS = [
         name: { type: 'string', description: 'Nome do anexo. Opcional se a entrada tiver um só.' },
         attachmentId: { type: 'string', description: 'ID do anexo (alternativa a "name").' },
         outPath: { type: 'string', description: 'Caminho ABSOLUTO onde gravar o arquivo.' },
-        overwrite: { type: 'boolean', description: 'Substitui o arquivo de destino se já existir (padrão false).' }
+        overwrite: { type: 'boolean', description: 'Substitui o arquivo de destino se já existir (padrão false). O anterior vira um .bak.' }
       },
       required: ['outPath'],
       additionalProperties: false
@@ -361,7 +437,7 @@ const TOOLS = [
 
 // ===== Execução das ferramentas =====
 
-function callTool(name, args = {}) {
+function callTool(name, args = {}, ctx = {}) {
   switch (name) {
     case 'vault_status': {
       const s = vault.checkSession();
@@ -388,6 +464,13 @@ function callTool(name, args = {}) {
     case 'search_secrets': {
       const entries = vault.loadEntries();
       const results = findEntries(entries, { query: args.query, type: args.type });
+      return { count: results.length, results: results.slice(0, 25).map(publicView) };
+    }
+
+    case 'match_url': {
+      if (typeof args.url !== 'string' || args.url.length > 4096) throw new Error('Informe "url".');
+      const types = Array.isArray(args.types) ? args.types.filter((t) => typeof t === 'string') : undefined;
+      const results = matchUrl(vault.loadEntries(), args.url, { types });
       return { count: results.length, results: results.slice(0, 25).map(publicView) };
     }
 
@@ -445,6 +528,9 @@ function callTool(name, args = {}) {
     }
 
     case 'get_secret_file': {
+      // Grava no disco: clientes de navegador (a extensão, que manda Origin)
+      // não precisam disso e não podem usar.
+      if (ctx.allowWrite === false) throw new Error('get_secret_file não é permitido para este cliente.');
       if (!args.id && !args.query) throw new Error('Informe "id" ou "query".');
       const entries = vault.loadEntries();
       const matches = findEntries(entries, { id: args.id, query: args.query })
@@ -461,12 +547,13 @@ function callTool(name, args = {}) {
           anexos.map((a) => a.name).join(', '));
       }
       if (!att) throw new Error(`Anexo não encontrado em "${entry.title}".`);
-      const saved = files.writeAttachmentToPath(att, args.outPath, { overwrite: args.overwrite === true });
+      const saved = files.writeAttachmentToPath(att, args.outPath, { overwrite: args.overwrite === true, backup: true });
       return {
         saved: true,
         entry: { id: entry.id, title: entry.title },
         attachment: files.attachmentMeta(att),
-        path: saved.path
+        path: saved.path,
+        backupPath: saved.backupPath
       };
     }
 
@@ -530,15 +617,18 @@ async function dispatch(msg, ctx = {}) {
       return ok({});
 
     case 'tools/list':
-      return ok({ tools: TOOLS });
+      return ok({ tools: ctx.allowWrite === false ? TOOLS.filter((t) => BROWSER_TOOLS.has(t.name)) : TOOLS });
 
     case 'tools/call': {
       const toolName = params && params.name;
       const toolArgs = (params && params.arguments) || {};
       try {
+        if (ctx.allowWrite === false && !WRITE_TOOLS.has(toolName) && !BROWSER_TOOLS.has(toolName)) {
+          throw new Error(`${toolName} não é permitido para a extensão do navegador.`);
+        }
         const data = WRITE_TOOLS.has(toolName)
           ? await callWriteTool(toolName, toolArgs, ctx)
-          : callTool(toolName, toolArgs);
+          : callTool(toolName, toolArgs, ctx);
         return ok({ content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] });
       } catch (e) {
         const locked = e instanceof vault.VaultLockedError;
@@ -567,6 +657,10 @@ async function dispatch(msg, ctx = {}) {
 module.exports = {
   TOOLS,
   WRITE_TOOLS,
+  BROWSER_TOOLS,
+  matchUrl,
+  urlMatchScore,
+  parseSiteUrl,
   callTool,
   callWriteTool,
   buildWriteRequest,

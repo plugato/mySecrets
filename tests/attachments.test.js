@@ -94,7 +94,39 @@ test('files: lê binário e texto, com sha256 e tamanho, e grava de volta igual'
     assert.strictEqual(fs.statSync(out).mode & 0o777, 0o600, 'arquivo de segredo sai com permissão 600');
   }
   assert.throws(() => files.writeAttachmentToPath(jks, out), /overwrite/);
-  files.writeAttachmentToPath(jks, out, { overwrite: true });
+  const sem = files.writeAttachmentToPath(jks, out, { overwrite: true });
+  assert.strictEqual(sem.backupPath, undefined, 'sem backup: true não deixa cópia');
+});
+
+test('files: sobrescrever com backup guarda o anterior; link simbólico é recusado', () => {
+  const jks = files.readFileAsAttachment(fakeFile('release.jks', FAKE_JKS));
+  const dir = path.join(WORK_DIR, 'backup');
+  const alvo = path.join(dir, 'alvo.txt');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(alvo, 'conteúdo importante');
+
+  const r1 = files.writeAttachmentToPath(jks, alvo, { overwrite: true, backup: true });
+  assert.deepStrictEqual(fs.readFileSync(alvo), FAKE_JKS);
+  assert.ok(r1.backupPath && r1.backupPath.startsWith(alvo + '.bak-'));
+  assert.strictEqual(fs.readFileSync(r1.backupPath, 'utf8'), 'conteúdo importante');
+  if (process.platform !== 'win32') {
+    assert.strictEqual(fs.statSync(r1.backupPath).mode & 0o777, 0o600, 'backup também sai com 600');
+  }
+  // Dois backups no mesmo segundo não se sobrescrevem
+  const r2 = files.writeAttachmentToPath(jks, alvo, { overwrite: true, backup: true });
+  assert.notStrictEqual(r2.backupPath, r1.backupPath);
+  assert.ok(fs.existsSync(r1.backupPath));
+  // Não sobra arquivo temporário
+  assert.deepStrictEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.tmp')), []);
+
+  if (process.platform !== 'win32') {
+    const real = path.join(dir, 'real.txt');
+    fs.writeFileSync(real, 'não mexer');
+    const link = path.join(dir, 'link.txt');
+    fs.symlinkSync(real, link);
+    assert.throws(() => files.writeAttachmentToPath(jks, link, { overwrite: true, backup: true }), /link simbólico/);
+    assert.strictEqual(fs.readFileSync(real, 'utf8'), 'não mexer');
+  }
 });
 
 test('files: recusa caminho relativo, arquivo grande e anexo adulterado', () => {
@@ -358,6 +390,10 @@ test('ponta a ponta: agente grava keystore + senhas, lê de volta e recusa é re
   assert.strictEqual(fs.readFileSync(path.join(WORK_DIR, 'out', '.env'), 'utf8'), FAKE_ENV);
   r = await call('get_secret_file', { id: keystoreId, name: 'release.jks', outPath: outJks });
   assert.match(r.data.error, /overwrite/, 'não sobrescreve sem pedir');
+  fs.writeFileSync(outJks, 'versão local');
+  r = await call('get_secret_file', { id: keystoreId, name: 'release.jks', outPath: outJks, overwrite: true });
+  assert.strictEqual(r.isError, false, JSON.stringify(r.data));
+  assert.strictEqual(fs.readFileSync(r.data.backupPath, 'utf8'), 'versão local', 'sobrescrever guarda o anterior');
 
   // 5) Usuário recusa no app: nada muda e o agente fica sabendo
   decisions.aprovar = false;
@@ -378,6 +414,34 @@ test('ponta a ponta: agente grava keystore + senhas, lê de volta e recusa é re
   assert.strictEqual(body.result.isError, true);
   assert.match(body.result.content[0].text, /não é permitida/);
   assert.strictEqual(decisions.pedidos.length, pedidosAntes, 'pedido nem chega ao app');
+
+  // ...e também não grava arquivos no disco com get_secret_file
+  const destinoExt = path.join(WORK_DIR, 'out', 'pela-extensao.jks');
+  const resFile = await fetch(`http://127.0.0.1:${port}/mcp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer tk', Origin: 'chrome-extension://abc' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'get_secret_file', arguments: { id: keystoreId, name: 'release.jks', outPath: destinoExt } } })
+  });
+  const bodyFile = await resFile.json();
+  assert.strictEqual(bodyFile.result.isError, true);
+  assert.match(bodyFile.result.content[0].text, /não é permitido/);
+  assert.ok(!fs.existsSync(destinoExt), 'nada gravado');
+
+  // ...nem lista/busca o cofre inteiro; tools/list só mostra o necessário para preencher
+  const ext = async (method, params) => (await (await fetch(`http://127.0.0.1:${port}/mcp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer tk', Origin: 'chrome-extension://abc' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 3, method, params })
+  })).json());
+  const lista = await ext('tools/call', { name: 'list_secrets', arguments: {} });
+  assert.strictEqual(lista.result.isError, true);
+  assert.match(lista.result.content[0].text, /não é permitido para a extensão/);
+  const busca = await ext('tools/call', { name: 'search_secrets', arguments: { query: 'tcg' } });
+  assert.strictEqual(busca.result.isError, true);
+  const ferramentas = (await ext('tools/list', {})).result.tools.map((t) => t.name).sort();
+  assert.deepStrictEqual(ferramentas, ['get_credentials', 'get_otp', 'match_url', 'vault_status']);
+  const ok = await ext('tools/call', { name: 'match_url', arguments: { url: 'https://exemplo.com' } });
+  assert.strictEqual(ok.result.isError, undefined, 'ferramenta de preenchimento continua liberada');
 });
 
 test('ponta a ponta: cofre bloqueado e servidor do app desligado', async (t) => {
