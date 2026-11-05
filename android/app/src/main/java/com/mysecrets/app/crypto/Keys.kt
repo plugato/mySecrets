@@ -40,7 +40,7 @@ object Keys {
                     setUserAuthenticationRequired(true)
                     setInvalidatedByBiometricEnrollment(true)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+                        setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL)
                     }
                 }
             }

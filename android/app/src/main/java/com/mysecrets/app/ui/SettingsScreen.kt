@@ -79,6 +79,10 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
     val confirmed by LinkServer.confirmed.collectAsState()
     var busy by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<String?>(null) }
+    // Mensagens também em aviso flutuante: o texto do topo some quando a tela está rolada
+    androidx.compose.runtime.LaunchedEffect(msg) {
+        msg?.let { android.widget.Toast.makeText(activity, it, android.widget.Toast.LENGTH_LONG).show() }
+    }
     var bio by remember { mutableStateOf(bioUnlockEnabled()) }
     var autofillOn by remember { mutableStateOf(false) }
     var lockSecs by remember { mutableIntStateOf(Settings.autoLockSeconds) }

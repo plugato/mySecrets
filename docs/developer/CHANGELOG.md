@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-11-05
+
+### Fixed
+- Android: "Desbloquear com a digital" and "Parear com PC" seemed to do nothing on phones without a fingerprint enrolled. The reason was shown at the top of the (scrolled) settings screen. Messages now also show as a toast, and biometric errors (lockout, no enrollment…) are reported instead of being treated as a cancel.
+
+### Changed
+- Android 11+: when no fingerprint is enrolled, the device PIN/pattern/password is accepted for unlocking, pairing and approving the PC login (the fingerprint is still offered first when enrolled).
+
 ## [2.0.1] - 2026-11-05
 
 ### Fixed

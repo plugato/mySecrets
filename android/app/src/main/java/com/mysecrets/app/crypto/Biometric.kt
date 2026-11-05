@@ -2,7 +2,9 @@ package com.mysecrets.app.crypto
 
 import android.content.Context
 import androidx.biometric.BiometricManager
+import android.os.Build
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
@@ -14,14 +16,20 @@ import kotlin.coroutines.resumeWithException
 object Biometric {
     class Cancelled(message: String) : Exception(message)
 
-    fun available(context: Context): Boolean =
-        BiometricManager.from(context).canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
+    /** Digital (forte); no Android 11+ também o PIN/padrão do aparelho como alternativa. */
+    val allowed: Int
+        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) BIOMETRIC_STRONG or DEVICE_CREDENTIAL else BIOMETRIC_STRONG
 
-    fun unavailableReason(context: Context): String = when (BiometricManager.from(context).canAuthenticate(BIOMETRIC_STRONG)) {
-        BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> "Nenhuma digital cadastrada no aparelho"
+    fun available(context: Context): Boolean =
+        BiometricManager.from(context).canAuthenticate(allowed) == BiometricManager.BIOMETRIC_SUCCESS
+
+    fun unavailableReason(context: Context): String = when (BiometricManager.from(context).canAuthenticate(allowed)) {
+        BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED ->
+            "Nenhuma digital (nem bloqueio de tela) cadastrada. Cadastre uma digital nas Configurações do Android > Senhas e segurança."
         BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> "Este aparelho não tem leitor biométrico forte"
-        BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> "Leitor biométrico indisponível agora"
-        else -> "Biometria indisponível"
+        BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> "Leitor biométrico indisponível agora. Tente de novo."
+        BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED -> "O Android pede uma atualização de segurança para usar a biometria"
+        else -> "Biometria indisponível neste aparelho"
     }
 
     /** Mostra o prompt de digital e devolve o Cipher liberado pelo Keystore. */
@@ -34,14 +42,18 @@ object Biometric {
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    if (cont.isActive) cont.resumeWithException(Cancelled(errString.toString()))
+                    if (!cont.isActive) return
+                    val cancelado = errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
+                        errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON || errorCode == BiometricPrompt.ERROR_CANCELED
+                    // Cancelar não é erro; o resto (bloqueio por tentativas, sem digital…) precisa aparecer
+                    cont.resumeWithException(if (cancelado) Cancelled(errString.toString()) else Exception(errString.toString()))
                 }
             })
             val info = BiometricPrompt.PromptInfo.Builder()
                 .setTitle(title)
                 .apply { if (subtitle != null) setSubtitle(subtitle) }
-                .setAllowedAuthenticators(BIOMETRIC_STRONG)
-                .setNegativeButtonText("Cancelar")
+                .setAllowedAuthenticators(allowed)
+                .apply { if (allowed and DEVICE_CREDENTIAL == 0) setNegativeButtonText("Cancelar") }
                 .setConfirmationRequired(false)
                 .build()
             prompt.authenticate(info, BiometricPrompt.CryptoObject(cipher))
