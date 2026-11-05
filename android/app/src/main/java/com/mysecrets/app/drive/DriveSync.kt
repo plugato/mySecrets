@@ -216,7 +216,17 @@ MySecrets e entre com a mesma conta Google e a mesma senha mestra.
             if (!Vault.isUnlocked) return@withLock
             publish(true)
             try {
-                run(c)
+                // Rede pode estar bloqueada por instantes (app voltando do segundo plano)
+                var tentativa = 0
+                while (true) {
+                    try {
+                        run(c)
+                        break
+                    } catch (e: java.io.IOException) {
+                        if (++tentativa >= 3) throw Exception("Sem conexão com o Google Drive (${e.message})")
+                        delay(1500L * tentativa)
+                    }
+                }
                 prefs.edit().putString("lastSyncAt", Vault.now()).remove("lastError").apply()
             } catch (e: GoogleAuth.AuthException) {
                 if (e.code == "invalid_grant" || e.code == "insufficient_scope") {

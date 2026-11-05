@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-05
+
+### Fixed
+- Android: "Entrar com Google" failed with "Unable to resolve host oauth2.googleapis.com: No address associated with hostname" on Android 15 / MIUI-HyperOS. These systems cut network access for apps in the background, and the token exchange ran while the browser was still in front. The app now waits until it is back in the foreground before exchanging the code, and retries Google and Drive calls on transient network errors.
+
 ## [2.0.0] - 2026-11-05
 
 ### Added

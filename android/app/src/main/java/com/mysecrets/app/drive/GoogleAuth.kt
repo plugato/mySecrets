@@ -4,7 +4,13 @@ import android.content.Context
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
 import com.mysecrets.app.BuildConfig
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
@@ -69,6 +75,10 @@ object GoogleAuth {
             }
 
             val code = waitForCode(server, state)
+            // Android 15 (e MIUI/HyperOS) cortam a rede de apps em segundo plano: com o
+            // navegador na frente, a troca do código falharia ("No address associated
+            // with hostname"). Espera o app voltar para a frente antes de chamar o Google.
+            awaitForeground()
             val body = FormBody.Builder()
                 .add("code", code)
                 .add("client_id", BuildConfig.GOOGLE_CLIENT_ID)
@@ -77,7 +87,7 @@ object GoogleAuth {
                 .add("grant_type", "authorization_code")
                 .add("code_verifier", verifier)
                 .build()
-            val tokens = postJson(Request.Builder().url(TOKEN_URL).post(body).build())
+            val tokens = withNetworkRetry { postJson(Request.Builder().url(TOKEN_URL).post(body).build()) }
             val refresh = tokens.optString("refresh_token")
             if (refresh.isEmpty()) throw Exception("O Google não devolveu um refresh token.")
             // Sem revogar: o grant é do mesmo OAuth client do PC
@@ -91,6 +101,42 @@ object GoogleAuth {
         } finally {
             server.close()
         }
+    }
+
+    /** Suspende até o app estar visível (no máximo 5 min). */
+    private suspend fun awaitForeground() {
+        withContext(Dispatchers.Main) {
+            val lc = ProcessLifecycleOwner.get().lifecycle
+            if (!lc.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                withTimeoutOrNull(5 * 60 * 1000L) {
+                    suspendCancellableCoroutine { cont ->
+                        val obs = object : DefaultLifecycleObserver {
+                            override fun onStart(owner: LifecycleOwner) {
+                                lc.removeObserver(this)
+                                if (cont.isActive) cont.resume(Unit)
+                            }
+                        }
+                        lc.addObserver(obs)
+                        cont.invokeOnCancellation { lc.removeObserver(obs) }
+                    }
+                }
+            }
+        }
+        delay(300) // a regra de firewall do sistema leva um instante para liberar
+    }
+
+    /** Repete chamadas que falham por rede ainda bloqueada/instável (DNS, conexão). */
+    suspend fun <T> withNetworkRetry(block: () -> T): T {
+        var ultimo: Exception? = null
+        repeat(5) { tentativa ->
+            try {
+                return block()
+            } catch (e: java.io.IOException) {
+                ultimo = e
+                delay(700L * (tentativa + 1))
+            }
+        }
+        throw Exception("Sem conexão com o Google (${ultimo?.message}). Confira a internet e tente de novo.")
     }
 
     /** Aceita conexões no loopback até chegar o redirecionamento do Google (5 min). */

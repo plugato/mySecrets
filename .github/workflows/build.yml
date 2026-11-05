@@ -155,11 +155,29 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: MySecrets ${{ github.ref_name }}
-          files: dist/*
+      # Sem softprops/action-gh-release: ele envia os arquivos em paralelo e a API
+      # do GitHub às vezes recusa ("Error updating policy"), deixando a release em
+      # rascunho. Aqui: rascunho -> um arquivo por vez com novas tentativas -> publica.
+      - name: Publicar release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            gh release create "$TAG" -R "$REPO" --draft --verify-tag --title "MySecrets $TAG" --notes ""
+          fi
+          for f in dist/*; do
+            ok=0
+            for i in 1 2 3 4 5; do
+              if gh release upload "$TAG" "$f" -R "$REPO" --clobber; then ok=1; break; fi
+              echo "::warning::Falha ao enviar $(basename "$f") (tentativa $i), repetindo..."
+              sleep $((i * 5))
+            done
+            [ "$ok" = 1 ] || { echo "::error::Não foi possível enviar $(basename "$f")"; exit 1; }
+          done
+          gh release edit "$TAG" -R "$REPO" --draft=false --latest
 
   # Envia a extensão para a Chrome Web Store (só se os secrets CWS_* existirem).
   # Pula sozinho quando a versão do manifest já está na loja.
