@@ -206,3 +206,5 @@ android/local.properties
 android/.kotlin/
 android/keystore.properties
 *.jks
+# Código-fonte do app Android (o padrão vault/ acima é para dados do cofre)
+!android/app/src/main/java/com/mysecrets/app/vault/
