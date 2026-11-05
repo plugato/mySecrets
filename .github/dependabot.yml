@@ -1,0 +1,21 @@
+# Atualizações de dependências (um PR por semana por ecossistema). Electron e
+# Gradle ficam sem suporte rápido: foi assim que o Electron 38 passou batido.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      electron:
+        patterns: ['electron', 'electron-builder', 'electron-updater']
+      dev:
+        dependency-type: development
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

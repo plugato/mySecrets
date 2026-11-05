@@ -57,6 +57,8 @@ jobs:
             echo "::warning::Secrets GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET ausentes: build sem login com Google"
           fi
 
+      - run: npm run lint
+
       - run: npm test
 
       - name: Build

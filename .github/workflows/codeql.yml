@@ -1,0 +1,31 @@
+# Análise estática de segurança (CodeQL) do JavaScript: app desktop, servidor
+# MCP e extensão. Em pull requests e uma vez por semana.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: '17 6 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+          config: |
+            paths-ignore:
+              - src/renderer/jsQR.js
+              - docs
+              - graphify-out
+      - uses: github/codeql-action/analyze@v3

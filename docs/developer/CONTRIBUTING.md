@@ -195,8 +195,7 @@ mySecrets/
 npm run dev
 
 # Run tests
-node test-totp.js
-node test-methods.js
+npm test
 
 # Build for production
 npm run build
@@ -554,16 +553,12 @@ describe('Encryption', () => {
 
 ### Test Scripts
 
-Run existing test scripts:
+The test suite uses the built-in `node:test` runner (`tests/**/*.test.js`):
 ```bash
-# Test TOTP generation
-node test-totp.js
-
-# Test encryption methods
-node test-methods.js
-
-# Test conversion utilities
-node test-conversion.js
+npm test                 # desktop, MCP server and extension
+npm run lint             # ESLint (rejects innerHTML with unescaped values)
+npm run test:e2e         # real Electron app, throwaway profile (Linux without a display: xvfb-run -a npm run test:e2e)
+make test-android        # Android unit tests (Gradle)
 ```
 
 ## Documentation

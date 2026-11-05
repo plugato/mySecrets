@@ -1,0 +1,155 @@
+// Testes ponta a ponta no app Electron de verdade (perfil temporário).
+// npm run test:e2e  (no Linux sem tela: xvfb-run -a npm run test:e2e)
+const { test, before, after } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const { launchApp, ROOT } = require('./app');
+const { encryptVault, decryptVault } = require('../../src/lib/vault-crypto');
+
+const PW = 'senha-de-teste-e2e';
+const T = (m) => new Date(Date.UTC(2026, 10, 5, 12, m)).toISOString();
+let app;
+
+before(async () => { app = await launchApp(); });
+after(async () => { if (app) await app.close(); });
+
+const api = (code) => app.evaluate(`(async () => JSON.stringify(await (${code})))()`).then(JSON.parse);
+const vaultFile = () => path.join(app.vaultDir, 'secrets.enc');
+const readDisk = () => JSON.parse(decryptVault(JSON.parse(fs.readFileSync(vaultFile(), 'utf8')), PW));
+
+test('gerador de senhas no preload real (sandbox)', async () => {
+  const r = await app.evaluate(`JSON.stringify({ a: window.electronAPI.generatePassword(20, true), b: window.electronAPI.generatePassword(12, false) })`).then(JSON.parse);
+  assert.strictEqual(r.a.length, 20);
+  assert.match(r.b, /^[A-Za-z0-9]{12}$/);
+});
+
+test('dados do cofre nunca viram HTML (lista, grade, MFA, detalhes, importação)', async () => {
+  const injetados = await app.evaluate(`(async () => {
+    const P = '"><img src=x data-pwn=1><b data-pwn=1>';
+    const evil = { id: 'id' + P, type: 'mfa' + P, title: 'T' + P, username: 'u' + P, url: 'https://x' + P,
+      mfaSecret: 'JBSWY3DPEHPK3PXP', mfaAlgorithm: 'totp' + P, mfaDigits: '6' + P, mfaPeriod: '30' + P,
+      mfaHash: 'sha1' + P, mfaCounter: '0' + P, tokenType: 'api' + P, token: 'tok', tags: [] };
+    const host = document.createElement('div'); document.body.appendChild(host);
+    host.appendChild(createEntryElement(evil));
+    host.appendChild(createGridCard(evil));
+    host.appendChild(createMFARow({ ...evil, mfaAlgorithm: 'hotp' }));
+    showImportPreview([{ ...evil, type: 'login' }, { ...evil, type: 'token' }]);
+    await renderEntryDetails({ ...evil, type: 'mfa', mfaAlgorithm: 'hotp' });
+    await renderEntryDetails({ ...evil, type: 'token' });
+    const n = document.querySelectorAll('[data-pwn]').length;
+    host.remove();
+    return n;
+  })()`);
+  assert.strictEqual(injetados, 0);
+});
+
+test('salvar com a tela desatualizada (o sync gravou por baixo) mescla em vez de apagar', async () => {
+  assert.strictEqual((await api(`window.electronAPI.saveData([{id:'a',type:'note',title:'A',updatedAt:'${T(1)}'}], '${PW}', {autoBackup:false})`)).success, true);
+  assert.strictEqual((await api(`window.electronAPI.loadData('${PW}')`)).data.length, 1);
+  // "Sincronização" grava uma entrada vinda de outro aparelho direto no disco
+  fs.writeFileSync(vaultFile(), JSON.stringify(encryptVault(JSON.stringify([
+    { id: 'a', type: 'note', title: 'A', updatedAt: T(1) },
+    { id: 'b', type: 'note', title: 'Do celular', updatedAt: T(2) }
+  ]), PW)));
+  const r = await api(`window.electronAPI.saveData([{id:'a',type:'note',title:'A editada',updatedAt:'${T(3)}'}], '${PW}', {autoBackup:false})`);
+  assert.strictEqual(r.merged, true);
+  assert.deepStrictEqual(readDisk().map((e) => `${e.id}:${e.title}`).sort(), ['a:A editada', 'b:Do celular']);
+  // Agora a tela tem "b": apagar de verdade funciona
+  await api(`window.electronAPI.saveData([{id:'a',type:'note',title:'A editada',updatedAt:'${T(3)}'}], '${PW}', {autoBackup:false})`);
+  assert.deepStrictEqual(readDisk().map((e) => e.id), ['a']);
+});
+
+test('bloquear tira o cofre da página', async () => {
+  const r = await app.evaluate(`(async () => {
+    const e = [{id:'l1',type:'login',title:'Banco XYZ',username:'eu',password:'segredo-visivel',updatedAt:new Date().toISOString()},
+               {id:'m1',type:'mfa',title:'2FA Banco',mfaSecret:'JBSWY3DPEHPK3PXP',mfaAlgorithm:'totp',updatedAt:new Date().toISOString()}];
+    await window.electronAPI.saveData(e, '${PW}', {autoBackup:false});
+    const r = await window.electronAPI.loadData('${PW}');
+    currentMasterPassword = '${PW}'; currentData = r.data; filteredData = r.data;
+    renderEntries(); await renderEntryDetails(r.data[0]); renderMFACodes();
+    const antes = document.body.innerHTML.includes('Banco XYZ');
+    lockApp();
+    const html = document.body.innerHTML;
+    return JSON.stringify({ antes, depois: ['Banco XYZ', '2FA Banco', 'segredo-visivel', 'JBSWY3DPEHPK3PXP'].filter((t) => html.includes(t)) });
+  })()`).then(JSON.parse);
+  assert.strictEqual(r.antes, true);
+  assert.deepStrictEqual(r.depois, []);
+});
+
+test('acessibilidade: modal prende o foco; axe sem violações WCAG A/AA nos 5 temas', async () => {
+  await app.evaluate(fs.readFileSync(path.join(ROOT, 'node_modules', 'axe-core', 'axe.min.js'), 'utf8'));
+  const modal = await app.evaluate(`(async () => {
+    const origem = document.createElement('button'); origem.id = 'origem-e2e'; origem.textContent = 'origem'; document.body.appendChild(origem); origem.focus();
+    const m = document.getElementById('entry-modal'); m.style.display = 'flex';
+    await new Promise((r) => setTimeout(r, 100));
+    const dentro = m.contains(document.activeElement);
+    const dialog = m.getAttribute('role') === 'dialog' && m.getAttribute('aria-modal') === 'true';
+    const axeModal = (await axe.run(m, { runOnly: ['wcag2a', 'wcag2aa'] })).violations.map((v) => v.id);
+    m.style.display = 'none';
+    await new Promise((r) => setTimeout(r, 100));
+    const voltou = document.activeElement && document.activeElement.id;
+    origem.remove();
+    return JSON.stringify({ dentro, dialog, axeModal, voltou });
+  })()`).then(JSON.parse);
+  assert.deepStrictEqual(modal, { dentro: true, dialog: true, axeModal: [], voltou: 'origem-e2e' });
+
+  // Sem animação de troca de tema: o axe mede as cores finais (e exercita a
+  // regra prefers-reduced-motion do CSS)
+  await app.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  const porTema = await app.evaluate(`(async () => {
+    const DEBUG = ${JSON.stringify(!!process.env.E2E_DEBUG)};
+    const e = [{id:'a1',type:'login',title:'Banco',username:'eu',password:'x',url:'https://b.com',tags:['t'],updatedAt:new Date().toISOString()},
+               {id:'m1',type:'mfa',title:'2FA',mfaSecret:'JBSWY3DPEHPK3PXP',mfaAlgorithm:'totp',updatedAt:new Date().toISOString()},
+               {id:'t1',type:'token',title:'API',token:'abc',tokenType:'api',updatedAt:new Date().toISOString()}];
+    await window.electronAPI.saveData(e, '${PW}', {autoBackup:false});
+    const r = await window.electronAPI.loadData('${PW}');
+    currentMasterPassword = '${PW}'; currentData = r.data; filteredData = r.data;
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'flex';
+    const out = {};
+    for (const tema of ['light', 'dark', 'ocean', 'forest', 'sunset']) {
+      document.body.setAttribute('data-theme', tema);
+      renderEntries(); await renderEntryDetails(r.data[0]);
+      // Espera as cores pararem de mudar (troca de tema) antes de medir
+      const amostra = () => [...document.querySelectorAll('body, h1, .sidebar-header h3, .entry-item p, .filter-btn.active span')]
+        .map((el) => getComputedStyle(el).color + getComputedStyle(el).backgroundColor).join('|');
+      let anterior = '';
+      for (let k = 0; k < 40; k++) {
+        await new Promise((x) => requestAnimationFrame(() => requestAnimationFrame(x)));
+        await new Promise((x) => setTimeout(x, 50));
+        const agora = amostra();
+        if (agora === anterior) break;
+        anterior = agora;
+      }
+      out[tema] = (await axe.run(document, { runOnly: ['wcag2a', 'wcag2aa'] })).violations.map((v) => v.id + ' x' + v.nodes.length + (DEBUG ? ' ' + v.nodes.slice(0, 3).map((n) => n.target.join(' ') + ' ' + ((n.any[0] && n.any[0].message) || '').slice(0, 120)).join(' | ') : ''));
+    }
+    lockApp();
+    return JSON.stringify(out);
+  })()`).then(JSON.parse);
+  assert.deepStrictEqual(porTema, { light: [], dark: [], ocean: [], forest: [], sunset: [] });
+});
+
+test('servidor MCP sobe pelo app e responde get_otp e match_url', async () => {
+  const port = 30000 + Math.floor(Math.random() * 20000);
+  await api(`window.electronAPI.saveData([{id:'m1',type:'mfa',title:'X',mfaSecret:'JBSWY3DPEHPK3PXP',mfaAlgorithm:'totp',url:'https://github.com',updatedAt:new Date().toISOString()}], '${PW}', {autoBackup:false})`);
+  await api(`window.electronAPI.loadData('${PW}')`);
+  const st = await api(`window.electronAPI.mcpStart({ port: ${port} })`);
+  try {
+    assert.strictEqual(st.success, true, st.error);
+    const tok = st.status.info.token;
+    const call = async (name, args) => {
+      const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } })
+      });
+      return JSON.parse((await res.json()).result.content[0].text);
+    };
+    assert.match((await call('get_otp', { id: 'm1' })).code, /^\d{6}$/);
+    assert.deepStrictEqual((await call('match_url', { url: 'https://gist.github.com' })).results.map((e) => e.id), ['m1']);
+    assert.strictEqual((await call('match_url', { url: 'https://hub.com' })).count, 0);
+  } finally {
+    await api('window.electronAPI.mcpStop()');
+  }
+});

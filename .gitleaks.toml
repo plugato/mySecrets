@@ -1,0 +1,16 @@
+# gitleaks: regras padrão + exceções para material de TESTE (valores falsos,
+# gerados só para os testes) e para o cache do graphify (hashes de arquivos
+# que se parecem com tokens). Nada aqui é segredo real.
+title = "MySecrets"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Vetores e chaves falsas dos testes; hashes do cache do graphify"
+paths = [
+  '''(^|/)tests/fixtures/''',
+  '''(^|/)tests/attachments\.test\.js$''',
+  '''(^|/)android/app/src/test/''',
+  '''(^|/)graphify-out/''',
+]
