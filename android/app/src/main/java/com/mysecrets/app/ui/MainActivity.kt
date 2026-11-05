@@ -44,8 +44,10 @@ import com.mysecrets.app.crypto.Keys
 import com.mysecrets.app.drive.DriveSync
 import com.mysecrets.app.drive.GoogleAuth
 import com.mysecrets.app.link.LinkServer
+import com.mysecrets.app.link.PairFlow
 import com.mysecrets.app.link.Pairings
 import com.mysecrets.app.vault.Vault
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 sealed class Screen {
@@ -142,7 +144,50 @@ fun App(activity: FragmentActivity) {
 @Composable
 private fun Box(activity: FragmentActivity, content: @Composable () -> Unit) {
     content()
+    PairFlowHost(activity)
     ApprovalDialog(activity)
+}
+
+/** Pareamento com o PC: confirmação com a digital e espera, em qualquer tela. */
+@Composable
+fun PairFlowHost(activity: FragmentActivity) {
+    val st by PairFlow.state.collectAsState()
+    val confirmed by LinkServer.confirmed.collectAsState()
+    val last by LinkServer.lastEvent.collectAsState()
+    when (val s = st) {
+        is PairFlow.State.Scanned -> LaunchedEffect(s) {
+            // Só pede com a tela visível (ao voltar de outro app ou de uma tela recriada)
+            activity.lifecycle.currentStateFlow.first { it.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) }
+            kotlinx.coroutines.delay(300)
+            PairFlow.confirm(activity, s)
+        }
+        is PairFlow.State.Waiting -> {
+            val done = confirmed == s.pairId
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text(if (done) "✅ Pareado" else "Quase lá") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(if (done) "Pronto! Na tela de login do ${s.desktopName}, clique em \"Aprovar pelo celular\"."
+                        else "Aguardando o ${s.desktopName} encontrar este celular na rede Wi-Fi… Mantenha o app aberto.")
+                        if (!done) {
+                            Text("Este celular: ${localIp() ?: "sem Wi-Fi?"} · ${if (LinkServer.listening) "escutando" else "NÃO está escutando"} na porta ${com.mysecrets.app.link.LinkProtocol.PORT}",
+                                style = MaterialTheme.typography.bodySmall)
+                            Text("Último contato do PC: ${last ?: "nenhum ainda"}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { PairFlow.dismiss() }) { Text(if (done) "OK" else "Fechar") } }
+            )
+        }
+        is PairFlow.State.Error -> AlertDialog(
+            onDismissRequest = { PairFlow.dismiss() },
+            title = { Text("Pareamento") },
+            text = { Text(s.message) },
+            confirmButton = { TextButton(onClick = { PairFlow.dismiss() }) { Text("OK") } }
+        )
+        PairFlow.State.Idle -> {}
+    }
 }
 
 @Composable

@@ -16,6 +16,9 @@ import kotlin.coroutines.resumeWithException
 object Biometric {
     class Cancelled(message: String) : Exception(message)
 
+    /** O prompt foi fechado porque a tela saiu de cena (app em segundo plano, tela recriada). */
+    class Interrupted(message: String) : Exception(message)
+
     /** Digital (forte); no Android 11+ também o PIN/padrão do aparelho como alternativa. */
     val allowed: Int
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) BIOMETRIC_STRONG or DEVICE_CREDENTIAL else BIOMETRIC_STRONG
@@ -45,8 +48,19 @@ object Biometric {
                     if (!cont.isActive) return
                     val cancelado = errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
                         errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON || errorCode == BiometricPrompt.ERROR_CANCELED
-                    // Cancelar não é erro; o resto (bloqueio por tentativas, sem digital…) precisa aparecer
-                    cont.resumeWithException(if (cancelado) Cancelled(errString.toString()) else Exception(errString.toString()))
+                    if (!cancelado) {
+                        // Bloqueio por tentativas, sem digital… precisa aparecer
+                        cont.resumeWithException(Exception(errString.toString()))
+                        return
+                    }
+                    // Ao sair do app (Home, tela recriada) o sistema fecha o prompt como "cancelado
+                    // pelo usuário" antes de a tela registrar a saída: espera um instante e confere.
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        if (!cont.isActive) return@postDelayed
+                        val foraDeCena = activity.isFinishing || activity.isDestroyed ||
+                            !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+                        cont.resumeWithException(if (foraDeCena) Interrupted(errString.toString()) else Cancelled(errString.toString()))
+                    }, 600)
                 }
             })
             val info = BiometricPrompt.PromptInfo.Builder()

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.5] - 2026-11-05
+
+### Fixed
+- Android: pairing with the PC never got saved on MIUI/HyperOS. After the QR scanner the system recreates the app screen, which cancelled the pairing task before the fingerprint step ("rememberCoroutineScope left the composition"), so the PC kept calling with a QR the phone had "not read". Pairing now runs outside the screen (survives recreation), and if the fingerprint prompt is closed because the screen went away it is shown again when the app is back. The main screen also handles configuration changes itself, so it is recreated less often.
+
 ## [2.0.4] - 2026-11-05
 
 ### Fixed

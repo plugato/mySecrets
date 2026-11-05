@@ -56,6 +56,7 @@ import com.mysecrets.app.drive.DriveSync
 import com.mysecrets.app.drive.GoogleAuth
 import com.mysecrets.app.link.LinkProtocol
 import com.mysecrets.app.link.LinkServer
+import com.mysecrets.app.link.PairFlow
 import com.mysecrets.app.link.Pairings
 import com.mysecrets.app.vault.Vault
 import kotlinx.coroutines.launch
@@ -84,7 +85,6 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
     val scope = rememberCoroutineScope()
     val sync by DriveSync.status.collectAsState()
     val pcs by Pairings.list.collectAsState()
-    val confirmed by LinkServer.confirmed.collectAsState()
     var busy by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<String?>(null) }
     // Mensagens também em aviso flutuante: o texto do topo some quando a tela está rolada
@@ -95,7 +95,6 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
     var autofillOn by remember { mutableStateOf(false) }
     var lockSecs by remember { mutableIntStateOf(Settings.autoLockSeconds) }
     var clipSecs by remember { mutableIntStateOf(Settings.clipboardClearSeconds) }
-    var pairingWith by remember { mutableStateOf<Pairings.Pc?>(null) }
     var confirmWipe by remember { mutableStateOf(false) }
 
     // O status do autofill muda fora do app (tela do sistema)
@@ -202,24 +201,8 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
                     HorizontalDivider()
                 }
                 Button(onClick = {
-                    scope.launch {
-                        try {
-                            if (!Biometric.available(activity)) { msg = Biometric.unavailableReason(activity); return@launch }
-                            val raw = MainActivity.debugPairQr?.also { MainActivity.debugPairQr = null } ?: scanQr(activity)
-                            if (raw == null) { android.util.Log.i("MySecretsPair", "leitura do QR cancelada"); return@launch }
-                            val qr = LinkProtocol.parseQr(raw)
-                            android.util.Log.i("MySecretsPair", "QR lido: PC ${qr.desktopName}, código ${qr.pairId.take(6)}")
-                            val cipher = Keys.bioEncryptCipher(Keys.BIO_LINK)
-                            val ok = Biometric.authenticate(activity, cipher, "Parear com ${qr.desktopName}", "Confirme com a digital ou o PIN")
-                            LinkServer.clearConfirmed()
-                            Pairings.add(qr, ok)
-                            android.util.Log.i("MySecretsPair", "pareamento guardado: ${qr.pairId.take(6)}")
-                            pairingWith = Pairings.find(qr.pairId)
-                        } catch (e: Exception) {
-                            android.util.Log.w("MySecretsPair", "pareamento falhou: ${e.javaClass.simpleName}: ${e.message}")
-                            msg = if (e is Biometric.Cancelled) "Pareamento cancelado (${e.message})" else (e.message ?: e.javaClass.simpleName)
-                        }
-                    }
+                    val debugQr = MainActivity.debugPairQr?.also { MainActivity.debugPairQr = null }
+                    if (debugQr != null) PairFlow.accept(debugQr) else PairFlow.scan(activity)
                 }) { Text("Parear com PC (ler QR code)") }
                 Text("No PC: Configurações > Celular Android > Parear celular.", style = MaterialTheme.typography.bodySmall)
             }
@@ -230,27 +213,6 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
                 Text("Versão ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall)
             }
         }
-    }
-
-    pairingWith?.let { pc ->
-        val done = confirmed == pc.pairId
-        AlertDialog(
-            onDismissRequest = { pairingWith = null },
-            title = { Text(if (done) "✅ Pareado" else "Quase lá") },
-            text = {
-                val last by LinkServer.lastEvent.collectAsState()
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(if (done) "Pronto! Na tela de login do ${pc.desktopName}, clique em \"Aprovar pelo celular\"."
-                    else "Aguardando o ${pc.desktopName} encontrar este celular na rede Wi-Fi… Mantenha esta tela aberta.")
-                    if (!done) {
-                        Text("Este celular: ${localIp() ?: "sem Wi-Fi?"} · ${if (LinkServer.listening) "escutando" else "NÃO está escutando"} na porta ${LinkProtocol.PORT}",
-                            style = MaterialTheme.typography.bodySmall)
-                        Text("Último contato do PC: ${last ?: "nenhum ainda"}", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { pairingWith = null }) { Text(if (done) "OK" else "Fechar") } }
-        )
     }
 
     if (confirmWipe) {
