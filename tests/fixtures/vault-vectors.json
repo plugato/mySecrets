@@ -1,0 +1,54 @@
+{
+  "password": "senha-de-teste-ç😀",
+  "entries": [
+    {
+      "id": "a1",
+      "type": "login",
+      "title": "Exemplo",
+      "url": "https://example.com",
+      "username": "ana@example.com",
+      "password": "p@ss/çã",
+      "notes": "",
+      "tags": [
+        "x"
+      ],
+      "favorite": false,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-02T00:00:00.000Z",
+      "extraDoFuturo": {
+        "a": [
+          1,
+          2.5,
+          null,
+          true
+        ]
+      }
+    },
+    {
+      "id": "m1",
+      "type": "mfa",
+      "title": "MFA",
+      "mfaSecret": "JBSWY3DPEHPK3PXP",
+      "mfaAlgorithm": "totp",
+      "mfaPeriod": 30,
+      "mfaDigits": 6,
+      "mfaHash": "sha1",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "v2": {
+    "version": 2,
+    "algorithm": "aes-256-gcm",
+    "iterations": 600000,
+    "salt": "3473c18f57879aadb42498b79b083ddd",
+    "iv": "da0a2fac3fcabb306043f343",
+    "authTag": "d55eed04c33fe155ed3b9a369ccad219",
+    "encrypted": "452cc01af3e0b79665e93364ae6dfc100c8a62ad47e8e0c3558cf2bf0bd2940e1c4e4adb6ff93b3801d8b4dad1fcd7d1340d034fd1f0cce30133c80c8047fea2e192772649b4eaf363d7397cbb1cd93f47e83b0a6cf9074282c28030eee61f9b29c1160396c2d3da9878f33819fb45e6ec87d1002c5c8803f5519da211394fc716b89c7c195fc2d9741f3529683d2b7661ab266f9ff27acaf61eef95f9da404592b1d534759d7db3d53b21ce9c6eb9b9d93a3c95f87d72bdf9f07c6141824ae466cea63b05872e3ca26706950708df9506e2a1aba09a774e1327e72ac56378933cb8013ac72d0801a43cf2187eb525b53a40afd63d53ede7867a762025df446cbd50e63f863d2f5785170c8b8650efd9fca65bd14db5d4a922f316e606437f8e9a8e7ed92f5aa68aab4363004c253baff7914135c17ea4fa8fe134e5afd4622b7331ac3e63fbd5f383195321c71a4e8fc22207ee8f270d7f54de8b9f4c15e75e5f57e2cc71fc58847d34820f229d58c0efb1cdc003154ab4a3b9b38750070d153c738f91fec08e17a0e21a2834fb044f828302da20df5b9ee894189e3e522e9fa52194bcf238e6cf93a63982c48017c3b5a7aa5436cfb3927ff60ca0f6c8dae9f789510599f0e3a6e3614341999b39b6240c2c51de9002f8afdda9777751b5d0dfc37bddaa9cc8bf4153ed233377c88198f5af74da"
+  },
+  "v1": {
+    "encrypted": "8c7529b9978fc2200a221896914f2af78ceee2e66b8bdc85025f7e3a77cc1847b083647894b4809fd906f14196a88fe9880b423b39d31d7035fb5e98dac8a779b082de98e9ee3f695ee7a4cb00bf8af910f56def7cf2ce065054a65713ae864a7e6c0bf202c0474e78ca0905a25d0fb054d57591556cfc4292000b7480fd4317d9907277ea46f311dd526a6bb8b943bff6a810be5c1c6f62c213579ef3055eb3196e86c50b6bc4531da9ed74a6bae713990c1f924817e2a34ba5d1038394132f5fa16fdfa91367fb8fb81a515526e41ecf207af9dc8d894319b7b32965771ebb4d9b5b1f4b4b3d220e09de457711d49c65cc9c11d909e1cf97abdbf4337997ba20375e0b1670e3d6fa36876365400e8a714c4257411b82a5799b2c7a5c110dc7cceca164e65c443cc0696d01867989ace41046c7e80d5a44549b7a8f07164c95e02642ce8853cf0582359f3c473687cbc3b537fb00d2d86cb2448ecba5b82a907503902b9bdfe63bd10698824206f4cebbcb3c3469cacee7da8fa4fb1c73720689fea005d9a8b2347ffdd3c770f713fd43a72f3afbf92ff372b88c38107e20b406c90daceabe7c8c81fe4d7e99c4cb03ccf6c397c2a4e4c6c70ee525879411b3bd909a9b6127075597f66301560dd6dc18b9b29771abd9e0317bc33cebb4eb3b01554e02109918d592c48bcd4394de1947b60c7b85a64459839a53165d2d6c07",
+    "salt": "12ba34bc6d6a495ae834271661a7f414",
+    "iv": "731f1593f73ad261e35d2f6579faace9"
+  }
+}

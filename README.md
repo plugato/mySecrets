@@ -42,6 +42,14 @@ make dev
 - 🏷️ Tags para agrupar por projeto (ex.: `tcg-scanner`), com filtro na barra lateral
 - 🎨 Interface moderna
 
+### App Android
+- 📲 O mesmo cofre do PC (mesmo `secrets.enc`, sincronizado pelo Google Drive)
+- 🌐 Preenchimento automático no Android inteiro: apps e navegadores (Chrome, Firefox, Brave, Edge, Samsung Internet…), com oferta de salvar logins novos
+- 👆 Desbloqueio por digital (chave no Android Keystore)
+- 💻 **Aprovar o login do PC pelo celular**: no PC, "Aprovar pelo celular"; no celular, conferir o código e encostar o dedo (mesma rede Wi-Fi, sem servidor)
+- 📷 Leitura de QR code de MFA, códigos TOTP/HOTP, notas, tokens, anexos
+- Download: APK na página de [Releases](https://github.com/plugato/mySecrets/releases) · detalhes em **[android/README.md](android/README.md)**
+
 ### Extensão Chrome
 - 🌐 Autofill automático de formulários
 - 🔄 Integração com app desktop (servidor local + token)

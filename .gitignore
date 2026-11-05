@@ -197,3 +197,12 @@ client_secret*.json
 
 # Chave da conta de serviço da Chrome Web Store (NUNCA versionar)
 cws-service-account*.json
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.kotlin/
+android/keystore.properties
+*.jks

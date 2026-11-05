@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-05
+
+### Added
+- **Android app** (`android/`, Kotlin + Jetpack Compose, Android 9+). Same vault format (AES-256-GCM + PBKDF2-SHA256 600k), same Google Drive sync (same OAuth client, folder `MySecrets`, per-entry merge with tombstones) and same entry model as the desktop; fields the app doesn't edit (attachments, custom fields, password history) are preserved. Includes list/search/filters, details with copy and live TOTP/HOTP codes, create/edit (password generator, MFA QR scan), trash, attachment download, fingerprint unlock (Android Keystore, `BIOMETRIC_STRONG`), auto-lock and clipboard clearing.
+- **System-wide autofill on Android** (Autofill Service): suggests matching logins in apps and browsers (by web domain or app package), fills username, password and MFA code, unlocks with the fingerprint when locked, "Procurar no MySecrets" to pick any entry, and offers to save/update logins typed in (tag `android`, like the extension's save).
+- **Approve desktop login from the phone** (same Wi-Fi, no server): Settings > "Celular Android" pairs via QR code; the login screen gets "Aprovar pelo celular". The PC finds the phone on the local network (last IP, then the /24 subnet, outgoing connections only), both show the same 6-digit code and the phone releases the unlock key only after the fingerprint. The master password is stored on the PC encrypted with a key that only the phone holds (Keystore, biometric-bound), and every message is authenticated with the pairing secret (HMAC-SHA256) and single-use nonces. Protocol in `src/lib/phone-link.js`.
+- Releases now include the signed Android APK (`MySecrets-<version>-android.apk`).
+
+### Compatibility
+- No vault migration. Compatibility is covered by tests on both sides using shared fixtures in `tests/fixtures/` (vault v1/v2 and pairing protocol vectors).
+
 ## [1.10.1] - 2026-11-04
 
 ### Changed

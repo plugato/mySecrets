@@ -49,6 +49,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   helloDisable: () => ipcRenderer.invoke('hello-disable'),
   helloCancel: () => ipcRenderer.invoke('hello-cancel'),
 
+  // Celular Android (aprovar o login no celular, mesma rede Wi-Fi)
+  phoneStatus: () => ipcRenderer.invoke('phone-status'),
+  phonePairStart: (masterPassword) => ipcRenderer.invoke('phone-pair-start', masterPassword),
+  phonePairWait: () => ipcRenderer.invoke('phone-pair-wait'),
+  phoneCancel: () => ipcRenderer.invoke('phone-cancel'),
+  phoneUnpair: (pairId) => ipcRenderer.invoke('phone-unpair', pairId),
+  phoneUnlock: () => ipcRenderer.invoke('phone-unlock'),
+  onPhoneUnlockStatus: (callback) => ipcRenderer.on('phone-unlock-status', (event, data) => callback(data)),
+
   // Servidor MCP (integração com assistentes de IA)
   mcpStatus: () => ipcRenderer.invoke('mcp-status'),
   mcpStart: (options) => ipcRenderer.invoke('mcp-start', options),

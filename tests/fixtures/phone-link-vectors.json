@@ -1,0 +1,20 @@
+{
+  "qr": "mysecrets-pair:1:eyJwIjoiMTA5NWIxZDQ2MzYyYjU1ZiIsIm4iOiJQQy1UZXN0ZSIsInMiOiJaTFMyaUI4OVBOMGUyNmhnN2NzYnk0VVFLaXJ2R3NaUzYreGNma0UyY1UwPSIsImsiOiJJU1NoR0R3WHdNVFNldFZDZnlQdUNnNWZCVmsyWm9FZ3BrVS9Sd0I0UzEwPSJ9",
+  "pairId": "1095b1d46362b55f",
+  "secret": "ZLS2iB89PN0e26hg7csby4UQKirvGsZS6+xcfkE2cU0=",
+  "unlockKey": "ISShGDwXwMTSetVCfyPuCg5fBVk2ZoEgpkU/RwB4S10=",
+  "unlock": "Hx1c0eQJtePTkCkBQuMzP/2iu/+RIWpqsjQ/LO4FfjcWjbcjpGdgp4boDRxefR5EzA==",
+  "password": "senha-de-teste-ç😀",
+  "nonce": "bm9uY2UtZml4by0xMjM0",
+  "macParts": [
+    "hello",
+    "unlock",
+    "1095b1d46362b55f",
+    "bm9uY2UtZml4by0xMjM0",
+    1767225600000,
+    "PC-Teste"
+  ],
+  "mac": "+7+/+VIDbB+KWjJ3fosOs8fwzAzBnRry2dQQSznvyoQ=",
+  "code": "306 624",
+  "approval": "U6Q+by3WWcGNJmT5+Mirndv4ePhdL3KNbHLPJjfIpEgmCRCKmWXpXYyh8IuWNfRMNWDHXvvAdytcnike"
+}

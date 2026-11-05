@@ -35,6 +35,11 @@
                     </svg>
                     <span>Entrar com Windows Hello</span>
                 </button>
+                <button id="phone-login-btn" class="btn btn-hello" style="display: none;">
+                    <span class="material-symbols-outlined" aria-hidden="true">smartphone</span>
+                    <span>Aprovar pelo celular</span>
+                </button>
+                <div id="phone-login-status" class="phone-login-status" style="display: none;"></div>
                 <button id="forgot-password-btn" class="btn btn-link">Esqueci minha senha</button>
                 <div id="login-error" class="error-message"></div>
             </div>
@@ -727,6 +732,27 @@
                         </div>
                         <small>O cofre fica na pasta <strong>MySecrets</strong> dentro da pasta escolhida. Nos outros PCs, escolha a mesma pasta e use a mesma senha mestra.</small>
                     </details>
+                </div>
+
+                <div class="settings-section">
+                    <h3><span class="material-symbols-outlined">smartphone</span> Celular Android</h3>
+                    <p class="sync-status" id="phone-status-text">Nenhum celular pareado.</p>
+                    <ul class="phone-list" id="phone-list"></ul>
+                    <div id="phone-pair-box" class="phone-pair-box" style="display: none;">
+                        <img id="phone-pair-qr" alt="QR code de pareamento" width="240" height="240">
+                        <p id="phone-pair-text">No celular, abra o MySecrets &gt; Configurações &gt; <strong>Parear com PC</strong> e leia este código.</p>
+                    </div>
+                    <div class="settings-actions">
+                        <button class="btn btn-primary" id="phone-pair-btn">
+                            <span class="material-symbols-outlined">qr_code_2</span>
+                            <span>Parear celular</span>
+                        </button>
+                        <button class="btn btn-secondary" id="phone-pair-cancel-btn" style="display: none;">
+                            <span class="material-symbols-outlined">close</span>
+                            <span>Cancelar</span>
+                        </button>
+                    </div>
+                    <small>Depois de parear, a tela de login ganha o botão <strong>Aprovar pelo celular</strong>: o celular mostra o pedido e você confirma com a digital. Funciona com os dois na mesma rede Wi-Fi e o app aberto no celular. O QR code contém a chave de desbloqueio — não mostre a ninguém.</small>
                 </div>
 
                 <div class="settings-section">

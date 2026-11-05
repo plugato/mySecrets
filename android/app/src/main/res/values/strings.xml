@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MySecrets</string>
+    <string name="autofill_unlock">Desbloquear o MySecrets</string>
+    <string name="autofill_search">Procurar no MySecrets</string>
+</resources>

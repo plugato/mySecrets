@@ -3472,3 +3472,33 @@ kbd {
     font-size: 0.9rem;
     color: var(--text-primary);
 }
+
+/* ===== Celular Android ===== */
+.phone-login-status {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    text-align: center;
+    color: var(--text-secondary, #666);
+}
+.phone-list {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
+}
+.phone-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+}
+.phone-pair-box {
+    text-align: center;
+    margin: 8px 0;
+}
+.phone-pair-box img {
+    background: #fff;
+    border-radius: 8px;
+    padding: 4px;
+}
