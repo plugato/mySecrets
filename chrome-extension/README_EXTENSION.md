@@ -1,8 +1,18 @@
-# MySecrets Autofill (extensão Chrome)
+<div align="center">
 
-Preenche login, senha e código 2FA usando o cofre do app desktop. A extensão
-**não guarda cofre nem senha mestra**: ela pergunta ao app, que só responde com
-o cofre aberto e desbloqueado.
+# 🌐 MySecrets Autofill
+
+**Extensão Chrome que preenche login, senha e código 2FA com o cofre do app desktop.**
+
+![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?style=flat-square&logo=googlechrome&logoColor=white)
+![Sem cofre no navegador](https://img.shields.io/badge/cofre_no_navegador-nenhum-22c55e?style=flat-square)
+
+<img src="../docs/screenshots/extensao-popup.png" alt="Popup da extensão listando os logins do site atual" width="320">
+
+</div>
+
+A extensão **não guarda o cofre nem a senha mestra**. Ela pergunta ao app, que
+só responde com o cofre aberto e desbloqueado.
 
 ## Como funciona
 

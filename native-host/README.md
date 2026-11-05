@@ -1,5 +1,11 @@
 # 🔌 Native Messaging Host - MySecrets
 
+> [!NOTE]
+> **Legado.** A extensão Chrome atual não usa mais Native Messaging. Ela fala com o
+> servidor local do app (`127.0.0.1:8765`, com token) depois de um pareamento.
+> Veja [chrome-extension/README_EXTENSION.md](../chrome-extension/README_EXTENSION.md).
+> Este documento fica só como referência histórica.
+
 Este diretório contém o **Native Messaging Host** que permite a comunicação segura entre a extensão Chrome e o aplicativo desktop MySecrets.
 
 ---

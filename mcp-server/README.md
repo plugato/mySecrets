@@ -1,4 +1,14 @@
-# MySecrets MCP Server
+<div align="center">
+
+# 🤖 MySecrets MCP Server
+
+**Dê ao Claude Code (e a qualquer cliente MCP) acesso ao seu cofre, com você no controle.**
+
+![MCP](https://img.shields.io/badge/Model_Context_Protocol-stdio_%7C_HTTP-111827?style=flat-square)
+![Leitura](https://img.shields.io/badge/leitura-cofre_desbloqueado-22c55e?style=flat-square)
+![Gravação](https://img.shields.io/badge/grava%C3%A7%C3%A3o-s%C3%B3_com_aprova%C3%A7%C3%A3o-f59e0b?style=flat-square)
+
+</div>
 
 Servidor [MCP](https://modelcontextprotocol.io) que expõe o seu cofre do
 **MySecrets** (senhas, tokens, OTPs/2FA e arquivos anexados) para clientes como
@@ -41,6 +51,11 @@ os nomes dos anexos. `get_credentials` devolve também `token`, `customFields` e
 os metadados dos anexos (nome, tamanho, sha256), sem o conteúdo.
 
 ## Gravar segredos e arquivos (agentes)
+
+<p align="center">
+<img src="../docs/screenshots/confirmacao-agente.png" alt="Diálogo de confirmação de gravação pedida por um agente" width="720"><br>
+<sub>Pedido de gravação de um agente: entrada, campos, arquivos (com tamanho e sha256) e prazo. Nada é gravado sem <b>Gravar no cofre</b>.</sub>
+</p>
 
 ### Como a gravação funciona
 
@@ -172,6 +187,11 @@ entrada tiver vários anexos, informe `name` (ou `attachmentId`).
 ## Dois modos de uso
 
 ### A) Controlado pelo app (recomendado) — transporte HTTP
+
+<p align="center">
+<img src="../docs/screenshots/servidor-mcp.png" alt="Painel do servidor MCP no app" width="720"><br>
+<sub>Botão <b>MCP</b> no app: inicia o servidor local e mostra a URL, o token e o comando pronto para o Claude Code.</sub>
+</p>
 
 Abra o **MySecrets**, clique no botão **MCP** no cabeçalho e em **Iniciar servidor**.
 O app sobe um servidor HTTP local (`127.0.0.1`) protegido por um **token** gerado
