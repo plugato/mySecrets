@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-11-05
+
+### Fixed
+- Pairing with the phone: the PC now waits up to 5 minutes (was 2) and shows a live status under the QR code with the phone's actual answer (e.g. the phone read a different QR). The final error says why instead of a generic "não respondeu".
+- Android: the pairing dialog shows the phone's IP, whether it is listening on port 47653 and the last request received from a PC (with the reason when refused). Each pairing step is logged (`MySecretsPair`, `LinkServer`), and cancel/errors after reading the QR are shown instead of silently ignored.
+
 ## [2.0.3] - 2026-11-05
 
 ### Fixed

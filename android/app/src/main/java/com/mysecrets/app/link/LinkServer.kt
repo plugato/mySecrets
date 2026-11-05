@@ -36,6 +36,18 @@ object LinkServer {
     private val _request = MutableStateFlow<ApprovalRequest?>(null)
     val request: StateFlow<ApprovalRequest?> = _request
 
+    /** Último contato de um PC (aparece na tela de pareamento, para diagnóstico). */
+    private val _lastEvent = MutableStateFlow<String?>(null)
+    val lastEvent: StateFlow<String?> = _lastEvent
+
+    private fun event(msg: String) {
+        Log.i(TAG, msg)
+        _lastEvent.value = msg
+    }
+
+    /** O servidor está escutando? (tela de pareamento) */
+    val listening: Boolean get() = server?.isClosed == false
+
     /** pairId do último PC que confirmou o pareamento (a tela de pareamento escuta). */
     private val _confirmed = MutableStateFlow<String?>(null)
     val confirmed: StateFlow<String?> = _confirmed
@@ -55,8 +67,9 @@ object LinkServer {
             s.bind(InetSocketAddress(LinkProtocol.PORT))
             server = s
             thread = Thread({ acceptLoop(s) }, "mysecrets-link").apply { isDaemon = true; start() }
+            Log.i(TAG, "Escutando na porta ${LinkProtocol.PORT}")
         } catch (e: Exception) {
-            Log.w(TAG, "Não foi possível escutar na porta ${LinkProtocol.PORT}: ${e.message}")
+            event("Não foi possível escutar na porta ${LinkProtocol.PORT}: ${e.message}")
         }
     }
 
@@ -99,17 +112,27 @@ object LinkServer {
                 val reader = BufferedReader(InputStreamReader(sock.getInputStream(), Charsets.UTF_8))
                 val line = readLine(reader) ?: return
                 val hello = try { JSONObject(line) } catch (_: Exception) { return }
-                val pc = Pairings.find(hello.optString("pair"))
+                val de = sock.inetAddress?.hostAddress ?: "?"
+                val pairId = hello.optString("pair")
+                val pc = Pairings.find(pairId)
                 if (pc == null) {
-                    send(sock, LinkProtocol.error("Este PC não está pareado com o celular. Pareie de novo."))
+                    event("PC ${hello.optString("name").ifBlank { de }} ($de) chamou com um QR que este celular não leu " +
+                        "(código ${pairId.take(6)}; lidos: ${Pairings.list.value.joinToString { it.pairId.take(6) }.ifBlank { "nenhum" }})")
+                    send(sock, LinkProtocol.error("Este celular não leu o QR code que está na tela do PC agora. Leia o QR de novo."))
                     return
                 }
                 val secret = pc.secret()
                 val nonce = hello.optString("nonce")
-                if (!LinkProtocol.verifyHello(secret, hello) || !seenNonces.add(nonce)) {
-                    send(sock, LinkProtocol.error("Pedido inválido ou repetido"))
+                if (!LinkProtocol.verifyHello(secret, hello)) {
+                    event("Pedido de ${pc.desktopName} ($de) recusado: assinatura ou horário inválido")
+                    send(sock, LinkProtocol.error("Pedido inválido (confira se o relógio do PC e do celular estão certos)"))
                     return
                 }
+                if (!seenNonces.add(nonce)) {
+                    send(sock, LinkProtocol.error("Pedido repetido"))
+                    return
+                }
+                event("Pedido \"${hello.optString("op")}\" de ${pc.desktopName} ($de)")
                 if (seenNonces.size > 500) synchronized(seenNonces) { seenNonces.remove(seenNonces.first()) }
 
                 when (hello.optString("op")) {

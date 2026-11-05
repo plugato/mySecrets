@@ -60,6 +60,14 @@ import com.mysecrets.app.link.Pairings
 import com.mysecrets.app.vault.Vault
 import kotlinx.coroutines.launch
 
+/** IPv4 do Wi-Fi (diagnóstico do pareamento). */
+fun localIp(): String? = try {
+    java.net.NetworkInterface.getNetworkInterfaces().toList()
+        .filter { it.isUp && !it.isLoopback }
+        .flatMap { it.inetAddresses.toList() }
+        .firstOrNull { it is java.net.Inet4Address && !it.isLoopbackAddress }?.hostAddress
+} catch (_: Exception) { null }
+
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
@@ -197,15 +205,19 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
                     scope.launch {
                         try {
                             if (!Biometric.available(activity)) { msg = Biometric.unavailableReason(activity); return@launch }
-                            val raw = MainActivity.debugPairQr?.also { MainActivity.debugPairQr = null } ?: scanQr(activity) ?: return@launch
+                            val raw = MainActivity.debugPairQr?.also { MainActivity.debugPairQr = null } ?: scanQr(activity)
+                            if (raw == null) { android.util.Log.i("MySecretsPair", "leitura do QR cancelada"); return@launch }
                             val qr = LinkProtocol.parseQr(raw)
+                            android.util.Log.i("MySecretsPair", "QR lido: PC ${qr.desktopName}, código ${qr.pairId.take(6)}")
                             val cipher = Keys.bioEncryptCipher(Keys.BIO_LINK)
-                            val ok = Biometric.authenticate(activity, cipher, "Parear com ${qr.desktopName}", "Confirme com a digital")
+                            val ok = Biometric.authenticate(activity, cipher, "Parear com ${qr.desktopName}", "Confirme com a digital ou o PIN")
                             LinkServer.clearConfirmed()
                             Pairings.add(qr, ok)
+                            android.util.Log.i("MySecretsPair", "pareamento guardado: ${qr.pairId.take(6)}")
                             pairingWith = Pairings.find(qr.pairId)
                         } catch (e: Exception) {
-                            if (e !is Biometric.Cancelled) msg = e.message
+                            android.util.Log.w("MySecretsPair", "pareamento falhou: ${e.javaClass.simpleName}: ${e.message}")
+                            msg = if (e is Biometric.Cancelled) "Pareamento cancelado (${e.message})" else (e.message ?: e.javaClass.simpleName)
                         }
                     }
                 }) { Text("Parear com PC (ler QR code)") }
@@ -226,8 +238,16 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
             onDismissRequest = { pairingWith = null },
             title = { Text(if (done) "✅ Pareado" else "Quase lá") },
             text = {
-                Text(if (done) "Pronto! Na tela de login do ${pc.desktopName}, clique em \"Aprovar pelo celular\"."
-                else "Aguardando o ${pc.desktopName} encontrar este celular na rede Wi-Fi… Mantenha esta tela aberta.")
+                val last by LinkServer.lastEvent.collectAsState()
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(if (done) "Pronto! Na tela de login do ${pc.desktopName}, clique em \"Aprovar pelo celular\"."
+                    else "Aguardando o ${pc.desktopName} encontrar este celular na rede Wi-Fi… Mantenha esta tela aberta.")
+                    if (!done) {
+                        Text("Este celular: ${localIp() ?: "sem Wi-Fi?"} · ${if (LinkServer.listening) "escutando" else "NÃO está escutando"} na porta ${LinkProtocol.PORT}",
+                            style = MaterialTheme.typography.bodySmall)
+                        Text("Último contato do PC: ${last ?: "nenhum ainda"}", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             },
             confirmButton = { TextButton(onClick = { pairingWith = null }) { Text(if (done) "OK" else "Fechar") } }
         )

@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   phoneUnpair: (pairId) => ipcRenderer.invoke('phone-unpair', pairId),
   phoneUnlock: () => ipcRenderer.invoke('phone-unlock'),
   onPhoneUnlockStatus: (callback) => ipcRenderer.on('phone-unlock-status', (event, data) => callback(data)),
+  onPhonePairStatus: (callback) => ipcRenderer.on('phone-pair-status', (event, text) => callback(text)),
 
   // Servidor MCP (integração com assistentes de IA)
   mcpStatus: () => ipcRenderer.invoke('mcp-status'),

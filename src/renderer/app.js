@@ -4223,6 +4223,12 @@ function setupPhoneControls() {
     if (!statusEl || !window.electronAPI.phoneStatus) return;
 
     if (loginBtn) loginBtn.addEventListener('click', handlePhoneLogin);
+    if (window.electronAPI.onPhonePairStatus) {
+        window.electronAPI.onPhonePairStatus((text) => {
+            const live = document.getElementById('phone-pair-live');
+            if (live) live.textContent = text || '';
+        });
+    }
 
     function render(phones) {
         list.innerHTML = '';

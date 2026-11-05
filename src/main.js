@@ -1982,9 +1982,16 @@ ipcMain.handle('phone-pair-wait', async () => {
   if (!pairing) return { success: false, error: 'Nenhum pareamento em andamento' };
   const controller = new AbortController();
   phone.abort = controller;
-  const limite = Date.now() + 2 * 60 * 1000;
+  const limite = Date.now() + 5 * 60 * 1000;
+  let ultimaResposta = null;
+  const status = (texto) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('phone-pair-status', texto);
+  };
   try {
     while (Date.now() < limite) {
+      status(ultimaResposta
+        ? `Procurando o celular na rede… Última resposta do celular: ${ultimaResposta}`
+        : 'Procurando o celular na rede… Leia o QR no celular e confirme com a digital.');
       try {
         const r = await phoneLink.confirmPairing(pairing, { signal: controller.signal, connectTimeout: 600, hosts: phoneTestHosts });
         const phones = readPhoneLinks().filter(p => p.pairId !== pairing.pairId);
@@ -2002,10 +2009,17 @@ ipcMain.handle('phone-pair-wait', async () => {
         return { success: true, phoneName: r.phoneName };
       } catch (e) {
         if (e.code === 'cancelled') return { success: false, cancelled: true };
+        if (/respondeu:/.test(e.message)) ultimaResposta = e.message.replace(/^.*respondeu:\s*/, '');
+        console.log('[celular] pareamento ainda não confirmado:', e.message);
         await new Promise(r => setTimeout(r, 1500));
       }
     }
-    return { success: false, error: 'O celular não respondeu. Confira se ele está na mesma rede Wi-Fi e com o MySecrets aberto.' };
+    return {
+      success: false,
+      error: ultimaResposta
+        ? `O celular respondeu, mas não confirmou este pareamento: ${ultimaResposta}`
+        : 'O celular não respondeu. Confira se ele está na mesma rede Wi-Fi e com o MySecrets aberto na tela de pareamento.'
+    };
   } finally {
     if (phone.abort === controller) phone.abort = null;
   }
