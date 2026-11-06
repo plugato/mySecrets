@@ -235,3 +235,39 @@ test('agente pede para gravar pelo MCP: app mostra a confirmação e grava ao ap
     await app.evaluate('lockApp()');
   }
 });
+
+test('pela interface: criar o cofre, adicionar uma entrada, bloquear e desbloquear', async () => {
+  const ui = await launchApp();
+  try {
+    const ev = (js) => ui.evaluate(`(async () => { ${js} })()`);
+    const preencher = (id, valor) => `{ const el = document.getElementById('${id}'); el.value = ${JSON.stringify(valor)}; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }`;
+    const esperar = (cond) => ev(`for (let i = 0; i < 60; i++) { if (${cond}) return true; await new Promise((r) => setTimeout(r, 100)); } return false;`);
+    const visivel = (id) => `(getComputedStyle(document.getElementById('${id}')).display !== 'none')`;
+
+    // Perfil novo: sem servidor MCP automático (não disputa a porta 8765)
+    await ev(`localStorage.setItem('settings', JSON.stringify({ mcpAutoStart: false })); location.reload();`).catch(() => {});
+    await new Promise((r) => setTimeout(r, 1500));
+    for (let i = 0; i < 40 && !(await ui.evaluate('typeof renderEntries === "function"').catch(() => false)); i++) await new Promise((r) => setTimeout(r, 250));
+
+    assert.ok(await esperar(visivel('setup-form')), 'tela de criar cofre');
+    await ev(`${preencher('new-master-password', 'Senha-Mestra-Forte-123!')} ${preencher('confirm-master-password', 'Senha-Mestra-Forte-123!')} document.getElementById('setup-btn').click();`);
+    assert.ok(await esperar(visivel('main-screen')), 'cofre criado e aberto');
+
+    await ev(`document.getElementById('add-entry-btn').click();`);
+    assert.ok(await esperar(visivel('entry-modal')), 'formulário abre pelo botão');
+    await ev(`${preencher('entry-type', 'login')} ${preencher('entry-title', 'Conta pela interface')} ${preencher('entry-username', 'eu@exemplo.com')} ${preencher('entry-password', 'senha-da-conta')} ${preencher('entry-url', 'https://exemplo.com')} document.getElementById('save-btn').click();`);
+    assert.ok(await esperar(`document.getElementById('entries-list').textContent.includes('Conta pela interface')`), 'entrada aparece na lista');
+    const disco = JSON.parse(decryptVault(JSON.parse(fs.readFileSync(path.join(ui.vaultDir, 'secrets.enc'), 'utf8')), 'Senha-Mestra-Forte-123!'));
+    assert.ok(disco.some((e) => e.title === 'Conta pela interface' && e.password === 'senha-da-conta'), 'gravada no disco');
+
+    await ev(`document.getElementById('lock-btn').click();`);
+    assert.ok(await esperar(visivel('login-form') + ` && !document.body.innerHTML.includes('Conta pela interface')`), 'bloqueado e sem dados na página');
+
+    await ev(`${preencher('master-password', 'senha-errada')} document.getElementById('login-btn').click();`);
+    assert.ok(await esperar(`document.getElementById('login-error').textContent.trim().length > 0`), 'senha errada mostra erro');
+    await ev(`${preencher('master-password', 'Senha-Mestra-Forte-123!')} document.getElementById('login-btn').click();`);
+    assert.ok(await esperar(visivel('main-screen') + ` && document.getElementById('entries-list').textContent.includes('Conta pela interface')`), 'desbloqueado com a entrada');
+  } finally {
+    await ui.close();
+  }
+});
