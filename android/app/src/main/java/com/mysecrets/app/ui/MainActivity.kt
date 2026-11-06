@@ -123,8 +123,10 @@ fun App(activity: FragmentActivity) {
         }
     }
 
+    // Fora do if: o diálogo some ao tocar em "Ativar" e o escopo não pode sair junto
+    // (cancelaria o prompt da digital com "The coroutine scope left the composition").
+    val bioScope = rememberCoroutineScope()
     if (offerBio && unlocked) {
-        val scope = rememberCoroutineScope()
         AlertDialog(
             onDismissRequest = { offerBio = false },
             title = { Text(str(R.string.desbloquear_com_a_digital)) },
@@ -132,7 +134,7 @@ fun App(activity: FragmentActivity) {
             confirmButton = {
                 Button(onClick = {
                     offerBio = false
-                    scope.launch {
+                    bioScope.launch {
                         try { enableBiometric(activity) } catch (e: Exception) { if (e !is Biometric.Cancelled) toast(activity, e.message ?: str(R.string.erro)) }
                     }
                 }) { Text(str(R.string.ativar)) }
