@@ -1,6 +1,20 @@
 // MySecrets Chrome Extension — Popup
 // Toda a lógica de cofre vive no background; aqui é só tela.
 
+// Textos: tradução do navegador (_locales/*/messages.json) com o português
+// do próprio código como reserva (fora do navegador, nos testes).
+function msg(chave, pt, subs) {
+  const lista = subs === undefined ? [] : [].concat(subs).map(String);
+  let s = '';
+  try { s = (globalThis.chrome && chrome.i18n && chrome.i18n.getMessage(chave, lista)) || ''; } catch (_) { s = ''; }
+  return s || pt.replace(/\$(\d)/g, (m, n) => (lista[n - 1] !== undefined ? lista[n - 1] : m));
+}
+
+// Textos fixos do popup.html: data-i18n="chave" (texto) e data-i18n-placeholder/-title
+document.querySelectorAll('[data-i18n]').forEach((n) => { n.textContent = msg(n.dataset.i18n, n.textContent); });
+document.querySelectorAll('[data-i18n-placeholder]').forEach((n) => { n.placeholder = msg(n.dataset.i18nPlaceholder, n.placeholder); });
+document.querySelectorAll('[data-i18n-title]').forEach((n) => { n.title = msg(n.dataset.i18nTitle, n.title); });
+
 const screens = {
   pair: document.getElementById('pair-screen'),
   list: document.getElementById('list-screen'),
@@ -44,12 +58,12 @@ function renderEntries(list) {
     title.textContent = entry.title;
     const sub = document.createElement('div');
     sub.className = 'entry-subtitle';
-    sub.textContent = entry.username || entry.url || 'Sem detalhes';
+    sub.textContent = entry.username || entry.url || msg('noDetails', 'Sem detalhes');
     info.append(title, sub);
 
     const btn = document.createElement('button');
     btn.className = 'btn-autofill';
-    btn.textContent = 'Preencher';
+    btn.textContent = msg('fill', 'Preencher');
     btn.addEventListener('click', () => autofill(entry.id, btn));
 
     item.append(icon, info, btn);
@@ -61,10 +75,10 @@ function updateSiteInfo(count) {
   try {
     el('site-url').textContent = new URL(currentTab.url).hostname;
   } catch (_) {
-    el('site-url').textContent = 'Aba sem site';
+    el('site-url').textContent = msg('tabNoSite', 'Aba sem site');
   }
-  el('site-matches').textContent = `${count} ${count === 1 ? 'entrada encontrada' : 'entradas encontradas'}`;
-  el('entries-count').textContent = `${count} ${count === 1 ? 'entrada' : 'entradas'}`;
+  el('site-matches').textContent = count === 1 ? msg('oneEntryFound', '1 entrada encontrada') : msg('nEntriesFound', '$1 entradas encontradas', count);
+  el('entries-count').textContent = count === 1 ? msg('oneEntry', '1 entrada') : msg('nEntries', '$1 entradas', count);
 }
 
 function setPairMessage(title, hint, isError = false) {
@@ -74,7 +88,7 @@ function setPairMessage(title, hint, isError = false) {
 }
 
 function showErrorScreen(message) {
-  el('error-text').textContent = message || 'Não foi possível falar com o MySecrets';
+  el('error-text').textContent = message || msg('cannotReachApp', 'Não foi possível falar com o MySecrets');
   showScreen('error');
 }
 
@@ -88,7 +102,7 @@ async function autofill(id, btn) {
     window.close();
   } else {
     btn.disabled = false;
-    btn.textContent = 'Erro';
+    btn.textContent = msg('error', 'Erro');
     showErrorScreen(res && res.error);
   }
 }
@@ -123,9 +137,9 @@ async function updateNeverSave() {
 function showStatus(status) {
   if (!status || !status.paired || status.badToken) {
     if (status && status.pairError) {
-      setPairMessage(status.pairError, 'Abra o MySecrets, desbloqueie o cofre e tente de novo', true);
+      setPairMessage(status.pairError, msg('openAndUnlock', 'Abra o MySecrets, desbloqueie o cofre e tente de novo'), true);
     } else {
-      setPairMessage('Extensão desconectada', 'Clique em Conectar e permita no app MySecrets');
+      setPairMessage(msg('disconnected', 'Extensão desconectada'), msg('clickConnect', 'Clique em Conectar e permita no app MySecrets'));
     }
     el('connect-button').disabled = false;
     showScreen('pair');
@@ -142,7 +156,7 @@ async function initialize() {
   [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   // O pareamento automático pode esperar o usuário responder no app
-  setPairMessage('Conectando ao app…', 'Se o MySecrets perguntar, clique em Permitir');
+  setPairMessage(msg('connecting', 'Conectando ao app…'), msg('ifAsked', 'Se o MySecrets perguntar, clique em Permitir'));
   el('connect-button').disabled = true;
   showScreen('pair');
 
@@ -152,7 +166,7 @@ async function initialize() {
 // ===== Eventos =====
 
 el('connect-button').addEventListener('click', async () => {
-  setPairMessage('Conectando ao app…', 'Se o MySecrets perguntar, clique em Permitir');
+  setPairMessage(msg('connecting', 'Conectando ao app…'), msg('ifAsked', 'Se o MySecrets perguntar, clique em Permitir'));
   el('connect-button').disabled = true;
   if (showStatus(await ask({ type: 'connect' }))) await loadEntries();
 });

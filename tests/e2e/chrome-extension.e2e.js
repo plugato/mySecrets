@@ -37,7 +37,7 @@ test('extensão no Chromium: pareia, mostra o botão e preenche o login', { skip
 
   const port = 30000 + Math.floor(Math.random() * 20000);
   const args = ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${path.join(work, 'perfil')}`,
-    `--load-extension=${ext}`, `--disable-extensions-except=${ext}`, '--no-first-run', '--no-default-browser-check', 'about:blank'];
+    `--load-extension=${ext}`, `--disable-extensions-except=${ext}`, '--no-first-run', '--no-default-browser-check', '--lang=pt-BR', 'about:blank'];
   if (process.env.CI) args.unshift('--no-sandbox');
   const chrome = spawn(chromePath(), args, { stdio: 'ignore' });
   let ws;
@@ -69,7 +69,7 @@ test('extensão no Chromium: pareia, mostra o botão e preenche o login', { skip
       botao = await avaliar("document.getElementById('mysecrets-autofill-button')?.textContent?.trim() || null");
       if (!botao) await sleep(250);
     }
-    assert.match(botao || '', /1 entrada/, 'botão de preencher aparece');
+    assert.strictEqual(botao, '1 entrada', 'botão de preencher aparece (em português: navegador em pt-BR)');
     assert.ok(log.some((l) => l.path === '/mcp' && l.auth === `Bearer ${TOKEN}`), 'usou o token do pareamento');
 
     await avaliar("document.getElementById('mysecrets-autofill-button').click()");

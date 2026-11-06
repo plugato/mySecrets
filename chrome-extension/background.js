@@ -8,7 +8,7 @@
 // Consequência: sem app aberto e cofre desbloqueado a extensão não tem dados.
 // Nada de senha mestra nem cópia do cofre no navegador.
 
-import { parsePairingCode, validConn, pairUrl, saveDecision, displayHost } from './lib.mjs';
+import { msg, parsePairingCode, validConn, pairUrl, saveDecision, displayHost } from './lib.mjs';
 
 const CONN_KEY = 'mysecrets_conn'; // { url, token }
 const UNPAIRED_KEY = 'mysecrets_unpaired'; // usuário desconectou: não reconectar sozinho
@@ -40,7 +40,7 @@ async function autoPair() {
   try {
     res = await fetch(pairUrl(conn ? conn.url : DEFAULT_URL), { method: 'POST' });
   } catch (_) {
-    throw new Error('App MySecrets fechado ou servidor local parado');
+    throw new Error(msg('errAppClosed', 'App MySecrets fechado ou servidor local parado'));
   }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || `Servidor respondeu ${res.status}`);
@@ -70,7 +70,7 @@ async function unpair() {
 
 async function postJsonRpc(method, params) {
   const conn = await getConn();
-  if (!conn) throw new Error('Extensão não pareada com o app');
+  if (!conn) throw new Error(msg('errNotPaired', 'Extensão não pareada com o app'));
 
   let res;
   try {
@@ -80,11 +80,11 @@ async function postJsonRpc(method, params) {
       body: JSON.stringify({ jsonrpc: '2.0', id: ++rpcId, method, params })
     });
   } catch (_) {
-    throw new Error('App MySecrets fechado ou servidor local parado');
+    throw new Error(msg('errAppClosed', 'App MySecrets fechado ou servidor local parado'));
   }
 
   if (res.status === 401) {
-    const err = new Error('Token inválido — refaça o pareamento');
+    const err = new Error(msg('errBadToken', 'Token inválido — refaça o pareamento'));
     err.badToken = true;
     throw err;
   }
@@ -104,7 +104,7 @@ async function rpc(tool, args = {}) {
   const data = text ? JSON.parse(text) : {};
 
   if (body.result && body.result.isError) {
-    const err = new Error(data.error || 'Erro no cofre');
+    const err = new Error(data.error || msg('errVault', 'Erro no cofre'));
     err.locked = !!data.locked;
     throw err;
   }
@@ -140,11 +140,11 @@ function sameOrigin(a, b) {
 async function fillTab(tabId, id, expectedUrl) {
   const tab = await chrome.tabs.get(tabId);
   if (!tab || !tab.url || (expectedUrl && !sameOrigin(tab.url, expectedUrl))) {
-    throw new Error('A página mudou. Abra o MySecrets de novo nesta página.');
+    throw new Error(msg('errPageChanged', 'A página mudou. Abra o MySecrets de novo nesta página.'));
   }
   const doSite = await entriesForUrl(tab.url);
   if (!doSite.some((e) => e.id === id)) {
-    throw new Error('Esta entrada não é deste site.');
+    throw new Error(msg('errOtherSite', 'Esta entrada não é deste site.'));
   }
 
   const c = await rpc('get_credentials', { id });
@@ -162,7 +162,7 @@ async function fillTab(tabId, id, expectedUrl) {
   // Confere de novo: as chamadas acima são assíncronas e a aba pode ter navegado
   const now = await chrome.tabs.get(tabId);
   if (!now || !sameOrigin(now.url, tab.url)) {
-    throw new Error('A página mudou. Abra o MySecrets de novo nesta página.');
+    throw new Error(msg('errPageChanged', 'A página mudou. Abra o MySecrets de novo nesta página.'));
   }
 
   await chrome.tabs.sendMessage(tabId, {
@@ -335,7 +335,7 @@ const handlers = {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const handler = handlers[message && message.type];
   if (!handler) {
-    sendResponse({ success: false, error: 'Tipo de mensagem desconhecido' });
+    sendResponse({ success: false, error: msg('errUnknownMessage', 'Tipo de mensagem desconhecido') });
     return false;
   }
   handler(message, sender)
@@ -351,7 +351,7 @@ chrome.runtime.onInstalled.addListener(() => {
   ensurePaired().catch(() => {});
   chrome.contextMenus.create({
     id: 'mysecrets-autofill',
-    title: 'Preencher com MySecrets',
+    title: msg('menuFill', 'Preencher com MySecrets'),
     contexts: ['editable']
   }, () => chrome.runtime.lastError /* já existe */);
 });

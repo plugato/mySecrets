@@ -1,0 +1,209 @@
+{
+  "addLoginHint": {
+    "message": "Cadastre um login com a URL do site no app"
+  },
+  "appMustBeOpen": {
+    "message": "O app precisa estar aberto e o cofre desbloqueado."
+  },
+  "appUnavailable": {
+    "message": "app indisponível"
+  },
+  "cannotReachApp": {
+    "message": "Não foi possível falar com o MySecrets"
+  },
+  "chooseEntry": {
+    "message": "Escolha uma entrada"
+  },
+  "clickConnect": {
+    "message": "Clique em Conectar e permita no app MySecrets"
+  },
+  "cmdAutofill": {
+    "message": "Preencher o formulário"
+  },
+  "cmdLock": {
+    "message": "Desconectar a extensão do app"
+  },
+  "connectApp": {
+    "message": "Conectar ao app"
+  },
+  "connectWithCode": {
+    "message": "Conectar com código"
+  },
+  "connecting": {
+    "message": "Conectando ao app…"
+  },
+  "disconnect": {
+    "message": "Desconectar"
+  },
+  "disconnected": {
+    "message": "Extensão desconectada"
+  },
+  "errAppClosed": {
+    "message": "App MySecrets fechado ou servidor local parado"
+  },
+  "errBadToken": {
+    "message": "Token inválido — refaça o pareamento"
+  },
+  "errNotPaired": {
+    "message": "Extensão não pareada com o app"
+  },
+  "errOtherSite": {
+    "message": "Esta entrada não é deste site."
+  },
+  "errPageChanged": {
+    "message": "A página mudou. Abra o MySecrets de novo nesta página."
+  },
+  "errUnknownMessage": {
+    "message": "Tipo de mensagem desconhecido"
+  },
+  "errVault": {
+    "message": "Erro no cofre"
+  },
+  "error": {
+    "message": "Erro"
+  },
+  "extDescription": {
+    "message": "Preenche login, senha e código 2FA com o cofre do app MySecrets (servidor local + token)"
+  },
+  "extName": {
+    "message": "MySecrets Autofill"
+  },
+  "fill": {
+    "message": "Preencher"
+  },
+  "fillFailed": {
+    "message": "Falha ao preencher"
+  },
+  "filledMfa": {
+    "message": "Código 2FA preenchido: $1"
+  },
+  "filledWith": {
+    "message": "Preenchido com: $1"
+  },
+  "filledWithMfa": {
+    "message": "Preenchido com: $1 + 2FA"
+  },
+  "filterEntries": {
+    "message": "Filtrar entradas..."
+  },
+  "help": {
+    "message": "Ajuda"
+  },
+  "help1": {
+    "message": "Abra o app MySecrets e desbloqueie o cofre"
+  },
+  "help2": {
+    "message": "Clique em MCP e inicie o servidor local"
+  },
+  "help3": {
+    "message": "Marque \"Iniciar ao desbloquear\" para não repetir isso"
+  },
+  "help4": {
+    "message": "Clique em \"Tentar Novamente\""
+  },
+  "howToConnect": {
+    "message": "Como conectar:"
+  },
+  "ifAsked": {
+    "message": "Se o MySecrets perguntar, clique em Permitir"
+  },
+  "loading": {
+    "message": "Carregando..."
+  },
+  "menuFill": {
+    "message": "Preencher com MySecrets"
+  },
+  "nEntries": {
+    "message": "$1 entradas"
+  },
+  "nEntriesFound": {
+    "message": "$1 entradas encontradas"
+  },
+  "neverHere": {
+    "message": "Nunca neste site"
+  },
+  "noConnection": {
+    "message": "Sem conexão"
+  },
+  "noDetails": {
+    "message": "Sem detalhes"
+  },
+  "noEntriesForSite": {
+    "message": "Nenhuma entrada para este site"
+  },
+  "noUsername": {
+    "message": "Sem usuário"
+  },
+  "noUsernameParen": {
+    "message": "(sem usuário)"
+  },
+  "notNow": {
+    "message": "Agora não"
+  },
+  "offerSaveAgain": {
+    "message": "Voltar a oferecer salvar logins neste site"
+  },
+  "oneEntry": {
+    "message": "1 entrada"
+  },
+  "oneEntryFound": {
+    "message": "1 entrada encontrada"
+  },
+  "openAndUnlock": {
+    "message": "Abra o MySecrets, desbloqueie o cofre e tente de novo"
+  },
+  "pairCodePlaceholder": {
+    "message": "Cole o código (app: MCP → código de pareamento)"
+  },
+  "pairIncompleteCode": {
+    "message": "Código incompleto"
+  },
+  "pairInvalidCode": {
+    "message": "Código inválido"
+  },
+  "pairNotLocal": {
+    "message": "Código aponta para fora do seu computador"
+  },
+  "popupSubtitle": {
+    "message": "Extensão de Autofill"
+  },
+  "refresh": {
+    "message": "Atualizar"
+  },
+  "retry": {
+    "message": "Tentar Novamente"
+  },
+  "saveFailed": {
+    "message": "Não foi possível salvar: $1"
+  },
+  "saveNew": {
+    "message": "Salvar"
+  },
+  "saveNewQuestion": {
+    "message": "Salvar este login no MySecrets?"
+  },
+  "saveUpdate": {
+    "message": "Atualizar"
+  },
+  "saveUpdateQuestion": {
+    "message": "Atualizar a senha no MySecrets?"
+  },
+  "savedNew": {
+    "message": "Login salvo no MySecrets"
+  },
+  "savedUpdate": {
+    "message": "Senha atualizada no MySecrets"
+  },
+  "tabNoSite": {
+    "message": "Aba sem site"
+  },
+  "usePairingCode": {
+    "message": "Usar código de pareamento"
+  },
+  "zeroEntries": {
+    "message": "0 entradas"
+  },
+  "zeroEntriesFound": {
+    "message": "0 entradas encontradas"
+  }
+}

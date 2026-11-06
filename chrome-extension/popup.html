@@ -12,30 +12,31 @@
         <div class="header">
             <div class="logo">🔐</div>
             <h1>MySecrets</h1>
-            <p class="subtitle">Extensão de Autofill</p>
+            <p class="subtitle" data-i18n="popupSubtitle">Extensão de Autofill</p>
         </div>
 
         <div class="status-message" id="pair-message">
-            <p id="pair-title">Conectando ao app…</p>
-            <small id="pair-hint">Se o MySecrets perguntar, clique em <b>Permitir</b></small>
+            <p id="pair-title" data-i18n="connecting">Conectando ao app…</p>
+            <small id="pair-hint" data-i18n="ifAsked">Se o MySecrets perguntar, clique em Permitir</small>
         </div>
 
         <div class="unlock-form">
-            <button id="connect-button" class="btn btn-primary">
+            <button id="connect-button" class="btn btn-primary" data-i18n="connectApp">
                 Conectar ao app
             </button>
         </div>
 
         <details class="pair-manual">
-            <summary>Usar código de pareamento</summary>
+            <summary data-i18n="usePairingCode">Usar código de pareamento</summary>
             <div class="unlock-form">
                 <input
                     type="password"
                     id="pair-code-input"
                     placeholder="Cole o código (app: MCP → código de pareamento)"
+                    data-i18n-placeholder="pairCodePlaceholder"
                     class="input-field"
                 >
-                <button id="pair-button" class="btn btn-secondary">
+                <button id="pair-button" class="btn btn-secondary" data-i18n="connectWithCode">
                     Conectar com código
                 </button>
             </div>
@@ -49,10 +50,10 @@
                 <div class="logo-small">🔓</div>
                 <div>
                     <h2>MySecrets</h2>
-                    <small id="entries-count">0 entradas</small>
+                    <small id="entries-count" data-i18n="zeroEntries">0 entradas</small>
                 </div>
             </div>
-            <button id="refresh-button" class="btn-icon" title="Atualizar">
+            <button id="refresh-button" class="btn-icon" title="Atualizar" data-i18n-title="refresh">
                 🔄
             </button>
         </div>
@@ -62,6 +63,7 @@
                 type="text"
                 id="search-input"
                 placeholder="Filtrar entradas..."
+                data-i18n-placeholder="filterEntries"
                 class="input-field"
             >
         </div>
@@ -69,8 +71,8 @@
         <div class="current-site" id="current-site">
             <div class="site-icon">🌐</div>
             <div class="site-info">
-                <div class="site-url" id="site-url">Carregando...</div>
-                <div class="site-matches" id="site-matches">0 entradas encontradas</div>
+                <div class="site-url" id="site-url" data-i18n="loading">Carregando...</div>
+                <div class="site-matches" id="site-matches" data-i18n="zeroEntriesFound">0 entradas encontradas</div>
             </div>
         </div>
 
@@ -80,15 +82,15 @@
 
         <div class="empty-state" id="empty-state" style="display: none;">
             <div class="empty-icon">📭</div>
-            <p>Nenhuma entrada para este site</p>
-            <small>Cadastre um login com a URL do site no app</small>
+            <p data-i18n="noEntriesForSite">Nenhuma entrada para este site</p>
+            <small data-i18n="addLoginHint">Cadastre um login com a URL do site no app</small>
         </div>
 
         <div class="footer">
-            <button id="never-save-button" class="btn-text" style="display: none;">
+            <button id="never-save-button" class="btn-text" style="display: none;" data-i18n="offerSaveAgain">
                 Voltar a oferecer salvar logins neste site
             </button>
-            <button id="unpair-button" class="btn-text">
+            <button id="unpair-button" class="btn-text" data-i18n="disconnect">
                 Desconectar
             </button>
         </div>
@@ -98,30 +100,30 @@
     <div id="error-screen" class="screen" style="display: none;">
         <div class="header">
             <div class="logo">⚠️</div>
-            <h1>Sem conexão</h1>
+            <h1 data-i18n="noConnection">Sem conexão</h1>
         </div>
 
         <div class="error-message">
-            <p id="error-text">Não foi possível falar com o MySecrets</p>
-            <small>O app precisa estar aberto e o cofre desbloqueado.</small>
+            <p id="error-text" data-i18n="cannotReachApp">Não foi possível falar com o MySecrets</p>
+            <small data-i18n="appMustBeOpen">O app precisa estar aberto e o cofre desbloqueado.</small>
         </div>
 
         <div class="actions">
-            <button id="retry-button" class="btn btn-primary">
+            <button id="retry-button" class="btn btn-primary" data-i18n="retry">
                 Tentar Novamente
             </button>
-            <button id="help-button" class="btn btn-secondary">
+            <button id="help-button" class="btn btn-secondary" data-i18n="help">
                 Ajuda
             </button>
         </div>
 
         <div class="help-info" id="help-info" style="display: none;">
-            <h3>Como conectar:</h3>
+            <h3 data-i18n="howToConnect">Como conectar:</h3>
             <ol>
-                <li>Abra o app MySecrets e desbloqueie o cofre</li>
-                <li>Clique em <b>MCP</b> e inicie o servidor local</li>
-                <li>Marque "Iniciar ao desbloquear" para não repetir isso</li>
-                <li>Clique em "Tentar Novamente"</li>
+                <li data-i18n="help1">Abra o app MySecrets e desbloqueie o cofre</li>
+                <li data-i18n="help2">Clique em MCP e inicie o servidor local</li>
+                <li data-i18n="help3">Marque "Iniciar ao desbloquear" para não repetir isso</li>
+                <li data-i18n="help4">Clique em "Tentar Novamente"</li>
             </ol>
         </div>
     </div>

@@ -1,6 +1,15 @@
 // MySecrets Chrome Extension - Content Script
 // Detecta e preenche campos de formulários
 
+// Textos: tradução do navegador (_locales/*/messages.json) com o português
+// do próprio código como reserva (fora do navegador, nos testes).
+function msg(chave, pt, subs) {
+  const lista = subs === undefined ? [] : [].concat(subs).map(String);
+  let s = '';
+  try { s = (globalThis.chrome && chrome.i18n && chrome.i18n.getMessage(chave, lista)) || ''; } catch (_) { s = ''; }
+  return s || pt.replace(/\$(\d)/g, (m, n) => (lista[n - 1] !== undefined ? lista[n - 1] : m));
+}
+
 // Logs de diagnóstico desligados: o console do content script aparece no
 // DevTools de qualquer site. Nunca registre valores (senha, código, entrada).
 const DEBUG = false;
@@ -211,8 +220,8 @@ function fillLoginForm(entry) {
   if (filled) {
     const onlyMfa = !loginForm.usernameField && !loginForm.passwordField;
     const msg = onlyMfa
-      ? `Código 2FA preenchido: ${entry.title}`
-      : (entry.mfaCode ? `Preenchido com: ${entry.title} + 2FA` : `Preenchido com: ${entry.title}`);
+      ? msg('filledMfa', 'Código 2FA preenchido: $1', entry.title)
+      : (entry.mfaCode ? msg('filledWithMfa', 'Preenchido com: $1 + 2FA', entry.title) : msg('filledWith', 'Preenchido com: $1', entry.title));
     showNotification(msg, 'success');
     
     // Destaca os campos preenchidos
@@ -426,7 +435,7 @@ function showAutofillButton(count) {
   escudo.setAttribute('d', 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z');
   svg.appendChild(escudo);
   const rotulo = document.createElement('span');
-  rotulo.textContent = `${count} ${count === 1 ? 'entrada' : 'entradas'}`;
+  rotulo.textContent = count === 1 ? msg('oneEntry', '1 entrada') : msg('nEntries', '$1 entradas', count);
   button.append(svg, rotulo);
   
   button.style.cssText = `
@@ -490,7 +499,7 @@ function showAutofillButton(count) {
 function requestFill(id) {
   sendToBackground({ type: 'autofill', id, url: window.location.href }, (response) => {
     if (!response?.success) {
-      showNotification(response?.error || 'Falha ao preencher', 'error');
+      showNotification(response?.error || msg('fillFailed', 'Falha ao preencher'), 'error');
     }
   });
 }
@@ -525,7 +534,7 @@ function showEntrySelector(entries) {
   `;
   
   const header = document.createElement('div');
-  header.textContent = 'Escolha uma entrada';
+  header.textContent = msg('chooseEntry', 'Escolha uma entrada');
   header.style.cssText = `
     padding: 16px;
     border-bottom: 1px solid #e0e0e0;
@@ -553,7 +562,7 @@ function showEntrySelector(entries) {
     title.style.cssText = 'font-weight: 500; margin-bottom: 4px;';
     
     const username = document.createElement('div');
-    username.textContent = entry.username || 'Sem usuário';
+    username.textContent = entry.username || msg('noUsername', 'Sem usuário');
     username.style.cssText = 'font-size: 12px; color: #666;';
     
     item.appendChild(title);
@@ -722,17 +731,19 @@ function showSavePrompt(prompt) {
       </div>
       <div class="acoes">
         <button class="salvar"></button>
-        <button class="depois">Agora não</button>
-        <button class="nunca">Nunca neste site</button>
+        <button class="depois"></button>
+        <button class="nunca"></button>
       </div>
     </div>`;
 
   root.querySelector('img').src = chrome.runtime.getURL('icons/icon48.png');
-  root.querySelector('.titulo').textContent = atualizar ? 'Atualizar a senha no MySecrets?' : 'Salvar este login no MySecrets?';
+  root.querySelector('.titulo').textContent = atualizar ? msg('saveUpdateQuestion', 'Atualizar a senha no MySecrets?') : msg('saveNewQuestion', 'Salvar este login no MySecrets?');
   root.querySelector('.sub').textContent = atualizar
     ? `${prompt.title || prompt.host}${prompt.username ? ' · ' + prompt.username : ''}`
-    : `${prompt.username || '(sem usuário)'} · ${prompt.host}`;
-  root.querySelector('.salvar').textContent = atualizar ? 'Atualizar' : 'Salvar';
+    : `${prompt.username || msg('noUsernameParen', '(sem usuário)')} · ${prompt.host}`;
+  root.querySelector('.salvar').textContent = atualizar ? msg('saveUpdate', 'Atualizar') : msg('saveNew', 'Salvar');
+  root.querySelector('.depois').textContent = msg('notNow', 'Agora não');
+  root.querySelector('.nunca').textContent = msg('neverHere', 'Nunca neste site');
 
   const fechar = () => host.remove();
   const decidir = (action) => {
@@ -740,9 +751,9 @@ function showSavePrompt(prompt) {
     sendToBackground({ type: 'save_decision', action }, (response) => {
       if (action !== 'save') return;
       if (response && response.success && response.saved) {
-        showNotification(atualizar ? 'Senha atualizada no MySecrets' : 'Login salvo no MySecrets', 'success');
+        showNotification(atualizar ? msg('savedUpdate', 'Senha atualizada no MySecrets') : msg('savedNew', 'Login salvo no MySecrets'), 'success');
       } else {
-        showNotification('Não foi possível salvar: ' + ((response && response.error) || 'app indisponível'), 'error');
+        showNotification(msg('saveFailed', 'Não foi possível salvar: $1', (response && response.error) || msg('appUnavailable', 'app indisponível')), 'error');
       }
     });
   };

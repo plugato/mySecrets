@@ -2,13 +2,22 @@
 // O casamento de domínio (qual login é de qual site) é feito no app, pela
 // ferramenta match_url (mcp-server/core.js), com a Public Suffix List.
 
+// Textos: tradução do navegador (_locales/*/messages.json) com o português
+// do próprio código como reserva (fora do navegador, nos testes).
+export function msg(chave, pt, subs) {
+  const lista = subs === undefined ? [] : [].concat(subs).map(String);
+  let s = '';
+  try { s = (globalThis.chrome && chrome.i18n && chrome.i18n.getMessage(chave, lista)) || ''; } catch (_) { s = ''; }
+  return s || pt.replace(/\$(\d)/g, (m, n) => (lista[n - 1] !== undefined ? lista[n - 1] : m));
+}
+
 // O código de pareamento vem colado pelo usuário: decodifica e valida.
 export function parsePairingCode(code) {
   let conn;
   try {
     conn = JSON.parse(atob(String(code).trim()));
   } catch (_) {
-    throw new Error('Código inválido');
+    throw new Error(msg('pairInvalidCode', 'Código inválido'));
   }
   return validConn(conn);
 }
@@ -17,16 +26,16 @@ export function parsePairingCode(code) {
 // extensão (e o token) para um servidor remoto.
 export function validConn(conn) {
   if (!conn || typeof conn.url !== 'string' || typeof conn.token !== 'string' || !conn.token) {
-    throw new Error('Código incompleto');
+    throw new Error(msg('pairIncompleteCode', 'Código incompleto'));
   }
   let u;
   try {
     u = new URL(conn.url);
   } catch (_) {
-    throw new Error('Código inválido');
+    throw new Error(msg('pairInvalidCode', 'Código inválido'));
   }
   if (u.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(u.hostname)) {
-    throw new Error('Código aponta para fora do seu computador');
+    throw new Error(msg('pairNotLocal', 'Código aponta para fora do seu computador'));
   }
   return { url: conn.url, token: conn.token };
 }

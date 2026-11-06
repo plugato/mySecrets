@@ -84,7 +84,7 @@ test('extensão no Firefox: pareia, mostra o botão e preenche o login', { skip:
       botao = await avaliar("document.getElementById('mysecrets-autofill-button')?.textContent?.trim() || null");
       if (!botao) await sleep(250);
     }
-    assert.match(botao || '', /1 entrada/, 'botão de preencher aparece');
+    assert.strictEqual(botao, '1 entry', 'botão de preencher aparece (em inglês: Firefox sem pacote pt-BR)');
     assert.ok(log.some((l) => l.path === '/mcp' && l.auth === `Bearer ${TOKEN}`), 'usou o token do pareamento');
 
     await avaliar("document.getElementById('mysecrets-autofill-button').click()");

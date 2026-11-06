@@ -1,0 +1,209 @@
+{
+  "addLoginHint": {
+    "message": "Add a login with the site's URL in the app"
+  },
+  "appMustBeOpen": {
+    "message": "The app must be open and the vault unlocked."
+  },
+  "appUnavailable": {
+    "message": "app unavailable"
+  },
+  "cannotReachApp": {
+    "message": "Could not reach MySecrets"
+  },
+  "chooseEntry": {
+    "message": "Choose an entry"
+  },
+  "clickConnect": {
+    "message": "Click Connect and allow it in the MySecrets app"
+  },
+  "cmdAutofill": {
+    "message": "Fill the form"
+  },
+  "cmdLock": {
+    "message": "Disconnect the extension from the app"
+  },
+  "connectApp": {
+    "message": "Connect to the app"
+  },
+  "connectWithCode": {
+    "message": "Connect with code"
+  },
+  "connecting": {
+    "message": "Connecting to the app…"
+  },
+  "disconnect": {
+    "message": "Disconnect"
+  },
+  "disconnected": {
+    "message": "Extension disconnected"
+  },
+  "errAppClosed": {
+    "message": "MySecrets app closed or local server stopped"
+  },
+  "errBadToken": {
+    "message": "Invalid token — pair again"
+  },
+  "errNotPaired": {
+    "message": "Extension not paired with the app"
+  },
+  "errOtherSite": {
+    "message": "This entry is not for this site."
+  },
+  "errPageChanged": {
+    "message": "The page changed. Open MySecrets again on this page."
+  },
+  "errUnknownMessage": {
+    "message": "Unknown message type"
+  },
+  "errVault": {
+    "message": "Vault error"
+  },
+  "error": {
+    "message": "Error"
+  },
+  "extDescription": {
+    "message": "Fills in username, password and 2FA code from the MySecrets app vault (local server + token)"
+  },
+  "extName": {
+    "message": "MySecrets Autofill"
+  },
+  "fill": {
+    "message": "Fill"
+  },
+  "fillFailed": {
+    "message": "Could not fill"
+  },
+  "filledMfa": {
+    "message": "2FA code filled: $1"
+  },
+  "filledWith": {
+    "message": "Filled with: $1"
+  },
+  "filledWithMfa": {
+    "message": "Filled with: $1 + 2FA"
+  },
+  "filterEntries": {
+    "message": "Filter entries..."
+  },
+  "help": {
+    "message": "Help"
+  },
+  "help1": {
+    "message": "Open the MySecrets app and unlock the vault"
+  },
+  "help2": {
+    "message": "Click MCP and start the local server"
+  },
+  "help3": {
+    "message": "Check \"Start when unlocking\" so you don't have to repeat this"
+  },
+  "help4": {
+    "message": "Click \"Try Again\""
+  },
+  "howToConnect": {
+    "message": "How to connect:"
+  },
+  "ifAsked": {
+    "message": "If MySecrets asks, click Allow"
+  },
+  "loading": {
+    "message": "Loading..."
+  },
+  "menuFill": {
+    "message": "Fill with MySecrets"
+  },
+  "nEntries": {
+    "message": "$1 entries"
+  },
+  "nEntriesFound": {
+    "message": "$1 entries found"
+  },
+  "neverHere": {
+    "message": "Never on this site"
+  },
+  "noConnection": {
+    "message": "No connection"
+  },
+  "noDetails": {
+    "message": "No details"
+  },
+  "noEntriesForSite": {
+    "message": "No entries for this site"
+  },
+  "noUsername": {
+    "message": "No username"
+  },
+  "noUsernameParen": {
+    "message": "(no username)"
+  },
+  "notNow": {
+    "message": "Not now"
+  },
+  "offerSaveAgain": {
+    "message": "Offer to save logins on this site again"
+  },
+  "oneEntry": {
+    "message": "1 entry"
+  },
+  "oneEntryFound": {
+    "message": "1 entry found"
+  },
+  "openAndUnlock": {
+    "message": "Open MySecrets, unlock the vault and try again"
+  },
+  "pairCodePlaceholder": {
+    "message": "Paste the code (app: MCP → pairing code)"
+  },
+  "pairIncompleteCode": {
+    "message": "Incomplete code"
+  },
+  "pairInvalidCode": {
+    "message": "Invalid code"
+  },
+  "pairNotLocal": {
+    "message": "The code points outside your computer"
+  },
+  "popupSubtitle": {
+    "message": "Autofill extension"
+  },
+  "refresh": {
+    "message": "Refresh"
+  },
+  "retry": {
+    "message": "Try Again"
+  },
+  "saveFailed": {
+    "message": "Could not save: $1"
+  },
+  "saveNew": {
+    "message": "Save"
+  },
+  "saveNewQuestion": {
+    "message": "Save this login to MySecrets?"
+  },
+  "saveUpdate": {
+    "message": "Update"
+  },
+  "saveUpdateQuestion": {
+    "message": "Update the password in MySecrets?"
+  },
+  "savedNew": {
+    "message": "Login saved to MySecrets"
+  },
+  "savedUpdate": {
+    "message": "Password updated in MySecrets"
+  },
+  "tabNoSite": {
+    "message": "Tab without a site"
+  },
+  "usePairingCode": {
+    "message": "Use a pairing code"
+  },
+  "zeroEntries": {
+    "message": "0 entries"
+  },
+  "zeroEntriesFound": {
+    "message": "0 entries found"
+  }
+}
