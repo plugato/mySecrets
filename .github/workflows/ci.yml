@@ -51,7 +51,7 @@ jobs:
       - name: Testes unitários e Android Lint
         working-directory: android
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: android-lint

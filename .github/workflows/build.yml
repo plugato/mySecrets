@@ -71,7 +71,7 @@ jobs:
         working-directory: chrome-extension
         run: zip -r ../dist/MySecrets-Autofill-extensao-chrome.zip . -x "*.git*" "*README*.md" "TESTE*.md" "*.sh"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mysecrets-${{ matrix.platform }}
           if-no-files-found: error
@@ -138,7 +138,7 @@ jobs:
           VERSION="$(node -p "require('../package.json').version")"
           cp app/build/outputs/apk/release/MySecrets-*-release.apk "../dist/MySecrets-$VERSION-android.apk"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mysecrets-android
           if-no-files-found: error
