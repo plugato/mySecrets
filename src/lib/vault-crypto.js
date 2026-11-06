@@ -115,6 +115,21 @@ function encryptGcm(text, { salt, iterations, key }) {
 }
 
 /**
+ * Descriptografa com uma das chaves derivadas da sessão (sem a senha mestra).
+ * Lança erro se nenhuma chave serve para o salt/iterações do arquivo.
+ */
+function decryptWithKeys(encryptedData, keys) {
+  if (!encryptedData || !encryptedData.encrypted || !encryptedData.salt || !encryptedData.iv) {
+    throw new Error('Formato de dados criptografados inválido');
+  }
+  if (isLegacyFormat(encryptedData)) throw new Error('Cofre no formato antigo: desbloqueie o app para atualizar');
+  const iterations = iterationsOf(encryptedData);
+  const k = (keys || []).find((x) => x && x.salt === encryptedData.salt && Number(x.iterations) === iterations);
+  if (!k) throw Object.assign(new Error('Nenhuma chave da sessão abre este cofre'), { code: 'KEY_NOT_FOUND' });
+  return decryptGcm(encryptedData, Buffer.from(k.key, 'hex'));
+}
+
+/**
  * Cache da chave derivada, como no app Android. PBKDF2 com 600 mil iterações
  * leva centenas de ms; sem cache, cada gravação (e cada sincronização)
  * travava o processo principal.
@@ -125,7 +140,7 @@ function encryptGcm(text, { salt, iterations, key }) {
  * - Arquivo com outro salt (ex.: vindo da nuvem) ou senha diferente deriva de
  *   novo. clear() esquece tudo (cofre bloqueado).
  */
-function createKeyCache() {
+function createKeyCache({ onChange } = {}) {
   let senha = null;
   const chaves = new Map(); // "salt:iterações" -> Buffer
   let paraGravar = null;    // { salt, iterations, key }
@@ -142,6 +157,15 @@ function createKeyCache() {
     chaves.set(id(salt, iterations), key);
     if (chaves.size > 8) chaves.delete(chaves.keys().next().value);
     if (!paraGravar && iterations === V2_ITERATIONS) paraGravar = { salt, iterations, key };
+    if (onChange) onChange();
+  }
+
+  /** Chaves em cache (sem a senha), para a sessão do servidor MCP. */
+  function exportKeys() {
+    return [...chaves.entries()].map(([k, key]) => {
+      const [salt, iterations] = k.split(':');
+      return { salt, iterations: Number(iterations), key: key.toString('hex') };
+    });
   }
 
   async function prime(encryptedData, password) {
@@ -187,7 +211,7 @@ function createKeyCache() {
     senha = null;
   }
 
-  return { prime, encrypt, decrypt, clear };
+  return { prime, encrypt, decrypt, clear, exportKeys };
 }
 
 /**
@@ -210,5 +234,6 @@ module.exports = {
   decryptVault,
   encryptVaultLegacy,
   isLegacyFormat,
-  createKeyCache
+  createKeyCache,
+  decryptWithKeys
 };

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- The desktop session file (`.session`, read by the MCP server and the extension) no longer contains the master password: it holds only the derived vault key(s), and the password stays in the app's memory. Someone who copies the profile folder while the vault is open can no longer recover the master password (which people often reuse elsewhere).
+
 ### Changed
 - Dependencies (replaces the open Dependabot PRs, which failed CI): otplib 12 → 13, ESLint 10, GitHub Actions to their current majors, and on Android AGP 9.5.1, Gradle 9.8.2, compileSdk 37, core-ktx 1.19.1, Compose BOM 2026.09.00, Kotlin Compose plugin 2.4.21 and coroutines 1.11.0.
 - 2FA secrets pasted the way sites show them (lowercase, spaces, hyphens, trailing `=`) are now accepted.

@@ -103,15 +103,29 @@ function decryptSession(encryptedData) {
   return data;
 }
 
+// Senha mestra só na memória deste processo, nunca no disco: a sessão em
+// disco (.session) leva apenas as chaves derivadas do cofre.
+let sessionPassword = null;
+
 /** Senha mestra da sessão aberta, ou null se o cofre está bloqueado. */
 function currentSessionPassword() {
+  return fs.existsSync(sessionPath) ? sessionPassword : null;
+}
+
+function writeSessionFile(sessionData) {
+  fs.writeFileSync(sessionPath, JSON.stringify(encryptSession(sessionData)), 'utf8');
+  try { fs.chmodSync(sessionPath, 0o600); } catch (_) { /* Windows */ }
+}
+
+/** Grava na sessão as chaves que o cache tem agora (se a sessão existe). */
+function updateSessionKeys() {
+  if (!fs.existsSync(sessionPath)) return;
   try {
     const data = decryptSession(JSON.parse(fs.readFileSync(sessionPath, 'utf8')));
-    if (!data || !data.unlocked || Date.now() > data.expiresAt) return null;
-    return data.password || null;
-  } catch (_) {
-    return null;
-  }
+    if (!data) return;
+    data.keys = vaultKeys.exportKeys();
+    writeSessionFile(data);
+  } catch (_) { /* a próxima renovação tenta de novo */ }
 }
 
 /**
@@ -120,28 +134,16 @@ function currentSessionPassword() {
  * SEGURANÇA: Senha é criptografada com chave baseada no sistema
  */
 function createSession(masterPassword) {
-  const sessionData = {
+  sessionPassword = masterPassword;
+  writeSessionFile({
     timestamp: Date.now(),
     pid: process.pid,
     unlocked: true,
-    password: masterPassword,  // Será criptografado
+    // Só as chaves derivadas (salt + iterações + chave), nunca a senha mestra
+    keys: vaultKeys.exportKeys(),
     expiresAt: Date.now() + (15 * 60 * 1000), // 15 minutos
     hostname: require('os').hostname()
-  };
-  
-  const encryptedSession = encryptSession(sessionData);
-  fs.writeFileSync(sessionPath, JSON.stringify(encryptedSession), 'utf8');
-  
-  // Definir permissões restritas (apenas owner pode ler/escrever)
-  // chmod 600 - rw-------
-  try {
-    fs.chmodSync(sessionPath, 0o600);
-    console.log('✅ Sessão criptografada criada para extensão Chrome');
-    console.log('   Permissões: 600 (apenas owner)');
-    console.log('   Expira em: 15 minutos');
-  } catch (error) {
-    console.warn('⚠️ Não foi possível definir permissões restritas:', error.message);
-  }
+  });
 }
 
 /**
@@ -170,10 +172,10 @@ function refreshSession() {
       // continua válida (o renderer chama isto periodicamente)
       sessionData.timestamp = Date.now();
       sessionData.expiresAt = Date.now() + (15 * 60 * 1000);
+      sessionData.keys = vaultKeys.exportKeys();
+      delete sessionData.password; // sessões antigas: some do disco na renovação
+      writeSessionFile(sessionData);
 
-      const encryptedSession = encryptSession(sessionData);
-      fs.writeFileSync(sessionPath, JSON.stringify(encryptedSession), 'utf8');
-      
       return true;
     } catch (error) {
       console.error('Erro ao atualizar sessão:', error);
@@ -190,6 +192,7 @@ function refreshSession() {
 function destroySession() {
   // Sem sessão = cofre fechado: esquece também a chave derivada em memória
   try { vaultKeys.clear(); } catch (_) { /* ainda não inicializado */ }
+  sessionPassword = null;
   if (fs.existsSync(sessionPath)) {
     try {
       fs.unlinkSync(sessionPath);
@@ -375,7 +378,8 @@ function buildAppMenu() {
 // (v2: AES-256-GCM + PBKDF2 600k; lê e migra o formato legado v1 CBC)
 const { isLegacyFormat } = vaultCrypto;
 // Chave derivada em cache: gravar e sincronizar sem PBKDF2 a cada vez
-const vaultKeys = vaultCrypto.createKeyCache();
+// Chave nova no cache (outro salt) -> a sessão do MCP passa a conhecê-la
+const vaultKeys = vaultCrypto.createKeyCache({ onChange: () => updateSessionKeys() });
 const encryptVault = (text, password) => vaultKeys.encrypt(text, password);
 const decryptVault = (data, password) => vaultKeys.decrypt(data, password);
 

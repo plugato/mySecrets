@@ -44,12 +44,14 @@ no MySecrets server and no account.
   for the session, so saving does not run PBKDF2 again. It is erased when the
   vault locks.
 - **Session file.** While the desktop app is unlocked it writes `.session`
-  (permissions 600), which holds the master password encrypted with AES-256-GCM
-  under a key derived from `.machine-secret` (also 600, in the same profile
-  folder). The MCP server and the browser extension use it to read the vault.
-  It expires after 15 minutes without renewal and is deleted when the app locks
-  or closes. **Anyone who can read your user profile while the vault is open can
-  recover the master password from these two files.**
+  (permissions 600) with the **derived vault key(s)** — never the master
+  password — encrypted with AES-256-GCM under a key derived from
+  `.machine-secret` (also 600, in the same profile folder). The MCP server and
+  the browser extension use it to read the vault. The master password stays
+  only in the app's memory. The session expires after 15 minutes without
+  renewal and is deleted when the app locks or closes. **Anyone who can read
+  your user profile while the vault is open can decrypt the vault file from
+  these two files** (but does not learn your master password).
 - **Locking.** Auto-lock after 15 minutes of inactivity (configurable), when the
   computer suspends and when the screen locks. Locking removes the vault from
   the page and clears the clipboard if it still holds something the app copied.

@@ -18,10 +18,13 @@ process.env.MYSECRETS_DATA_DIR = DATA_DIR;
 
 const files = require('../mcp-server/files');
 const core = require('../mcp-server/core');
-const { encryptVault, decryptVault } = require('../src/lib/vault-crypto');
+const { encryptVault, decryptVault, createKeyCache } = require('../src/lib/vault-crypto');
 const { planAgentWrite, applyAgentWrite, entryAttachments, normalizeProjectTag } = require('../src/renderer/agent-write');
 
 const PASSWORD = 'senha-mestra-de-teste-123!';
+// Como o app: salt estável (cache de chaves) e a sessão leva só as chaves derivadas
+const CHAVES = createKeyCache();
+CHAVES.encrypt('[]', PASSWORD);
 const SECRETS_FILE = path.join(DATA_DIR, 'secrets.enc');
 
 process.on('exit', () => {
@@ -41,7 +44,7 @@ function writeSession(extra = {}) {
     timestamp: Date.now(),
     pid: process.pid,
     unlocked: true,
-    password: PASSWORD,
+    keys: CHAVES.exportKeys(),
     expiresAt: Date.now() + 15 * 60 * 1000,
     hostname: os.hostname(),
     ...extra
@@ -54,7 +57,7 @@ function writeSession(extra = {}) {
 }
 
 function writeVault(entries) {
-  fs.writeFileSync(SECRETS_FILE, JSON.stringify(encryptVault(JSON.stringify(entries), PASSWORD)));
+  fs.writeFileSync(SECRETS_FILE, JSON.stringify(CHAVES.encrypt(JSON.stringify(entries), PASSWORD)));
 }
 
 function readVault() {

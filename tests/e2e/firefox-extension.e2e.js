@@ -100,6 +100,6 @@ test('extensão no Firefox: pareia, mostra o botão e preenche o login', { skip:
     ff.kill();
     await new Promise((r) => { ff.once('exit', r); setTimeout(r, 3000); });
     app.close(); site.close();
-    fs.rmSync(work, { recursive: true, force: true });
+    fs.rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });

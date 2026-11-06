@@ -12,11 +12,14 @@ test.after(() => fs.rmSync(DATA_DIR, { recursive: true, force: true }));
 
 const sc = require('../src/lib/session-crypto');
 const vault = require('../mcp-server/vault');
-const { encryptVault } = require('../src/lib/vault-crypto');
+const { encryptVault, createKeyCache } = require('../src/lib/vault-crypto');
+const CHAVES = createKeyCache();
+const COFRE = (entradas) => JSON.stringify(CHAVES.encrypt(JSON.stringify(entradas), 'pw'));
+COFRE([]);
 
 const SECRET = crypto.randomBytes(32);
 fs.writeFileSync(path.join(DATA_DIR, '.machine-secret'), SECRET, { mode: 0o600 });
-const sessao = (extra = {}) => ({ timestamp: Date.now(), pid: process.pid, unlocked: true, password: 'pw',
+const sessao = (extra = {}) => ({ timestamp: Date.now(), pid: process.pid, unlocked: true, keys: CHAVES.exportKeys(),
   expiresAt: Date.now() + 60000, hostname: os.hostname(), ...extra });
 
 test('ida e volta; chave errada e formato antigo dão null', () => {
@@ -30,7 +33,7 @@ test('ida e volta; chave errada e formato antigo dão null', () => {
 
 test('MCP aceita a sessão cifrada pelo app e lê o cofre', () => {
   fs.writeFileSync(path.join(DATA_DIR, '.session'), JSON.stringify(sc.encryptSession(sessao(), sc.sessionKey(SECRET))));
-  fs.writeFileSync(path.join(DATA_DIR, 'secrets.enc'), JSON.stringify(encryptVault(JSON.stringify([{ id: 'x', title: 'X' }]), 'pw')));
+  fs.writeFileSync(path.join(DATA_DIR, 'secrets.enc'), COFRE([{ id: 'x', title: 'X' }]));
   const s = vault.checkSession();
   assert.strictEqual(s.valid, true);
   assert.deepStrictEqual(vault.loadEntries().map((e) => e.id), ['x']);
@@ -43,7 +46,17 @@ test('MCP recusa .session em texto puro', () => {
 
 test('MCP recusa cofre com iterações absurdas (mesma cripto do app)', () => {
   fs.writeFileSync(path.join(DATA_DIR, '.session'), JSON.stringify(sc.encryptSession(sessao(), sc.sessionKey(SECRET))));
-  const enc = encryptVault('[]', 'pw');
+  const enc = JSON.parse(COFRE([]));
   fs.writeFileSync(path.join(DATA_DIR, 'secrets.enc'), JSON.stringify({ ...enc, iterations: 1e12 }));
   assert.throws(() => vault.loadEntries(), /iterações/);
+});
+
+test('a sessão não guarda a senha mestra; com outro salt o MCP pede para desbloquear de novo', () => {
+  const dados = sc.decryptSession(sc.encryptSession(sessao(), sc.sessionKey(SECRET)), sc.sessionKey(SECRET));
+  assert.ok(!('password' in dados), 'sem senha na sessão');
+  assert.ok(Array.isArray(dados.keys) && dados.keys[0].key.length === 64);
+  fs.writeFileSync(path.join(DATA_DIR, '.session'), JSON.stringify(sc.encryptSession(sessao(), sc.sessionKey(SECRET))));
+  // Cofre gravado por outro aparelho (outro salt) e ainda não regravado aqui
+  fs.writeFileSync(path.join(DATA_DIR, 'secrets.enc'), JSON.stringify(encryptVault('[]', 'pw')));
+  assert.throws(() => vault.loadEntries(), (e) => e.reason === 'NO_SESSION_KEY');
 });

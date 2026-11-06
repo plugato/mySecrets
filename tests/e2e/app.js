@@ -76,7 +76,7 @@ async function launchApp({ files = {} } = {}) {
     try { ws.close(); } catch (_) { /* já fechado */ }
     child.kill();
     await new Promise((r) => { child.once('exit', r); setTimeout(r, 3000); });
-    fs.rmSync(profile, { recursive: true, force: true });
+    fs.rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 
   return { evaluate, send, close, profile, vaultDir: path.join(profile, 'mysecrets'), log: () => log };

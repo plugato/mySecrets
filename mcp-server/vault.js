@@ -119,13 +119,6 @@ function checkSession() {
   return { valid: true, unlocked: sessionData.unlocked, sessionData };
 }
 
-/**
- * Descriptografa secrets.enc usando a senha mestra (mesmo código do app:
- * src/lib/vault-crypto.js, que vai desempacotado junto com o MCP).
- */
-function decryptVault(encryptedDataString, password) {
-  return JSON.parse(vaultCrypto.decryptVault(JSON.parse(encryptedDataString), password));
-}
 
 /**
  * Erro tipado para comunicar estados de bloqueio ao cliente MCP.
@@ -146,7 +139,7 @@ function reasonMessage(reason) {
     DECRYPT_FAILED: 'Não foi possível ler a sessão do MySecrets (app pode estar bloqueado).',
     HOSTNAME_MISMATCH: 'Arquivo de sessão pertence a outra máquina.',
     INVALID_SESSION: 'Sessão inválida ou corrompida.',
-    NO_SESSION_PASSWORD: 'A sessão não contém a senha mestra.',
+    NO_SESSION_KEY: 'A sessão ainda não tem a chave deste cofre. Salve algo no app ou desbloqueie de novo.',
     LOCKED: 'O cofre está bloqueado. Desbloqueie o MySecrets primeiro.'
   };
   return map[reason] || 'O cofre MySecrets está indisponível.';
@@ -161,13 +154,19 @@ function loadEntries() {
   if (!session.valid) throw new VaultLockedError(session.reason);
   if (!session.unlocked) throw new VaultLockedError('LOCKED');
 
-  const password = session.sessionData && session.sessionData.password;
-  if (!password) throw new VaultLockedError('NO_SESSION_PASSWORD');
+  // A sessão traz só as chaves derivadas do cofre (nunca a senha mestra)
+  const keys = session.sessionData && session.sessionData.keys;
+  if (!Array.isArray(keys) || !keys.length) throw new VaultLockedError('NO_SESSION_KEY');
 
   if (!fs.existsSync(getSecretsFile())) return [];
 
-  const encryptedData = fs.readFileSync(getSecretsFile(), 'utf8');
-  const data = decryptVault(encryptedData, password);
+  let data;
+  try {
+    data = JSON.parse(vaultCrypto.decryptWithKeys(JSON.parse(fs.readFileSync(getSecretsFile(), 'utf8')), keys));
+  } catch (e) {
+    if (e.code === 'KEY_NOT_FOUND') throw new VaultLockedError('NO_SESSION_KEY');
+    throw e;
+  }
   const entries = Array.isArray(data) ? data : (data.entries || []);
   // Entradas na lixeira (soft delete) não são expostas via MCP
   return entries.filter((e) => e && !e.deletedAt);
