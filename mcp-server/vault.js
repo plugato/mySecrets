@@ -145,11 +145,8 @@ function reasonMessage(reason) {
   return map[reason] || 'O cofre MySecrets está indisponível.';
 }
 
-/**
- * Carrega e descriptografa todas as entradas do cofre.
- * Lança VaultLockedError se o app estiver fechado/bloqueado.
- */
-function loadEntries() {
+/** Todas as entradas fora da lixeira, inclusive passkeys (uso interno). */
+function loadAll() {
   const session = checkSession();
   if (!session.valid) throw new VaultLockedError(session.reason);
   if (!session.unlocked) throw new VaultLockedError('LOCKED');
@@ -170,6 +167,20 @@ function loadEntries() {
   const entries = Array.isArray(data) ? data : (data.entries || []);
   // Entradas na lixeira (soft delete) não são expostas via MCP
   return entries.filter((e) => e && !e.deletedAt);
+}
+
+/**
+ * Entradas que as ferramentas MCP podem ver. Passkeys ficam de fora: nem a
+ * chave nem a existência delas chegam aos agentes (docs/developer/PASSKEYS.md).
+ * Lança VaultLockedError se o app estiver fechado/bloqueado.
+ */
+function loadEntries() {
+  return loadAll().filter((e) => e.type !== 'passkey');
+}
+
+/** Só as passkeys: para as ferramentas de passkey da extensão. */
+function loadPasskeys() {
+  return loadAll().filter((e) => e.type === 'passkey' && e.passkey);
 }
 
 /**
@@ -194,6 +205,7 @@ module.exports = {
   SESSION_FILE,
   checkSession,
   loadEntries,
+  loadPasskeys,
   generateOtp,
   VaultLockedError,
   reasonMessage

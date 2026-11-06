@@ -60,3 +60,26 @@ test('a sessão não guarda a senha mestra; com outro salt o MCP pede para desbl
   fs.writeFileSync(path.join(DATA_DIR, 'secrets.enc'), JSON.stringify(encryptVault('[]', 'pw')));
   assert.throws(() => vault.loadEntries(), (e) => e.reason === 'NO_SESSION_KEY');
 });
+
+test('passkeys nunca aparecem para as ferramentas dos agentes', () => {
+  const core = require('../mcp-server/core');
+  fs.writeFileSync(path.join(DATA_DIR, '.session'), JSON.stringify(sc.encryptSession(sessao(), sc.sessionKey(SECRET))));
+  const passkey = { rpId: 'github.com', credentialId: 'abc', privateKey: 'SEGREDO-DA-CHAVE', userName: 'eu' };
+  fs.writeFileSync(path.join(DATA_DIR, 'secrets.enc'), COFRE([
+    { id: 'l', type: 'login', title: 'GitHub', url: 'https://github.com', username: 'eu', password: 'p' },
+    { id: 'pk', type: 'passkey', title: 'github.com', passkey },
+  ]));
+  assert.deepStrictEqual(vault.loadEntries().map((e) => e.id), ['l']);
+  assert.deepStrictEqual(vault.loadPasskeys().map((e) => e.id), ['pk']);
+  const saidas = [
+    core.callTool('list_secrets', {}),
+    core.callTool('list_secrets', { type: 'passkey' }),
+    core.callTool('search_secrets', { query: 'github' }),
+    core.callTool('match_url', { url: 'https://github.com/login' }),
+    core.callTool('get_credentials', { query: 'github' }),
+  ].map((r) => JSON.stringify(r));
+  for (const s of saidas) {
+    assert.ok(!s.includes('SEGREDO-DA-CHAVE') && !s.includes('"pk"'), s);
+  }
+  assert.throws(() => core.callTool('get_credentials', { id: 'pk' }));
+});
