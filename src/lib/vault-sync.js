@@ -186,7 +186,7 @@ function readTombstones(dir) {
   const lidos = [];
   const mapas = [];
   arquivos.forEach(f => {
-    let m = null;
+    let m;
     try { m = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (_) { m = null; }
     if (m && typeof m === 'object' && !Array.isArray(m)) {
       mapas.push(m);

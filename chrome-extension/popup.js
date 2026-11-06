@@ -5,7 +5,7 @@
 // do próprio código como reserva (fora do navegador, nos testes).
 function msg(chave, pt, subs) {
   const lista = subs === undefined ? [] : [].concat(subs).map(String);
-  let s = '';
+  let s;
   try { s = (globalThis.chrome && chrome.i18n && chrome.i18n.getMessage(chave, lista)) || ''; } catch (_) { s = ''; }
   return s || pt.replace(/\$(\d)/g, (m, n) => (lista[n - 1] !== undefined ? lista[n - 1] : m));
 }

@@ -54,7 +54,7 @@ async function api(token, method, url, body) {
     body: body == null ? undefined : (Buffer.isBuffer(body) ? body : JSON.stringify(body))
   });
   const texto = await res.text();
-  let corpo = {};
+  let corpo;
   try { corpo = texto ? JSON.parse(texto) : {}; } catch (_) { corpo = { raw: texto }; }
   if (!res.ok) {
     const msg = (corpo.error && corpo.error.message) || texto.slice(0, 300) || `HTTP ${res.status}`;

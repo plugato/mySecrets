@@ -72,8 +72,8 @@ async function syncOnce(deps) {
     const texto = await client.download(remoteMeta.id);
     try {
       remote = JSON.parse(deps.decrypt(JSON.parse(texto), password));
-    } catch (_) {
-      throw new Error('O cofre no Google Drive usa outra senha mestra (ou está corrompido).');
+    } catch (e) {
+      throw new Error('O cofre no Google Drive usa outra senha mestra (ou está corrompido).', { cause: e });
     }
     if (!Array.isArray(remote)) throw new Error('O cofre no Google Drive está corrompido.');
   }

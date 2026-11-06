@@ -6,7 +6,7 @@
 // do próprio código como reserva (fora do navegador, nos testes).
 export function msg(chave, pt, subs) {
   const lista = subs === undefined ? [] : [].concat(subs).map(String);
-  let s = '';
+  let s;
   try { s = (globalThis.chrome && chrome.i18n && chrome.i18n.getMessage(chave, lista)) || ''; } catch (_) { s = ''; }
   return s || pt.replace(/\$(\d)/g, (m, n) => (lista[n - 1] !== undefined ? lista[n - 1] : m));
 }
@@ -16,8 +16,8 @@ export function parsePairingCode(code) {
   let conn;
   try {
     conn = JSON.parse(atob(String(code).trim()));
-  } catch (_) {
-    throw new Error(msg('pairInvalidCode', 'Código inválido'));
+  } catch (e) {
+    throw new Error(msg('pairInvalidCode', 'Código inválido'), { cause: e });
   }
   return validConn(conn);
 }
@@ -31,8 +31,8 @@ export function validConn(conn) {
   let u;
   try {
     u = new URL(conn.url);
-  } catch (_) {
-    throw new Error(msg('pairInvalidCode', 'Código inválido'));
+  } catch (e) {
+    throw new Error(msg('pairInvalidCode', 'Código inválido'), { cause: e });
   }
   if (u.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(u.hostname)) {
     throw new Error(msg('pairNotLocal', 'Código aponta para fora do seu computador'));

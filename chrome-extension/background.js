@@ -39,8 +39,8 @@ async function autoPair() {
   let res;
   try {
     res = await fetch(pairUrl(conn ? conn.url : DEFAULT_URL), { method: 'POST' });
-  } catch (_) {
-    throw new Error(msg('errAppClosed', 'App MySecrets fechado ou servidor local parado'));
+  } catch (e) {
+    throw new Error(msg('errAppClosed', 'App MySecrets fechado ou servidor local parado'), { cause: e });
   }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || `Servidor respondeu ${res.status}`);
@@ -79,8 +79,8 @@ async function postJsonRpc(method, params) {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${conn.token}` },
       body: JSON.stringify({ jsonrpc: '2.0', id: ++rpcId, method, params })
     });
-  } catch (_) {
-    throw new Error(msg('errAppClosed', 'App MySecrets fechado ou servidor local parado'));
+  } catch (e) {
+    throw new Error(msg('errAppClosed', 'App MySecrets fechado ou servidor local parado'), { cause: e });
   }
 
   if (res.status === 401) {

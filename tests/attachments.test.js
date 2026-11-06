@@ -387,6 +387,7 @@ test('ponta a ponta: agente grava keystore + senhas, lê de volta e recusa é re
   assert.strictEqual(r.isError, false, JSON.stringify(r.data));
   assert.deepStrictEqual(fs.readFileSync(outJks), FAKE_JKS);
   r = await call('get_secret_file', { query: '.env do reconhecimento', outPath: path.join(WORK_DIR, 'out', '.env') });
+  assert.strictEqual(r.isError, false, JSON.stringify(r.data));
   assert.strictEqual(fs.readFileSync(path.join(WORK_DIR, 'out', '.env'), 'utf8'), FAKE_ENV);
   r = await call('get_secret_file', { id: keystoreId, name: 'release.jks', outPath: outJks });
   assert.match(r.data.error, /overwrite/, 'não sobrescreve sem pedir');

@@ -99,8 +99,8 @@ function readFileAsAttachment(filePath, { name, mime, note } = {}) {
   let st;
   try {
     st = fs.statSync(filePath);
-  } catch (_) {
-    throw new Error(`Arquivo não encontrado: ${filePath}`);
+  } catch (e) {
+    throw new Error(`Arquivo não encontrado: ${filePath}`, { cause: e });
   }
   if (!st.isFile()) throw new Error(`Não é um arquivo: ${filePath}`);
   if (st.size > MAX_ATTACHMENT_BYTES) {
