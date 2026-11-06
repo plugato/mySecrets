@@ -211,6 +211,7 @@ function submitAgentWrite(pedido, res) {
 function toolContext(req, res) {
   return {
     allowWrite: !req.headers.origin,
+    client: req.headers.origin ? 'extensao' : 'agente-http',
     submitWrite: (pedido) => submitAgentWrite(pedido, res)
   };
 }

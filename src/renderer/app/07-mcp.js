@@ -34,6 +34,7 @@ function setupQrDropzone() {
 // ===== Controle do Servidor MCP =====
 
 function setupMcpControls() {
+    setupMcpAudit();
     const mcpBtn = document.getElementById('mcp-btn');
     if (!mcpBtn) return;
 
@@ -110,6 +111,61 @@ async function openMcpModal() {
     const autostart = document.getElementById('mcp-autostart');
     if (autostart) autostart.checked = s.mcpAutoStart === true;
     await refreshMcpStatus();
+    await renderMcpAudit();
+}
+
+// ===== Atividade recente (registro das leituras) =====
+
+const MCP_AUDIT_ACAO = {
+    list_secrets: tr('listou o cofre'),
+    search_secrets: tr('buscou no cofre'),
+    get_credentials: tr('leu as credenciais de'),
+    get_otp: tr('leu o código 2FA de'),
+    get_secret_file: tr('baixou um anexo de')
+};
+const MCP_AUDIT_CLIENTE = { 'agente-stdio': tr('Agente (stdio)'), 'agente-http': tr('Agente (HTTP)'), extensao: tr('Extensão do navegador') };
+
+async function renderMcpAudit() {
+    const lista = document.getElementById('mcp-audit-list');
+    if (!lista || !window.electronAPI.mcpAudit) return;
+    const registros = await window.electronAPI.mcpAudit().catch(() => []);
+    lista.replaceChildren();
+    if (!registros.length) {
+        const vazio = document.createElement('li');
+        vazio.className = 'mcp-audit-empty';
+        vazio.textContent = tr('Nenhuma leitura registrada.');
+        lista.appendChild(vazio);
+        return;
+    }
+    const tituloDe = (id) => {
+        const e = currentData.find((x) => x.id === id);
+        return e ? e.title : tr('(entrada removida)');
+    };
+    for (const r of registros) {
+        const li = document.createElement('li');
+        const quando = document.createElement('time');
+        quando.dateTime = r.at;
+        quando.textContent = new Date(r.at).toLocaleString(I18N.locale);
+        const texto = document.createElement('span');
+        const cliente = MCP_AUDIT_CLIENTE[r.client] || tr('Agente');
+        const acao = MCP_AUDIT_ACAO[r.tool] || r.tool;
+        const alvo = ['list_secrets', 'search_secrets'].includes(r.tool)
+            ? tr('{0} resultado(s)', { 0: r.ids.length })
+            : r.ids.map(tituloDe).join(', ');
+        const ehBusca = ['list_secrets', 'search_secrets'].includes(r.tool);
+        texto.textContent = ehBusca ? `${cliente} ${acao}: ${alvo}` : `${cliente} ${acao} ${alvo}`;
+        li.append(quando, texto);
+        lista.appendChild(li);
+    }
+}
+
+function setupMcpAudit() {
+    const limpar = document.getElementById('mcp-audit-clear');
+    if (!limpar) return;
+    limpar.addEventListener('click', async () => {
+        await window.electronAPI.mcpAuditClear();
+        await renderMcpAudit();
+    });
 }
 
 async function refreshMcpStatus() {

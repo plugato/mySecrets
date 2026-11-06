@@ -3530,3 +3530,13 @@ kbd {
         scroll-behavior: auto !important;
     }
 }
+
+/* Atividade recente do servidor MCP */
+.mcp-audit { margin: 0 0 16px; }
+.mcp-audit-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mcp-audit-header h4 { margin: 0; }
+.mcp-audit-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+.mcp-audit-list li { display: flex; gap: 10px; padding: 6px 10px; font-size: 0.85rem; border-bottom: 1px solid var(--border); }
+.mcp-audit-list li:last-child { border-bottom: none; }
+.mcp-audit-list time { color: var(--text-secondary); white-space: nowrap; }
+.mcp-audit-empty { color: var(--text-secondary); }

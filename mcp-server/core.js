@@ -9,6 +9,7 @@
 
 const vault = require('./vault');
 const files = require('./files');
+const audit = require('./audit');
 const { getDomain } = require('tldts');
 
 const SERVER_INFO = { name: 'mysecrets', version: '1.1.0' };
@@ -629,6 +630,8 @@ async function dispatch(msg, ctx = {}) {
         const data = WRITE_TOOLS.has(toolName)
           ? await callWriteTool(toolName, toolArgs, ctx)
           : callTool(toolName, toolArgs, ctx);
+        // Registro das leituras (ids, sem conteúdo); nunca impede a resposta
+        try { audit.record(vault.USER_DATA_PATH, { tool: toolName, client: ctx.client, data }); } catch (_) { /* sem disco */ }
         return ok({ content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] });
       } catch (e) {
         const locked = e instanceof vault.VaultLockedError;

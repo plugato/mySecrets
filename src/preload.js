@@ -81,6 +81,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   attachmentPick: () => ipcRenderer.invoke('attachment-pick'),
   attachmentSave: (attachment) => ipcRenderer.invoke('attachment-save', attachment),
   
+  // Registro das leituras do MCP (data, ferramenta, cliente e ids)
+  mcpAudit: () => ipcRenderer.invoke('mcp-audit'),
+  mcpAuditClear: () => ipcRenderer.invoke('mcp-audit-clear'),
+
   // Senhas vazadas: só o prefixo de 5 caracteres do SHA-1 vai ao processo principal
   pwnedRange: (prefix) => ipcRenderer.invoke('pwned-range', prefix),
 

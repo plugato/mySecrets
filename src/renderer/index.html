@@ -534,6 +534,15 @@
                     Para isso o servidor precisa estar ligado.
                 </p>
 
+                <div class="mcp-audit">
+                    <div class="mcp-audit-header">
+                        <h4>Atividade recente</h4>
+                        <button id="mcp-audit-clear" class="btn btn-secondary">Limpar</button>
+                    </div>
+                    <small>Quem leu o quê pelo servidor local (agentes e extensão). Não guarda senhas nem conteúdo.</small>
+                    <ul id="mcp-audit-list" class="mcp-audit-list"></ul>
+                </div>
+
                 <div class="mcp-status-panel">
                     <div class="mcp-status-row">
                         <span class="mcp-status-badge" id="mcp-badge">Parado</span>
@@ -543,7 +552,7 @@
 
                 <div class="form-group">
                     <label for="mcp-port-input">Porta (loopback 127.0.0.1):</label>
-                    <input type="number" id="mcp-port-input" class="form-input" value="8765" min="1024" max="65535">
+                    <input type="number" id="mcp-port-input" class="form-input input-field" value="8765" min="1024" max="65535">
                 </div>
 
                 <div class="form-group">

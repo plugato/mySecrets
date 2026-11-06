@@ -9,6 +9,8 @@ const vaultSync = require('./lib/vault-sync');
 // Anexos de arquivo (ler/conferir/gravar em disco): módulo Node puro, também
 // usado pelo servidor MCP
 const attachmentFiles = require('../mcp-server/files');
+// Registro das leituras feitas por agentes/extensão (só ids)
+const mcpAudit = require('../mcp-server/audit');
 
 // Códigos 2FA (o mesmo módulo do servidor MCP)
 const otp = require('./lib/otp');
@@ -1000,6 +1002,11 @@ async function importBackup() {
   app.relaunch();
   app.exit();
 }
+
+// ===== Registro das leituras do MCP =====
+
+ipcMain.handle('mcp-audit', async () => mcpAudit.read(userDataPath, 50));
+ipcMain.handle('mcp-audit-clear', async () => { mcpAudit.clear(userDataPath); return { success: true }; });
 
 // ===== Senhas vazadas (Have I Been Pwned, só prefixo do hash): src/main/pwned.js =====
 

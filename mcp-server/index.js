@@ -100,7 +100,7 @@ function forwardToApp(name, args) {
   });
 }
 
-const ctx = { forward: forwardToApp };
+const ctx = { forward: forwardToApp, client: 'agente-stdio' };
 
 // O cliente MCP pode fechar o pipe enquanto um pedido espera confirmação:
 // escrever no stdout fechado dá EPIPE. Encerra limpo em vez de cair.

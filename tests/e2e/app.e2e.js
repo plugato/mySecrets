@@ -149,6 +149,18 @@ test('servidor MCP sobe pelo app e responde get_otp e match_url', async () => {
     assert.match((await call('get_otp', { id: 'm1' })).code, /^\d{6}$/);
     assert.deepStrictEqual((await call('match_url', { url: 'https://gist.github.com' })).results.map((e) => e.id), ['m1']);
     assert.strictEqual((await call('match_url', { url: 'https://hub.com' })).count, 0);
+
+    // Atividade recente: a leitura do código aparece com o título; match_url não entra
+    const atividade = await app.evaluate(`(async () => {
+      const r = await window.electronAPI.loadData('${PW}');
+      currentData = r.data;
+      await openMcpModal();
+      const texto = document.getElementById('mcp-audit-list').textContent;
+      document.getElementById('mcp-modal').style.display = 'none';
+      return texto;
+    })()`);
+    assert.match(atividade, /leu o código 2FA de X/);
+    assert.ok(!/match_url/.test(atividade));
   } finally {
     await api('window.electronAPI.mcpStop()');
   }
