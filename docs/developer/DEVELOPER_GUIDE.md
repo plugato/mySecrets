@@ -97,6 +97,22 @@ Kotlin + Compose: `vault/` (file and merge), `crypto/` (format, Keystore,
 biometrics), `drive/` (Google sign-in and sync), `autofill/`, `link/` (approve
 PC unlock), `otp/`, `ui/`.
 
+## Languages (Portuguese and English)
+
+Every user-facing text is written in Portuguese in the code and translated to English:
+
+| Part | How to add a text | English lives in |
+|---|---|---|
+| Desktop renderer | `tr('Texto em português', { n })`; static HTML is translated automatically | `src/locales/en.json` (key = the Portuguese text) |
+| Desktop main process | `t('Texto em português', { n })` (from `src/main/i18n.js`) | `src/locales/en.json` |
+| Browser extension | `msg('key', 'Texto em português', subs)`; popup HTML: `data-i18n="key"` | `chrome-extension/_locales/en/messages.json` (run `node scripts/extension-locales.js` to regenerate `pt_BR`) |
+| Android | `str(R.string.key, args)` | `res/values-en/strings.xml` (Portuguese in `res/values/`) |
+
+Tests fail when a text has no English translation, when a translation is no
+longer used, or when placeholders differ. Text that goes **into the vault**
+(e.g. field names created by an import) and technical strings (regexes,
+selectors) are not translated.
+
 ## Running
 
 Requirements: Node.js 22, npm; for Android, JDK 17 and the Android SDK.
