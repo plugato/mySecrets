@@ -153,3 +153,25 @@ test('servidor MCP sobe pelo app e responde get_otp e match_url', async () => {
     await api('window.electronAPI.mcpStop()');
   }
 });
+
+test('painel de códigos MFA e detalhes da mesma entrada não compartilham ids', async () => {
+  const r = await app.evaluate(`(async () => {
+    const e = [{id:'mx',type:'mfa',title:'2FA X',mfaSecret:'JBSWY3DPEHPK3PXP',mfaAlgorithm:'totp',updatedAt:new Date().toISOString()}];
+    await window.electronAPI.saveData(e, '${PW}', {autoBackup:false});
+    const r = await window.electronAPI.loadData('${PW}');
+    currentMasterPassword = '${PW}'; currentData = r.data; filteredData = r.data;
+    await renderEntryDetails(r.data[0]);
+    renderMFACodes();
+    await new Promise((x) => setTimeout(x, 1500));
+    const ids = [...document.querySelectorAll('[id]')].map((el) => el.id);
+    const duplicados = ids.filter((id, i) => ids.indexOf(id) !== i);
+    const linha = document.getElementById('mfa-row-code-mx');
+    const detalhe = document.getElementById('mfa-code-mx');
+    const out = { duplicados, linha: linha && linha.textContent.trim(), detalhe: detalhe && detalhe.textContent.trim() };
+    lockApp();
+    return JSON.stringify(out);
+  })()`).then(JSON.parse);
+  assert.deepStrictEqual(r.duplicados, []);
+  assert.match(r.linha, /^\d{6}$/, 'o painel mostra o código, não ••••••');
+  assert.match(r.detalhe, /^\d{6}$/);
+});

@@ -3299,15 +3299,15 @@ function createMFARow(entry) {
             </div>
         </div>
         
-        <div class="mfa-row-code" id="mfa-code-${escapeHtml(entry.id)}">
+        <div class="mfa-row-code" id="mfa-row-code-${escapeHtml(entry.id)}">
             ••••••
         </div>
 
         <div class="mfa-row-timer">
             ${entry.mfaAlgorithm === 'totp' ? `
-                <div class="mfa-timer" id="mfa-timer-${escapeHtml(entry.id)}">30</div>
+                <div class="mfa-timer" id="mfa-row-timer-${escapeHtml(entry.id)}">30</div>
             ` : `
-                <div class="mfa-counter" id="mfa-counter-${escapeHtml(entry.id)}">
+                <div class="mfa-counter" id="mfa-row-counter-${escapeHtml(entry.id)}">
                     ${escapeHtml(entry.mfaCounter || 0)}
                 </div>
             `}
@@ -3337,8 +3337,8 @@ function createMFARow(entry) {
 
 function startMFARowTimer(entryId, entry) {
     const updateMFARow = async () => {
-        const mfaCodeElement = document.getElementById(`mfa-code-${entryId}`);
-        const mfaTimerElement = document.getElementById(`mfa-timer-${entryId}`);
+        const mfaCodeElement = document.getElementById(`mfa-row-code-${entryId}`);
+        const mfaTimerElement = document.getElementById(`mfa-row-timer-${entryId}`);
         
         if (mfaCodeElement && mfaTimerElement && entry.mfaAlgorithm === 'totp') {
             try {
@@ -3395,7 +3395,7 @@ function startMFARowTimer(entryId, entry) {
 }
 
 async function copyMFACode(entryId) {
-    const mfaCodeElement = document.getElementById(`mfa-code-${entryId}`);
+    const mfaCodeElement = document.getElementById(`mfa-row-code-${entryId}`);
     const copyBtn = document.querySelector(`[data-id="${CSS.escape(String(entryId))}"] .mfa-copy-btn`);
     
     if (mfaCodeElement && !['••••••', 'ERRO'].includes(mfaCodeElement.textContent.trim())) {
