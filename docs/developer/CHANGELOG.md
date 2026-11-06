@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-06
+
 ### Added
 - Android app in English and Portuguese (`values/` and `values-en/`, 196 strings), including errors, dialogs, autofill and the page shown after Google sign-in. On Android 13+ the language can be chosen per app in the system settings (`locales_config`); devices that already had a vault are pinned to Portuguese on first run, new installs follow the system. A unit test checks that both languages have the same keys and arguments.
 - Browser extension in English and Portuguese, following the browser's language (`_locales/`). `_locales/pt_BR` is generated from the code (`scripts/extension-locales.js`; a test fails if it is out of date or an English text is missing).
@@ -45,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Desktop: the derived vault key is now cached for the session (like the Android app). Saving and syncing no longer run PBKDF2 (600k iterations) on the main process every time (≈70 ms on a fast PC, more on slower ones, freezing the window); writes reuse the session's salt with a fresh IV. Unlocking derives the key asynchronously. The cache is cleared when the vault locks.
 
 ### Fixed
+- Android: "Sign in with Google" could end in a browser error at `http://127.0.0.1:<port>`. While Chrome was in front, HyperOS/MIUI froze or killed the app, or the sign-in task was cancelled with the screen (vault locked when the screen turned off, Activity recreated), closing the loopback server that receives Google's reply. Sign-in now runs outside the screen (the account is saved even if the screen goes away; tapping again joins the sign-in already in progress) and a foreground service (`dataSync`) keeps the app awake until the browser returns.
 - Desktop: TOTP entries with a period other than 30 s (e.g. 60 s) showed wrong codes: the app passed `period` to otplib, which only reads `step`. If otplib failed to load, the app also made up a code from a hash and reported it as valid. App and MCP now share `src/lib/otp.js` (checked against the RFC 6238 test vector); errors are reported, never replaced by a fake code.
 - Desktop: the 2FA codes panel and the entry details used the same element ids (`mfa-code-<id>`); with both on screen one of them stopped updating or copied `••••••`. The panel now has its own ids.
 - Desktop: when generating a 2FA code failed, the app showed `000000`, which looked like a real code and could be copied. It now shows `ERRO` (not copyable), and a failed HOTP no longer reports an advanced counter.

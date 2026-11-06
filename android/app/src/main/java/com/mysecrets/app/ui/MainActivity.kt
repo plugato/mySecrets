@@ -265,7 +265,7 @@ fun SetupScreen(activity: FragmentActivity, onReady: () -> Unit) {
                     busy = true
                     msg = null
                     try {
-                        if (!DriveSync.connected) DriveSync.saveAccount(GoogleAuth.authorize(activity))
+                        if (!DriveSync.connected) GoogleAuth.connect(activity)
                         val content = DriveSync.downloadExisting()
                         if (content != null) {
                             Vault.importEncrypted(content)

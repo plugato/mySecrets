@@ -10,7 +10,11 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -51,8 +55,34 @@ object GoogleAuth {
 
     private fun b64url(b: ByteArray) = Base64.getUrlEncoder().withoutPadding().encodeToString(b)
 
-    /** Abre o login no navegador e espera o retorno. */
-    suspend fun authorize(context: Context): Tokens = com.mysecrets.app.MySecretsApp.duringExternalFlow { authorizeRaw(context) }
+    /** Login em andamento (um só por vez; vive no processo, não na tela). */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var pending: Deferred<Unit>? = null
+
+    /**
+     * Abre o login no navegador, espera o retorno e guarda a conta.
+     *
+     * O trabalho roda fora da tela que pediu: se ela sair de cena (cofre
+     * bloqueado ao apagar a tela, Activity recriada pelo MIUI), o servidor
+     * loopback continua de pé e a conta é guardada mesmo assim. Um serviço em
+     * primeiro plano impede o sistema de congelar o app enquanto o Chrome está
+     * na frente.
+     */
+    suspend fun connect(activity: Context) {
+        val job = synchronized(this) {
+            pending?.takeIf { it.isActive } ?: scope.async {
+                val app = activity.applicationContext
+                AuthKeepAliveService.start(app)
+                try {
+                    val t = com.mysecrets.app.MySecretsApp.duringExternalFlow { authorizeRaw(activity) }
+                    DriveSync.saveAccount(t)
+                } finally {
+                    AuthKeepAliveService.stop(app)
+                }
+            }.also { pending = it }
+        }
+        job.await()
+    }
 
     private suspend fun authorizeRaw(context: Context): Tokens = withContext(Dispatchers.IO) {
         val rnd = SecureRandom()

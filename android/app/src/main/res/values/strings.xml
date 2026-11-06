@@ -216,4 +216,6 @@
     <string name="desbloqueio">Desbloqueio</string>
     <string name="nunca">Nunca</string>
     <string name="copiado">%1$s copiado</string>
+    <string name="login_com_google">Login com Google</string>
+    <string name="aguardando_o_login_no_navegador">Aguardando o login no navegador…</string>
 </resources>

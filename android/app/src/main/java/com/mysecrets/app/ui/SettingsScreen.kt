@@ -181,7 +181,7 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
                         scope.launch {
                             busy = true
                             try {
-                                DriveSync.saveAccount(GoogleAuth.authorize(activity))
+                                GoogleAuth.connect(activity)
                                 DriveSync.syncNow()
                                 msg = DriveSync.status.value.lastError?.let { str(R.string.conectado_mas, it) } ?: str(R.string.conta_google_conectada_e_cofre_sincronizado)
                             } catch (e: Exception) { msg = e.message } finally { busy = false }

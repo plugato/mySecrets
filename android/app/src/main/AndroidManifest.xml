@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Mantém o app acordado enquanto o login com Google está no navegador -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:localeConfig="@xml/locales_config"
@@ -45,6 +48,11 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:theme="@style/Theme.MySecrets" />
+
+        <service
+            android:name=".drive.AuthKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <service
             android:name=".autofill.MySecretsAutofillService"
