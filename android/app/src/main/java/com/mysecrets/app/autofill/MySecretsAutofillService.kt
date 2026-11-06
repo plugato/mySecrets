@@ -58,11 +58,29 @@ class MySecretsAutofillService : AutofillService() {
                 response.setAuthentication(form.ids.toTypedArray(), sender, p)
             }
         } else {
-            val datasets = buildDatasets(this, form, specs, maxInline)
-            datasets.forEach { response.addDataset(it) }
+            val pendentes = pendingAssetLinks(this, form)
+            if (pendentes.isNotEmpty()) {
+                // Pergunta aos sites (assetlinks.json) fora da thread principal e responde depois
+                Thread {
+                    for (host in pendentes) {
+                        if (cancellationSignal.isCanceled) return@Thread
+                        AssetLinks.check(this, host, form.packageName)
+                    }
+                    if (cancellationSignal.isCanceled) return@Thread
+                    try { callback.onSuccess(finishResponse(response, form, specs, maxInline)) } catch (_: Exception) { }
+                }.start()
+                return
+            }
+            return callback.onSuccess(finishResponse(response, form, specs, maxInline))
         }
         saveInfo(form)?.let { response.setSaveInfo(it) }
         callback.onSuccess(response.build())
+    }
+
+    private fun finishResponse(response: FillResponse.Builder, form: ParsedForm, specs: List<InlinePresentationSpec>, maxInline: Int): FillResponse {
+        buildDatasets(this, form, specs, maxInline).forEach { response.addDataset(it) }
+        saveInfo(form)?.let { response.setSaveInfo(it) }
+        return response.build()
     }
 
     override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {
@@ -89,20 +107,37 @@ class MySecretsAutofillService : AutofillService() {
     } catch (_: Exception) { pkg }
 
     companion object {
+        /** App nativo (não navegador): sites que só casam pelo nome do pacote e ainda não foram consultados. */
+        fun pendingAssetLinks(ctx: Context, form: ParsedForm): List<String> {
+            if (form.packageName in Structure.BROWSERS) return emptyList()
+            return Vault.entries.value.asSequence()
+                .filter { !it.has("deletedAt") && it.optString("type", "login") == "login" }
+                .filter { e -> e.optJSONArray("androidPackages")?.let { a -> (0 until a.length()).none { a.optString(it) == form.packageName } } ?: true }
+                .mapNotNull { Structure.hostOf(it.optString("url")) }
+                .filter { Structure.packageLooksLike(it, form.packageName) }
+                .distinct()
+                .filter { !AssetLinks.isCached(ctx, it, form.packageName) }
+                .take(3)
+                .toList()
+        }
+
         /** Datasets das entradas que combinam com a tela + "Procurar no MySecrets". */
         fun buildDatasets(ctx: Context, form: ParsedForm, specs: List<InlinePresentationSpec>, maxInline: Int): List<Dataset> {
+            val links = { host: String -> AssetLinks.cached(ctx, host, form.packageName) }
             val matches = Vault.entries.value
-                .map { it to Structure.score(it, form) }
+                .map { it to Structure.score(it, form, links) }
                 .filter { it.second > 0 }
                 .sortedWith(compareByDescending<Pair<JSONObject, Int>> { it.second }.thenByDescending { it.first.optBoolean("favorite") })
-                .map { it.first }
                 .take(8)
             val out = mutableListOf<Dataset>()
-            matches.forEachIndexed { i, e ->
+            matches.forEachIndexed { i, (e, score) ->
                 val title = e.optString("title").ifBlank { Structure.hostOf(e.optString("url")) ?: str(R.string.login) }
                 val sub = e.optString("username")
                 val spec = if (i < maxInline - 1) specs.getOrNull(minOf(i, specs.size - 1)) else null
-                out += dataset(ctx, form, e, title, sub, spec)
+                out += if (score == Structure.APP_UNVERIFIED && form.packageName !in Structure.BROWSERS) {
+                    // Só pelo nome do pacote: o usuário confirma antes de o app receber a senha
+                    confirmDataset(ctx, form, e, title, sub, spec)
+                } else dataset(ctx, form, e, title, sub, spec)
             }
             // Item para escolher qualquer entrada do cofre
             val sender = AutofillActivity.intentSender(ctx, AutofillActivity.MODE_PICK, form, 0)
@@ -114,6 +149,18 @@ class MySecretsAutofillService : AutofillService() {
             }
             out += b.build()
             return out
+        }
+
+        @SuppressLint("NewApi")
+        fun confirmDataset(ctx: Context, form: ParsedForm, e: JSONObject, title: String, sub: String, spec: InlinePresentationSpec?): Dataset {
+            val sender = AutofillActivity.intentSender(ctx, AutofillActivity.MODE_CONFIRM, form, 0, e.optString("id"))
+            val b = Dataset.Builder(presentation(ctx, title, sub))
+            form.ids.forEach { b.setValue(it, null) }
+            b.setAuthentication(sender)
+            if (spec != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                inlinePresentation(ctx, spec, title, sub, sender)?.let { b.setInlinePresentation(it) }
+            }
+            return b.build()
         }
 
         @SuppressLint("NewApi")

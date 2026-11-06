@@ -232,6 +232,8 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
                     // Sem isto o celular continuaria aprovando o login dos PCs
                     Pairings.clear()
                     Keys.delete(Keys.BIO_LINK)
+                    // Quais apps e sites foram consultados no preenchimento
+                    com.mysecrets.app.autofill.AssetLinks.clear(activity)
                     Vault.wipe()
                     onWiped()
                 }) { Text(str(R.string.apagar)) }

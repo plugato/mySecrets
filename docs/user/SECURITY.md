@@ -123,8 +123,14 @@ no MySecrets server and no account.
   change.
 - Screens are protected from screenshots (`FLAG_SECURE`), app backup is off and
   copied secrets are marked as sensitive.
-- Autofill trusts the web domain only from known browsers; native apps must
-  match the site's reversed domain (`com.netflix.*` for `netflix.com`).
+- Autofill trusts the web domain only from known browsers. A native app gets a
+  login when you linked it to the entry, or when its package matches the site's
+  reversed domain (`com.netflix.*` for `netflix.com`) **and** the site confirms
+  it through Digital Asset Links (`/.well-known/assetlinks.json` lists the
+  package and its signing certificate). If the site lists other apps, nothing is
+  offered; if the site has no such file (or can't be reached), the app gets the
+  login only after you confirm on a MySecrets screen. Checking contacts only the
+  site of the matching entry, over HTTPS, and the answer is cached for a week.
 - "Approve PC login": requests are signed with a per-PC secret (HMAC-SHA256),
   carry a nonce and must be within 5 minutes; the phone only answers devices on
   the local network.

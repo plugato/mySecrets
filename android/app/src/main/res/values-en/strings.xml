@@ -3,6 +3,10 @@
     <string name="app_name">MySecrets</string>
     <string name="autofill_unlock">Unlock MySecrets</string>
     <string name="autofill_search">Search in MySecrets</string>
+    <string name="autofill_confirm_title">Fill the %1$s login?</string>
+    <string name="autofill_confirm_body">The app %1$s (%2$s) asked for this login, but the site does not confirm the app is theirs (Digital Asset Links). Only fill it if this is the official app.</string>
+    <string name="autofill_fill">Fill</string>
+    <string name="autofill_fill_remember">Fill and remember this app</string>
     <string name="google_drive_respondeu_http">Google Drive answered HTTP %1$s: %2$s</string>
     <string name="o_cofre_no_google_drive_mudou">The vault in Google Drive changed during sync.</string>
     <string name="conta_google_nao_conectada">Google account not connected</string>

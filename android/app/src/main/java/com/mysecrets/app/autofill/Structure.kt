@@ -139,8 +139,24 @@ object Structure {
         "com.cloudmosa.puffin", "mark.via.gp", "com.UCMobile.intl"
     )
 
-    /** 0 = não serve; maior = melhor. */
-    fun score(entry: JSONObject, form: ParsedForm): Int {
+    /** Pontuação de app nativo confirmado pelo site (Digital Asset Links). */
+    const val APP_VERIFIED = 60
+    /** App nativo só pelo nome do pacote: precisa de confirmação antes de preencher. */
+    const val APP_UNVERIFIED = 40
+
+    /** O pacote parece ser do site (domínio invertido): netflix.com ↔ com.netflix.mediaclient. */
+    fun packageLooksLike(host: String, pkg: String): Boolean {
+        val site = registrableDomain(host) ?: return false
+        val invertido = site.split('.').reversed().joinToString(".")
+        val p = pkg.lowercase()
+        return p == invertido || p.startsWith("$invertido.")
+    }
+
+    /**
+     * 0 = não serve; maior = melhor. [links] diz o que o site respondeu no
+     * assetlinks.json para este app (padrão: ainda não se sabe).
+     */
+    fun score(entry: JSONObject, form: ParsedForm, links: (String) -> AssetLinks.Status = { AssetLinks.Status.UNKNOWN }): Int {
         if (entry.has("deletedAt") && !entry.isNull("deletedAt")) return 0
         val type = entry.optString("type", "login")
         if (type != "login") return 0
@@ -156,10 +172,12 @@ object Structure {
         }
         // App nativo: o pacote começa pelo domínio invertido
         // (netflix.com ↔ com.netflix.mediaclient). "com.evil.netflix" não serve.
-        val site = registrableDomain(host) ?: return 0
-        val invertido = site.split('.').reversed().joinToString(".")
-        val pkg = form.packageName.lowercase()
-        if (pkg == invertido || pkg.startsWith("$invertido.")) return 40
-        return 0
+        // O nome do pacote não prova nada; o site confirma (ou nega) pelo assetlinks.json.
+        if (!packageLooksLike(host, form.packageName)) return 0
+        return when (links(host)) {
+            AssetLinks.Status.VERIFIED -> APP_VERIFIED
+            AssetLinks.Status.DENIED -> 0
+            AssetLinks.Status.UNKNOWN -> APP_UNVERIFIED
+        }
     }
 }

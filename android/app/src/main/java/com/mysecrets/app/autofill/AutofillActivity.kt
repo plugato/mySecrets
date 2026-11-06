@@ -54,7 +54,9 @@ import org.json.JSONObject
  * Telas do preenchimento automático:
  *  - UNLOCK: desbloqueia e devolve as sugestões da tela;
  *  - PICK:   escolher qualquer entrada do cofre (busca);
- *  - SAVE:   salvar/atualizar o login que o usuário acabou de digitar.
+ *  - SAVE:   salvar/atualizar o login que o usuário acabou de digitar;
+ *  - CONFIRM: app que só casa com o site pelo nome do pacote (o site não
+ *             confirma pelo assetlinks.json): o usuário decide antes de preencher.
  */
 class AutofillActivity : FragmentActivity() {
 
@@ -64,11 +66,12 @@ class AutofillActivity : FragmentActivity() {
         const val MODE_UNLOCK = "unlock"
         const val MODE_PICK = "pick"
         const val MODE_SAVE = "save"
+        const val MODE_CONFIRM = "confirm"
         @Volatile var pendingSave: PendingSave? = null
 
         private var requestCode = 1
 
-        fun intentSender(ctx: Context, mode: String, form: ParsedForm, fillRequestId: Int): IntentSender {
+        fun intentSender(ctx: Context, mode: String, form: ParsedForm, fillRequestId: Int, entryId: String? = null): IntentSender {
             val i = Intent(ctx, AutofillActivity::class.java)
                 .putExtra("mode", mode)
                 .putExtra("pkg", form.packageName)
@@ -76,6 +79,7 @@ class AutofillActivity : FragmentActivity() {
                 .putExtra("user", form.username)
                 .putExtra("pass", form.password)
                 .putExtra("otp", form.otp)
+                .putExtra("entry", entryId)
             return PendingIntent.getActivity(ctx, requestCode++, i,
                 PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_MUTABLE).intentSender
         }
@@ -106,6 +110,7 @@ class AutofillActivity : FragmentActivity() {
                     } else when (mode) {
                         MODE_UNLOCK -> androidx.compose.runtime.LaunchedEffect(Unit) { finishUnlock() }
                         MODE_SAVE -> SaveScreen()
+                        MODE_CONFIRM -> ConfirmScreen()
                         else -> PickScreen()
                     }
                 }
@@ -134,6 +139,36 @@ class AutofillActivity : FragmentActivity() {
         val ds = MySecretsAutofillService.dataset(this, form, e, entryTitle(e), e.optString("username"), null)
         setResult(RESULT_OK, Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, ds))
         finish()
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun ConfirmScreen() {
+        val e = intent.getStringExtra("entry")?.let { Vault.find(it) }
+        if (e == null) { androidx.compose.runtime.LaunchedEffect(Unit) { finish() }; return }
+        val scope = rememberCoroutineScope()
+        val site = Structure.hostOf(e.optString("url")) ?: entryTitle(e)
+        Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(str(R.string.autofill_confirm_title, site), style = MaterialTheme.typography.headlineSmall)
+            Text(str(R.string.autofill_confirm_body, appName(form.packageName), form.packageName))
+            if (e.optString("username").isNotBlank()) Text(str(R.string.usuario_2, e.optString("username")))
+            Button(onClick = { pick(e) }, modifier = Modifier.fillMaxWidth()) { Text(str(R.string.autofill_fill)) }
+            Button(onClick = {
+                scope.launch {
+                    rememberApp(e, form.packageName)
+                    pick(Vault.find(e.optString("id")) ?: e)
+                }
+            }, modifier = Modifier.fillMaxWidth()) { Text(str(R.string.autofill_fill_remember)) }
+            TextButton(onClick = { finish() }) { Text(str(R.string.cancelar)) }
+        }
+    }
+
+    /** Liga o app à entrada: nas próximas vezes preenche direto (como um login salvo pelo app). */
+    private suspend fun rememberApp(e: JSONObject, pkg: String) {
+        val c = JSONObject(e.toString())
+        val pkgs = c.optJSONArray("androidPackages") ?: JSONArray()
+        if ((0 until pkgs.length()).none { pkgs.optString(it) == pkg }) pkgs.put(pkg)
+        c.put("androidPackages", pkgs).put("updatedAt", Vault.now())
+        Vault.upsert(c)
     }
 
     @androidx.compose.runtime.Composable

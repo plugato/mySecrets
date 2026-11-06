@@ -3,6 +3,10 @@
     <string name="app_name">MySecrets</string>
     <string name="autofill_unlock">Desbloquear o MySecrets</string>
     <string name="autofill_search">Procurar no MySecrets</string>
+    <string name="autofill_confirm_title">Preencher o login de %1$s?</string>
+    <string name="autofill_confirm_body">O app %1$s (%2$s) pediu este login, mas o site não confirma que o app é dele (Digital Asset Links). Preencha só se for o app oficial.</string>
+    <string name="autofill_fill">Preencher</string>
+    <string name="autofill_fill_remember">Preencher e lembrar este app</string>
     <string name="google_drive_respondeu_http">Google Drive respondeu HTTP %1$s: %2$s</string>
     <string name="o_cofre_no_google_drive_mudou">O cofre no Google Drive mudou durante a sincronização.</string>
     <string name="conta_google_nao_conectada">Conta Google não conectada</string>

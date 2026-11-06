@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - MCP read activity log: the MCP window shows "Recent activity", i.e. which client (agent over stdio or HTTP, or the browser extension) listed, searched or read which entry, with the time. Only the entry ids are stored (`mcp-audit.jsonl`, mode 600, last 500 reads); passwords, codes and file contents are never logged. The extension's per-page `match_url` lookups are not logged. A button clears the log.
 - The MCP window's port field now uses the app's input style.
+- Android autofill checks Digital Asset Links before filling a native app that only matches by package name (`com.netflix.*` ↔ `netflix.com`): the site's `assetlinks.json` must list the package and its signing certificate (`get_login_creds` or `handle_all_urls`). Apps the site doesn't list get nothing; when the site has no file, a confirmation screen shows the app and package first and can remember the app for that entry. The cache is cleared by "Delete vault".
 
 ### Security
 - The desktop session file (`.session`, read by the MCP server and the extension) no longer contains the master password: it holds only the derived vault key(s), and the password stays in the app's memory. Someone who copies the profile folder while the vault is open can no longer recover the master password (which people often reuse elsewhere).
