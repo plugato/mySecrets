@@ -26,9 +26,9 @@ test('algoritmo confere com um IID publicado (IAsyncOperation<bool>)', () => {
 });
 
 test('HELLO_ASYNC_OP_IID é o IID de IAsyncOperation<UserConsentVerificationResult>', () => {
-  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'windows-hello.js'), 'utf8');
   const m = /const HELLO_ASYNC_OP_IID = '([0-9a-f-]{36})'/.exec(main);
-  assert.ok(m, 'constante não encontrada em src/main.js');
+  assert.ok(m, 'constante não encontrada em src/main/windows-hello.js');
   const esperado = winrtParametricIid(
     `pinterface(${IASYNC_OPERATION};enum(Windows.Security.Credentials.UI.UserConsentVerificationResult;i4))`
   );
