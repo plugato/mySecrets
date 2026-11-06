@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, ipcMain, dialog, safeStorage, clipboard, nativeImage, globalShortcut, powerMonitor, shell, Notification, session } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, safeStorage, clipboard, globalShortcut, shell, Notification, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -999,7 +999,7 @@ const agentQueue = createAgentWriteQueue({
   onShow: (job) => callAttention(job),
   onCount: (n) => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('agent-write-count', n);
-    updateTrayIndicator(n);
+    tray.updateTrayIndicator(n);
     if (n === 0) stopAttention();
   }
 });
@@ -2189,142 +2189,17 @@ async function importBackup() {
 const updater = require('./main/updater');
 updater.register({ getWindow: () => mainWindow });
 
-// ===== Bandeja do sistema (tray) e atalho global =====
+// ===== Bandeja, atalho global e bloqueio ao suspender: src/main/tray.js =====
 
-let tray = null;
-let trayBaseIcon = null;
+const tray = require('./main/tray');
+tray.register({
+  getWindow: () => mainWindow,
+  createWindow: () => createWindow(),
+  destroySession: () => destroySession(),
+  showAndFocusWindow: () => showAndFocusWindow(),
+  pendingWrites: () => agentQueue.pending()
+});
 
-// Ícone da bandeja com um ponto vermelho: há pedido de gravação esperando
-function trayBadgeIcon(base) {
-  const size = base.getSize();
-  const bmp = Buffer.from(base.toBitmap());
-  const r = Math.max(3, Math.round(size.width * 0.28));
-  const cx = size.width - r;
-  const cy = r - 1;
-  for (let y = 0; y < size.height; y++) {
-    for (let x = 0; x < size.width; x++) {
-      if ((x - cx) ** 2 + (y - cy) ** 2 > r * r) continue;
-      const i = (y * size.width + x) * 4; // BGRA
-      bmp[i] = 40; bmp[i + 1] = 40; bmp[i + 2] = 230; bmp[i + 3] = 255;
-    }
-  }
-  return nativeImage.createFromBitmap(bmp, { width: size.width, height: size.height });
-}
-
-function updateTrayIndicator(pending) {
-  if (!tray || !trayBaseIcon) return;
-  try {
-    tray.setImage(pending > 0 ? trayBadgeIcon(trayBaseIcon) : trayBaseIcon);
-  } catch (_) { /* sem bitmap: fica só o texto */ }
-  tray.setToolTip(pending > 0
-    ? `MySecrets — ${pending} pedido${pending > 1 ? 's' : ''} de gravação aguardando`
-    : 'MySecrets');
-  const itens = [];
-  if (pending > 0) {
-    itens.push({ label: `Revisar pedido de gravação (${pending})`, click: () => showAndFocusWindow() });
-    itens.push({ type: 'separator' });
-  }
-  itens.push(
-    { label: 'Mostrar/Ocultar', click: () => toggleMainWindow() },
-    { label: 'Bloquear', click: () => sendLockToRenderer() },
-    { type: 'separator' },
-    { label: 'Sair', click: () => app.quit() }
-  );
-  tray.setContextMenu(Menu.buildFromTemplate(itens));
-}
-
-function sendLockToRenderer() {
-  destroySession();
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('system-lock');
-  }
-}
-
-function toggleMainWindow() {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    createWindow();
-    return;
-  }
-  if (mainWindow.isVisible() && mainWindow.isFocused()) {
-    mainWindow.hide();
-  } else {
-    mainWindow.show();
-    mainWindow.focus();
-  }
-}
-
-function createTray() {
-  try {
-    const iconPath = path.join(__dirname, '../assets/icon.png');
-    if (!fs.existsSync(iconPath)) return;
-
-    let trayIcon = nativeImage.createFromPath(iconPath);
-    if (trayIcon.isEmpty()) return;
-    trayIcon = trayIcon.resize({ width: 16, height: 16 });
-
-    tray = new Tray(trayIcon);
-    trayBaseIcon = trayIcon;
-    updateTrayIndicator(agentQueue.pending());
-    tray.on('click', () => (agentQueue.pending() > 0 ? showAndFocusWindow() : toggleMainWindow()));
-  } catch (error) {
-    console.warn('⚠️ Não foi possível criar o ícone na bandeja:', error.message);
-  }
-}
-
-function setupPowerMonitor() {
-  // Bloqueia o cofre quando o sistema suspende ou a tela é travada:
-  // a sessão em disco é destruída e o renderer volta para a tela de login
-  ['suspend', 'lock-screen'].forEach((evt) => {
-    try {
-      powerMonitor.on(evt, () => {
-        console.log(`Sistema: ${evt} — bloqueando cofre`);
-        sendLockToRenderer();
-      });
-    } catch (_) { /* evento não suportado na plataforma */ }
-  });
-}
-
-// ===== Atalho global (Ctrl+Shift+M) — opcional, desligado por padrão =====
-// O grab de teclado feito pelo registro pode travar o input do sistema por
-// alguns segundos (observado no WSLg/X11). Por isso o atalho:
-//   1. só é registrado se o usuário ativar nas configurações (via IPC);
-//   2. é registrado com atraso, para o grab não coincidir com a inicialização.
-
-const GLOBAL_SHORTCUT = 'CommandOrControl+Shift+M';
-const GLOBAL_SHORTCUT_DELAY_MS = 5000;
-let globalShortcutTimer = null;
-
-function applyGlobalShortcut(enabled) {
-  if (globalShortcutTimer) {
-    clearTimeout(globalShortcutTimer);
-    globalShortcutTimer = null;
-  }
-
-  if (!enabled) {
-    try {
-      globalShortcut.unregister(GLOBAL_SHORTCUT);
-    } catch (_) { /* não estava registrado */ }
-    return { enabled: false };
-  }
-
-  if (globalShortcut.isRegistered(GLOBAL_SHORTCUT)) {
-    return { enabled: true };
-  }
-
-  globalShortcutTimer = setTimeout(() => {
-    globalShortcutTimer = null;
-    try {
-      globalShortcut.register(GLOBAL_SHORTCUT, () => toggleMainWindow());
-      console.log(`Atalho global ${GLOBAL_SHORTCUT} registrado (após atraso de ${GLOBAL_SHORTCUT_DELAY_MS / 1000}s)`);
-    } catch (error) {
-      console.warn('⚠️ Não foi possível registrar o atalho global:', error.message);
-    }
-  }, GLOBAL_SHORTCUT_DELAY_MS);
-
-  return { enabled: true, delayed: true };
-}
-
-ipcMain.handle('set-global-shortcut', async (event, enabled) => applyGlobalShortcut(!!enabled));
 
 // Eventos da aplicação
 // Uma instância só: duas brigariam pelo arquivo do cofre e pela porta do MCP.
@@ -2346,8 +2221,8 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((wc, permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   createWindow();
-  createTray();
-  setupPowerMonitor();
+  tray.createTray();
+  tray.setupPowerMonitor();
   updater.setupAutoUpdater();
 });
 
