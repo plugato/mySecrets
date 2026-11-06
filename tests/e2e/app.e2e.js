@@ -186,3 +186,52 @@ test('TOTP de 60 s pelo app real usa o período certo', async () => {
   assert.strictEqual(r.period, 60);
   assert.ok(esperados.includes(r.code), `código ${r.code} não é o de 60 s (${esperados})`);
 });
+
+test('agente pede para gravar pelo MCP: app mostra a confirmação e grava ao aprovar; recusa não grava', async () => {
+  const port = 30000 + Math.floor(Math.random() * 20000);
+  await app.evaluate(`(async () => {
+    await window.electronAPI.saveData([], '${PW}', {autoBackup:false});
+    const r = await window.electronAPI.loadData('${PW}');
+    currentMasterPassword = '${PW}'; currentData = r.data; filteredData = r.data;
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'flex';
+  })()`);
+  const st = await api(`window.electronAPI.mcpStart({ port: ${port} })`);
+  try {
+    assert.strictEqual(st.success, true, st.error);
+    const pedir = (args) => fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${st.status.info.token}` },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'store_secret', arguments: args } })
+    }).then((r) => r.json()).then((b) => ({ isError: !!b.result.isError, data: JSON.parse(b.result.content[0].text) }));
+    const esperarModal = () => app.evaluate(`(async () => {
+      for (let i = 0; i < 50; i++) {
+        if (getComputedStyle(document.getElementById('agent-write-modal')).display !== 'none') return document.getElementById('agent-write-body').textContent;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return null;
+    })()`);
+
+    // Aprovado: grava
+    const p1 = pedir({ title: 'Chave do agente', type: 'token', token: 'tok-123', project: 'e2e' });
+    const texto = await esperarModal();
+    assert.ok(texto && texto.includes('Chave do agente'), 'modal mostra o pedido');
+    await app.evaluate(`document.getElementById('agent-write-approve').click()`);
+    const r1 = await p1;
+    assert.strictEqual(r1.isError, false, JSON.stringify(r1.data));
+    assert.strictEqual(r1.data.saved, true);
+    assert.ok(readDisk().some((e) => e.title === 'Chave do agente' && e.token === 'tok-123'));
+
+    // Recusado: não grava
+    const p2 = pedir({ title: 'Recusada', type: 'note', notes: 'x' });
+    assert.ok(await esperarModal());
+    await app.evaluate(`document.getElementById('agent-write-decline').click()`);
+    const r2 = await p2;
+    assert.strictEqual(r2.isError, true);
+    assert.strictEqual(r2.data.declined, true);
+    assert.ok(!readDisk().some((e) => e.title === 'Recusada'));
+  } finally {
+    await api('window.electronAPI.mcpStop()');
+    await app.evaluate('lockApp()');
+  }
+});
