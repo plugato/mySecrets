@@ -71,6 +71,73 @@ if (window.electronAPI && window.electronAPI.onExtensionSaveLogin) {
     });
 }
 
+/** Passkey criada pela extensão (o app já confirmou com o usuário e gerou a chave). */
+async function savePasskeyFromExtension(entry) {
+    if (!currentMasterPassword) return { success: false, error: tr('Cofre bloqueado') };
+    if (!entry || entry.type !== 'passkey' || !entry.passkey || !entry.passkey.privateKey) {
+        return { success: false, error: tr('Passkey inválida') };
+    }
+    currentData.push(entry);
+    const result = await persistData();
+    if (!result.success) {
+        currentData = currentData.filter(e => e !== entry);
+        return { success: false, error: result.error || tr('Erro ao salvar o cofre') };
+    }
+    updateEntryCounts();
+    renderTagsSidebar();
+    handleSearch();
+    return { success: true, id: entry.id };
+}
+
+if (window.electronAPI && window.electronAPI.onExtensionSavePasskey) {
+    window.electronAPI.onExtensionSavePasskey(async (req) => {
+        let result;
+        try {
+            result = await savePasskeyFromExtension(req.entry);
+        } catch (error) {
+            result = { success: false, error: error.message };
+        }
+        window.electronAPI.extensionSaveResult(req.reqId, result);
+    });
+}
+
+/**
+ * A extensão pediu para criar uma passkey: modal em destaque com o site, a
+ * conta e a página que pediu. Um pedido por vez; o foco começa em "Recusar".
+ */
+let passkeyAsk = null;
+
+function finishPasskeyAsk(approved) {
+    if (!passkeyAsk) return;
+    const { reqId } = passkeyAsk;
+    passkeyAsk = null;
+    document.getElementById('passkey-modal').style.display = 'none';
+    window.electronAPI.extensionSaveResult(reqId, { approved });
+}
+
+if (window.electronAPI && window.electronAPI.onExtensionConfirmPasskey) {
+    window.electronAPI.onExtensionConfirmPasskey((req) => {
+        if (passkeyAsk || !currentMasterPassword) {
+            window.electronAPI.extensionSaveResult(req.reqId, { approved: false });
+            return;
+        }
+        passkeyAsk = req;
+        document.getElementById('passkey-site').textContent = req.rpId;
+        document.getElementById('passkey-account').textContent = req.account;
+        document.getElementById('passkey-origin').textContent = req.origin;
+        document.getElementById('passkey-modal').style.display = 'flex';
+        setTimeout(() => document.getElementById('passkey-decline').focus(), 0);
+    });
+    window.electronAPI.onExtensionConfirmPasskeyCancel((reqId) => {
+        if (passkeyAsk && passkeyAsk.reqId === reqId) {
+            passkeyAsk = null;
+            document.getElementById('passkey-modal').style.display = 'none';
+        }
+    });
+    document.getElementById('passkey-approve').addEventListener('click', () => finishPasskeyAsk(true));
+    document.getElementById('passkey-decline').addEventListener('click', () => finishPasskeyAsk(false));
+}
+
 // ===== Gravação pedida por agente (servidor MCP) =====
 
 /**

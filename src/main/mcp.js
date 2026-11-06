@@ -4,6 +4,7 @@
  * - inicia/para o processo do servidor (mcp-server/http-server.js);
  * - logins que a extensão pede para salvar;
  * - pareamento automático da extensão (pergunta na primeira vez);
+ * - passkeys criadas pela extensão (confirmação no app, chave gerada aqui);
  * - gravações pedidas por agentes (store_secret/store_secret_file), com
  *   confirmação na janela, fila e aviso na bandeja.
  *
@@ -16,6 +17,7 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { app, ipcMain, dialog, Notification } = require('electron');
 const { createAgentWriteQueue } = require('../lib/agent-queue');
+const passkeyLib = require('../lib/passkey');
 const attachmentFiles = require('../../mcp-server/files');
 const tray = require('./tray');
 const { t } = require('./i18n');
@@ -220,6 +222,12 @@ function handleMcpMessage(child, msg) {
     });
     return;
   }
+  if (msg && msg.type === 'passkey_create') {
+    createPasskey(msg.payload).then((result) => {
+      try { child.send({ type: 'passkey_create_result', reqId: msg.reqId, result }); } catch (_) { /* filho encerrado */ }
+    });
+    return;
+  }
   if (!msg || msg.type !== 'save_login') return;
   const responder = (result) => {
     try { child.send({ type: 'save_login_result', reqId: msg.reqId, result }); } catch (_) { /* filho encerrado */ }
@@ -233,6 +241,70 @@ function handleMcpMessage(child, msg) {
     if (extensionSaves.delete(msg.reqId)) responder({ success: false, error: t('O app não respondeu') });
   }, EXTENSION_SAVE_TIMEOUT);
   win().webContents.send('extension-save-login', { reqId: msg.reqId, ...msg.payload });
+}
+
+// ===== Passkey criada pela extensão =====
+//
+// O servidor local já conferiu o rpId contra a origem e as passkeys excluídas.
+// Aqui: o usuário confirma num modal do app, a chave é gerada neste processo
+// e o renderer grava a entrada como numa edição normal. Para a extensão volta
+// só a resposta pública (sem a chave privada).
+
+const passkeyPrompts = new Set();
+
+async function createPasskey(req) {
+  if (!win() || win().isDestroyed()) return { success: false, error: t('App sem janela aberta') };
+  const chave = `${req.rpId}\n${req.user && req.user.id}`;
+  if (passkeyPrompts.has(chave)) return { success: false, error: t('Já há um pedido igual aberto no app') };
+  passkeyPrompts.add(chave);
+  try {
+    showAndFocusWindow();
+    const conta = oneLine(req.user.name || req.user.displayName || t('(sem nome)'));
+    const ok = await askRendererPasskey('extension-confirm-passkey',
+      { rpId: oneLine(req.rpId), account: conta, origin: oneLine(req.origin) }, PASSKEY_CONFIRM_TIMEOUT);
+    if (!ok || ok.approved !== true) return { success: false, error: t('Recusado no app') };
+
+    const { passkey, response: publico } = passkeyLib.create({ ...req, verified: true, createdBy: 'browser' });
+    const now = new Date().toISOString();
+    const entry = {
+      id: crypto.randomUUID(),
+      type: 'passkey',
+      title: req.rpName && req.rpName !== req.rpId ? `${req.rpName} (${req.rpId})` : req.rpId,
+      url: `https://${req.rpId}`,
+      username: passkey.userName || passkey.userDisplayName,
+      notes: '',
+      tags: ['passkey'],
+      favorite: false,
+      createdAt: now,
+      updatedAt: now,
+      passkey
+    };
+    const saved = await askRendererPasskey('extension-save-passkey', { entry }, EXTENSION_SAVE_TIMEOUT);
+    if (!saved || !saved.success) return { success: false, error: (saved && saved.error) || t('Erro ao salvar o cofre') };
+    return { success: true, response: publico };
+  } catch (e) {
+    return { success: false, error: e.message };
+  } finally {
+    passkeyPrompts.delete(chave);
+  }
+}
+
+// Menor que os 120 s que o servidor local espera pela resposta do app
+const PASSKEY_CONFIRM_TIMEOUT = 110000;
+
+function askRendererPasskey(channel, payload, timeout) {
+  return new Promise((resolve) => {
+    if (!win() || win().isDestroyed()) return resolve({ success: false, error: t('App sem janela aberta') });
+    const reqId = crypto.randomUUID();
+    extensionSaves.set(reqId, resolve);
+    setTimeout(() => {
+      if (extensionSaves.delete(reqId)) {
+        if (channel === 'extension-confirm-passkey') win().webContents.send('extension-confirm-passkey-cancel', reqId);
+        resolve({ success: false, error: t('O app não respondeu') });
+      }
+    }, timeout);
+    win().webContents.send(channel, { reqId, ...payload });
+  });
 }
 
 // ===== Pareamento automático da extensão =====

@@ -84,7 +84,8 @@ function copyToClipboard(text, label = tr('Copiado')) {
 
 function editEntry(entryId) {
     const entry = currentData.find(e => e.id === entryId);
-    if (entry) {
+    // Passkey não tem formulário: a chave não se edita
+    if (entry && entry.type !== 'passkey') {
         openEntryModal(entry);
     }
 }

@@ -70,6 +70,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMcpStopped: (callback) => ipcRenderer.on('mcp-stopped', (event, data) => callback(data)),
   // Extensão pedindo para salvar um login (via servidor local)
   onExtensionSaveLogin: (callback) => ipcRenderer.on('extension-save-login', (event, data) => callback(data)),
+  onExtensionSavePasskey: (callback) => ipcRenderer.on('extension-save-passkey', (event, data) => callback(data)),
+  onExtensionConfirmPasskey: (callback) => ipcRenderer.on('extension-confirm-passkey', (event, data) => callback(data)),
+  onExtensionConfirmPasskeyCancel: (callback) => ipcRenderer.on('extension-confirm-passkey-cancel', (event, reqId) => callback(reqId)),
   extensionSaveResult: (reqId, result) => ipcRenderer.invoke('extension-save-result', reqId, result),
   // Agente (MCP) pedindo para gravar: resumo para o diálogo e, aprovado, gravação
   onAgentWrite: (callback) => ipcRenderer.on('agent-write', (event, data) => callback(data)),

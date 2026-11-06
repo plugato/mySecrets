@@ -248,6 +248,86 @@ test('agente pede para gravar pelo MCP: app mostra a confirmação e grava ao ap
   }
 });
 
+test('passkey pela extensão: o app confirma, gera a chave e o site aceita registro e login', async () => {
+  const sw = require('@simplewebauthn/server');
+  const crypto = require('node:crypto');
+  const port = 30000 + Math.floor(Math.random() * 20000);
+  const ORIGIN = 'https://login.exemplo.com.br';
+  const RP = 'exemplo.com.br';
+  await app.evaluate(`(async () => {
+    await window.electronAPI.saveData([], '${PW}', {autoBackup:false});
+    const r = await window.electronAPI.loadData('${PW}');
+    currentMasterPassword = '${PW}'; currentData = r.data; filteredData = r.data;
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'flex';
+  })()`);
+  const st = await api(`window.electronAPI.mcpStart({ port: ${port} })`);
+  try {
+    assert.strictEqual(st.success, true, st.error);
+    const chamar = (method, params) => fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${st.status.info.token}`, Origin: 'chrome-extension://e2eabcdefghijklm' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+    }).then((r) => r.json());
+    const esperarModal = () => app.evaluate(`(async () => {
+      for (let i = 0; i < 50; i++) {
+        const m = document.getElementById('passkey-modal');
+        if (getComputedStyle(m).display !== 'none') return m.querySelector('.agent-write-body').textContent.replace(/\\s+/g, ' ');
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return null;
+    })()`);
+    const user = { id: Buffer.from('usuario-e2e').toString('base64url'), name: 'eu@exemplo.com.br', displayName: 'Eu' };
+
+    // Criar: o modal mostra site, conta e página; aprovado, o site aceita
+    const ch = crypto.randomBytes(32).toString('base64url');
+    const criar = chamar('mysecrets/passkey_create', { origin: ORIGIN, rpId: RP, rpName: 'Exemplo', challenge: ch, user });
+    const texto = await esperarModal();
+    assert.ok(texto && texto.includes(RP) && texto.includes('eu@exemplo.com.br') && texto.includes(ORIGIN), texto);
+    await app.evaluate(`document.getElementById('passkey-approve').click()`);
+    const criada = await criar;
+    assert.ok(criada.result, JSON.stringify(criada));
+    const reg = await sw.verifyRegistrationResponse({ response: criada.result.credential, expectedChallenge: ch, expectedOrigin: ORIGIN, expectedRPID: RP, requireUserVerification: true });
+    assert.strictEqual(reg.verified, true);
+    const noDisco = readDisk().filter((e) => e.type === 'passkey');
+    assert.strictEqual(noDisco.length, 1);
+    assert.strictEqual(noDisco[0].passkey.credentialId, reg.registrationInfo.credential.id);
+    assert.ok(noDisco[0].passkey.privateKey && !JSON.stringify(criada).includes(noDisco[0].passkey.privateKey), 'chave só no cofre');
+
+    // Entrar: lista e assina; o site aceita
+    const lista = await chamar('mysecrets/passkey_list', { origin: ORIGIN, rpId: RP });
+    assert.deepStrictEqual(lista.result.passkeys.map((p) => p.userName), ['eu@exemplo.com.br']);
+    const ch2 = crypto.randomBytes(32).toString('base64url');
+    const login = await chamar('mysecrets/passkey_get', { origin: ORIGIN, rpId: RP, challenge: ch2, credentialId: lista.result.passkeys[0].credentialId });
+    const auth = await sw.verifyAuthenticationResponse({ response: login.result.credential, expectedChallenge: ch2, expectedOrigin: ORIGIN, expectedRPID: RP, credential: reg.registrationInfo.credential, requireUserVerification: true });
+    assert.strictEqual(auth.verified, true);
+
+    // Na interface: filtro conta 1; detalhes sem a chave e sem botão de editar
+    const ui = JSON.parse(await app.evaluate(`(async () => {
+      const e = currentData.find((x) => x.type === 'passkey');
+      await renderEntryDetails(e);
+      const d = document.getElementById('entry-details');
+      return JSON.stringify({ conta: document.getElementById('count-passkey').textContent, texto: d.textContent,
+        editar: !!d.querySelector('[data-action="edit"]'), chave: d.innerHTML.includes(e.passkey.privateKey) });
+    })()`));
+    assert.strictEqual(ui.conta, '1');
+    assert.ok(ui.texto.includes(RP) && ui.texto.includes('eu@exemplo.com.br'));
+    assert.strictEqual(ui.editar, false);
+    assert.strictEqual(ui.chave, false);
+
+    // Recusar: nada é gravado e a página recebe NotAllowedError
+    const recusar = chamar('mysecrets/passkey_create', { origin: ORIGIN, rpId: RP, challenge: crypto.randomBytes(32).toString('base64url'), user: { ...user, id: 'b3V0cm8' } });
+    assert.ok(await esperarModal());
+    await app.evaluate(`document.getElementById('passkey-decline').click()`);
+    const r = await recusar;
+    assert.strictEqual(r.error && r.error.data.name, 'NotAllowedError');
+    assert.strictEqual(readDisk().filter((e) => e.type === 'passkey').length, 1);
+  } finally {
+    await api('window.electronAPI.mcpStop()');
+    await app.evaluate('lockApp()');
+  }
+});
+
 test('pela interface: criar o cofre, adicionar uma entrada, bloquear e desbloquear', async () => {
   const ui = await launchApp();
   try {

@@ -293,6 +293,8 @@ function lockApp() {
 
     // Pedido de agente aberto: bloqueou, então não grava
     agentConfirm.cancelAll(tr('O cofre foi bloqueado antes da confirmação. Nada foi gravado.'));
+    // Passkey pedida pela extensão: bloqueou, então recusa
+    if (typeof finishPasskeyAsk === 'function') finishPasskeyAsk(false);
 
     // Fechar todos os modais primeiro
     closeModals();

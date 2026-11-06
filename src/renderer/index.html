@@ -173,6 +173,11 @@
                         <span>Notas</span>
                         <span class="count" id="count-note">0</span>
                     </button>
+                    <button class="filter-btn" data-type="passkey">
+                        <span class="material-symbols-outlined">passkey</span>
+                        <span>Passkeys</span>
+                        <span class="count" id="count-passkey">0</span>
+                    </button>
                     <div class="filter-divider"></div>
                     <button class="filter-btn" data-type="health">
                         <span class="material-symbols-outlined">monitor_heart</span>
@@ -808,6 +813,38 @@
     </div>
 
     <!-- Confirmação de gravação pedida por agente (MCP). Fica acima de tudo. -->
+    <div id="passkey-modal" class="modal agent-write-modal" role="alertdialog" aria-modal="true" aria-labelledby="passkey-heading">
+        <div class="modal-content agent-write-content">
+            <div class="agent-write-top">
+                <span class="material-symbols-outlined agent-write-icon">passkey</span>
+                <div>
+                    <div class="agent-write-kicker">Pedido da extensão do navegador</div>
+                    <h2 id="passkey-heading">Salvar uma passkey no MySecrets?</h2>
+                </div>
+            </div>
+            <div class="agent-write-body">
+                <dl>
+                    <dt>Site</dt><dd><strong id="passkey-site"></strong></dd>
+                    <dt>Conta</dt><dd id="passkey-account"></dd>
+                    <dt>Pedido por</dt><dd id="passkey-origin"></dd>
+                </dl>
+            </div>
+            <p class="agent-write-warning">
+                A passkey fica no cofre e sincroniza com os seus aparelhos. Recuse se você não pediu para criar uma passkey agora.
+            </p>
+            <div class="agent-write-footer">
+                <span></span>
+                <div class="agent-write-actions">
+                    <button id="passkey-decline" class="btn btn-secondary">Recusar</button>
+                    <button id="passkey-approve" class="btn btn-primary">
+                        <span class="material-symbols-outlined">passkey</span>
+                        Salvar passkey
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="agent-write-modal" class="modal agent-write-modal" role="alertdialog" aria-modal="true" aria-labelledby="agent-write-heading">
         <div class="modal-content agent-write-content">
             <div class="agent-write-top">

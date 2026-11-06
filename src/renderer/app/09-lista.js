@@ -102,6 +102,7 @@ function updateEntryCounts() {
         mfa: active.filter(e => e.type === 'mfa').length,
         token: active.filter(e => e.type === 'token').length,
         note: active.filter(e => e.type === 'note').length,
+        passkey: active.filter(e => e.type === 'passkey').length,
         trash: trashedData().length,
         health: computeHealthIssues().total
     };

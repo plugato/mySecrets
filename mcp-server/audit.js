@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 
 const FILE = 'mcp-audit.jsonl';
-const AUDITADAS = new Set(['list_secrets', 'search_secrets', 'get_credentials', 'get_otp', 'get_secret_file']);
+const AUDITADAS = new Set(['list_secrets', 'search_secrets', 'get_credentials', 'get_otp', 'get_secret_file', 'passkey_get']);
 const MAX_LINHAS = 500;
 const MAX_BYTES = 200 * 1024;
 

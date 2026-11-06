@@ -5,14 +5,16 @@ const TYPE_ICONS = {
     login: 'account_circle',
     mfa: 'security',
     token: 'key',
-    note: 'note'
+    note: 'note',
+    passkey: 'passkey'
 };
 
 const TYPE_LABELS = {
     login: tr('Login'),
     mfa: tr('MFA'),
     token: tr('Token'),
-    note: tr('Nota')
+    note: tr('Nota'),
+    passkey: tr('Passkey')
 };
 
 function entrySubtitle(entry) {
@@ -81,9 +83,9 @@ function createGridCard(entry) {
                 ${escapeHtml(tr("Ver Detalhes"))}
             </button>
             ${quickCopyHTML}
-            <button class="grid-card-btn-secondary" data-action="edit" title="${escapeHtml(tr("Editar"))}">
+            ${entry.type === 'passkey' ? '' : `<button class="grid-card-btn-secondary" data-action="edit" title="${escapeHtml(tr("Editar"))}">
                 <span class="material-symbols-outlined">edit</span>
-            </button>
+            </button>`}
         </div>
     `;
 
@@ -172,6 +174,12 @@ function createEntryElement(entry) {
     `;
 
     div.addEventListener('click', () => selectEntry(entry));
+    // Teclado: a lista é navegável com Tab e abre com Enter/Espaço
+    div.tabIndex = 0;
+    div.setAttribute('role', 'button');
+    div.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectEntry(entry); }
+    });
 
     return div;
 }
@@ -345,6 +353,41 @@ async function renderEntryDetails(entry) {
                 `;
             }
         }
+    } else if (entry.type === 'passkey' && entry.passkey) {
+        // A chave privada nunca aparece nem pode ser copiada
+        const p = entry.passkey;
+        const origem = { browser: tr('Navegador (extensão)'), android: tr('Android') }[p.createdBy] || p.createdBy || '';
+        detailsHTML += `
+            <div class="detail-row">
+                <span class="detail-label">${escapeHtml(tr("Site:"))}</span>
+                <div class="detail-value"><span>${escapeHtml(p.rpId)}</span></div>
+            </div>`;
+        if (p.userName) {
+            detailsHTML += `
+            <div class="detail-row">
+                <span class="detail-label">${escapeHtml(tr("Usuário:"))}</span>
+                <div class="detail-value">
+                    <span>${escapeHtml(p.userName)}</span>
+                    ${copyBtnHTML(p.userName)}
+                </div>
+            </div>`;
+        }
+        if (p.userDisplayName && p.userDisplayName !== p.userName) {
+            detailsHTML += `
+            <div class="detail-row">
+                <span class="detail-label">${escapeHtml(tr("Nome:"))}</span>
+                <div class="detail-value"><span>${escapeHtml(p.userDisplayName)}</span></div>
+            </div>`;
+        }
+        detailsHTML += `
+            <div class="detail-row">
+                <span class="detail-label">${escapeHtml(tr("Criada em:"))}</span>
+                <div class="detail-value"><span>${escapeHtml(entry.createdAt ? new Date(entry.createdAt).toLocaleString(I18N.locale) : '')}${origem ? ' · ' + escapeHtml(origem) : ''}</span></div>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label"></span>
+                <div class="detail-value"><small>${escapeHtml(tr("A chave da passkey fica só no cofre: não pode ser vista, copiada nem editada. Para trocar, exclua e crie outra no site."))}</small></div>
+            </div>`;
     } else if (entry.type === 'token') {
         if (entry.token) {
             copyValues.push(entry.token);
@@ -517,7 +560,7 @@ async function renderEntryDetails(entry) {
         </div>
     ` : `
         <div class="entry-actions">
-            <button class="btn btn-primary" data-action="edit">${escapeHtml(tr("Editar"))}</button>
+            ${entry.type === 'passkey' ? '' : `<button class="btn btn-primary" data-action="edit">${escapeHtml(tr("Editar"))}</button>`}
             <button class="btn btn-danger" data-action="delete">${escapeHtml(tr("Excluir"))}</button>
         </div>
     `;

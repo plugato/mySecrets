@@ -27,6 +27,7 @@ const http = require('http');
 const crypto = require('crypto');
 const { dispatch, matchUrl } = require('./core');
 const vault = require('./vault');
+const passkeys = require('./passkeys');
 
 const PORT = parseInt(process.env.MYSECRETS_MCP_PORT || '8765', 10);
 const HOST = process.env.MYSECRETS_MCP_HOST || '127.0.0.1';
@@ -99,7 +100,7 @@ const PAIR_TIMEOUT = 60000; // o usuário pode precisar responder a pergunta no 
 // ele estourar, o pedido é cancelado no app (não grava depois). O transporte
 // stdio (index.js) espera um pouco mais que isto.
 const AGENT_WRITE_TIMEOUT = parseInt(process.env.MYSECRETS_AGENT_WRITE_TIMEOUT || '260000', 10); // env: só para testes
-const RESULT_TYPES = new Set(['save_login_result', 'pair_result', 'agent_write_result']);
+const RESULT_TYPES = new Set(['save_login_result', 'pair_result', 'agent_write_result', 'passkey_create_result']);
 const pendingAsks = new Map();
 
 if (process.send) {
@@ -319,6 +320,15 @@ const server = http.createServer((req, res) => {
 
     if (parsed && parsed.method === 'mysecrets/save_login') {
       return handleSaveLogin(parsed, reply);
+    }
+
+    if (parsed && passkeys.METHODS.has(parsed.method)) {
+      // Só a extensão (Origin de extensão já aprovada em originOk); agentes, não
+      if (!/^(chrome|moz)-extension:\/\//.test(req.headers.origin || '')) {
+        return reply(200, { jsonrpc: '2.0', id: parsed.id, error: { code: -32601, message: 'Method not found' } });
+      }
+      const out = await passkeys.handle(parsed.method, parsed.params, askApp);
+      return reply(200, { jsonrpc: '2.0', id: parsed.id, ...out });
     }
 
     const response = await dispatch(parsed, toolContext(req, res));

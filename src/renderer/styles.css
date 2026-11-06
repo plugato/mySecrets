@@ -3540,3 +3540,11 @@ kbd {
 .mcp-audit-list li:last-child { border-bottom: none; }
 .mcp-audit-list time { color: var(--text-secondary); white-space: nowrap; }
 .mcp-audit-empty { color: var(--text-secondary); }
+
+/* Passkeys */
+.entry-item-icon.badge-passkey,
+.grid-card-icon.badge-passkey,
+.detail-type-icon.badge-passkey {
+    background: var(--primary-light);
+    color: var(--primary-text);
+}
