@@ -3,6 +3,7 @@
     <string name="app_name">MySecrets</string>
     <string name="autofill_unlock">Desbloquear o MySecrets</string>
     <string name="autofill_search">Procurar no MySecrets</string>
+    <string name="passkey_chave_no_cofre">A chave da passkey fica só no cofre: não pode ser vista, copiada nem editada. Usar passkeys no Android chega numa próxima versão.</string>
     <string name="autofill_confirm_title">Preencher o login de %1$s?</string>
     <string name="autofill_confirm_body">O app %1$s (%2$s) pediu este login, mas o site não confirma que o app é dele (Digital Asset Links). Preencha só se for o app oficial.</string>
     <string name="autofill_fill">Preencher</string>

@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Password
@@ -76,11 +77,12 @@ fun typeIcon(type: String): ImageVector = when (type) {
     "mfa" -> Icons.Default.Password
     "token" -> Icons.Default.Token
     "note" -> Icons.AutoMirrored.Filled.StickyNote2
+    "passkey" -> Icons.Default.Fingerprint
     else -> Icons.Default.Key
 }
 
 // Calculado a cada uso: acompanha o idioma do app
-private val FILTERS get() = listOf("all" to str(R.string.filtro_todos), "fav" to str(R.string.filtro_favoritos), "login" to str(R.string.filtro_logins), "mfa" to "MFA", "token" to str(R.string.filtro_tokens), "note" to str(R.string.notas), "trash" to str(R.string.filtro_lixeira))
+private val FILTERS get() = listOf("all" to str(R.string.filtro_todos), "fav" to str(R.string.filtro_favoritos), "login" to str(R.string.filtro_logins), "mfa" to "MFA", "token" to str(R.string.filtro_tokens), "note" to str(R.string.notas), "passkey" to "Passkeys", "trash" to str(R.string.filtro_lixeira))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

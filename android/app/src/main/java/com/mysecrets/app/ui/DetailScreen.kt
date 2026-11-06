@@ -152,7 +152,8 @@ fun DetailScreen(id: String, onBack: () -> Unit, onEdit: () -> Unit) {
                             Vault.upsert(c)
                         }
                     }) { Icon(if (e.optBoolean("favorite")) Icons.Default.Star else Icons.Default.StarBorder, str(R.string.favorito)) }
-                    IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, str(R.string.editar)) }
+                    // Passkey não se edita: a chave fica só no cofre
+                    if (type != "passkey") IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, str(R.string.editar)) }
                     IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, str(R.string.mover_para_a_lixeira)) }
                 } else {
                     IconButton(onClick = { scope.launch { Vault.restore(id) } }) { Icon(Icons.Default.RestoreFromTrash, str(R.string.restaurar)) }
@@ -171,6 +172,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onEdit: () -> Unit) {
                 }) { Icon(Icons.AutoMirrored.Filled.OpenInNew, str(R.string.abrir)) }
             })
             Field(str(R.string.usuario), e.optString("username"))
+            if (type == "passkey") Text(str(R.string.passkey_chave_no_cofre), style = MaterialTheme.typography.bodySmall)
             Field(str(R.string.senha), e.optString("password"), secret = true)
             val linked = e.optString("linkedMfaId").takeIf { it.isNotEmpty() }?.let { Vault.find(it) }
             if (type == "login" && linked != null && linked.optString("mfaSecret").isNotBlank()) OtpCard(str(R.string.mfa, entryTitle(linked)), linked)

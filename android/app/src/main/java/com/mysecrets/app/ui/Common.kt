@@ -235,5 +235,6 @@ fun typeLabel(type: String) = when (type) {
     "mfa" -> "MFA"
     "token" -> "Token"
     "note" -> str(R.string.nota_segura)
+    "passkey" -> "Passkey"
     else -> type
 }

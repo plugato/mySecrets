@@ -3,6 +3,7 @@
     <string name="app_name">MySecrets</string>
     <string name="autofill_unlock">Unlock MySecrets</string>
     <string name="autofill_search">Search in MySecrets</string>
+    <string name="passkey_chave_no_cofre">The passkey\'s key stays in the vault: it can\'t be viewed, copied or edited. Using passkeys on Android is coming in a future version.</string>
     <string name="autofill_confirm_title">Fill the %1$s login?</string>
     <string name="autofill_confirm_body">The app %1$s (%2$s) asked for this login, but the site does not confirm the app is theirs (Digital Asset Links). Only fill it if this is the official app.</string>
     <string name="autofill_fill">Fill</string>
