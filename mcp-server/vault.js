@@ -16,6 +16,7 @@ const path = require('path');
 const os = require('os');
 const vaultCrypto = require('../src/lib/vault-crypto');
 const sessionCrypto = require('../src/lib/session-crypto');
+const otp = require('../src/lib/otp');
 
 const APP_NAME = 'mysecrets';
 const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutos (igual ao main.js)
@@ -177,35 +178,15 @@ function loadEntries() {
  * Retorna { code, remaining, period } ou lança erro.
  */
 function generateOtp(mfaEntry) {
-  const { authenticator, hotp } = require('otplib');
-  const digits = mfaEntry.mfaDigits || 6;
-  const period = mfaEntry.mfaPeriod || 30;
-  // mfaAlgorithm é o TIPO (totp/hotp); o hash fica em mfaHash. Entradas antigas
-  // sem mfaHash usavam o tipo como hash e o otplib recusava ("Received totp").
-  const HASHES = ['sha1', 'sha256', 'sha512'];
-  const pedido = String(mfaEntry.mfaHash || mfaEntry.mfaAlgorithm || '').toLowerCase();
-  const algorithm = HASHES.includes(pedido) ? pedido : 'sha1';
-
-  if (mfaEntry.mfaAlgorithm === 'hotp') {
-    hotp.options = { digits, algorithm: normalizeAlgo(algorithm) };
-    const code = hotp.generate(mfaEntry.mfaSecret, mfaEntry.mfaCounter || 0);
-    return { code, counter: (mfaEntry.mfaCounter || 0) + 1 };
-  }
-
-  authenticator.options = {
-    digits,
-    step: period,
-    algorithm: normalizeAlgo(algorithm)
+  const opts = {
+    digits: mfaEntry.mfaDigits || 6,
+    period: mfaEntry.mfaPeriod || 30,
+    algorithm: mfaEntry.mfaHash || mfaEntry.mfaAlgorithm
   };
-  const code = authenticator.generate(mfaEntry.mfaSecret);
-  const epoch = Math.floor(Date.now() / 1000);
-  const remaining = period - (epoch % period);
-  return { code, remaining, period };
-}
-
-function normalizeAlgo(algo) {
-  // otplib espera 'sha1' | 'sha256' | 'sha512' (minúsculo) no authenticator moderno
-  return String(algo).toLowerCase();
+  if (mfaEntry.mfaAlgorithm === 'hotp') {
+    return otp.generateHotp(mfaEntry.mfaSecret, mfaEntry.mfaCounter || 0, opts);
+  }
+  return otp.generateTotp(mfaEntry.mfaSecret, opts);
 }
 
 module.exports = {

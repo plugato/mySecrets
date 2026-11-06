@@ -62,6 +62,7 @@
       "mcp-server/**/*",
       "src/lib/vault-crypto.js",
       "src/lib/session-crypto.js",
+      "src/lib/otp.js",
       "node_modules/otplib/**/*",
       "node_modules/@otplib/**/*",
       "node_modules/thirty-two/**/*",

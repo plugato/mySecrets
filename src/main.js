@@ -17,18 +17,8 @@ const QRCode = require('qrcode');
 // usado pelo servidor MCP
 const attachmentFiles = require('../mcp-server/files');
 
-// Carregar otplib no processo principal
-let otplib;
-let totpGenerator, hotpGenerator;
-try {
-  otplib = require('otplib');
-  totpGenerator = otplib.authenticator; // Usar authenticator em vez de totp
-  hotpGenerator = otplib.hotp;
-  console.log('otplib carregado com sucesso no processo principal');
-} catch (error) {
-  console.error('Erro ao carregar otplib:', error);
-  otplib = null;
-}
+// Códigos 2FA (o mesmo módulo do servidor MCP)
+const otp = require('./lib/otp');
 
 // Configuração de segurança
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
@@ -2077,49 +2067,10 @@ ipcMain.handle('phone-unlock', async () => {
   }
 });
 
-// Handlers MFA
+// Códigos 2FA (src/lib/otp.js)
 ipcMain.handle('generate-totp', async (event, secret, options = {}) => {
   try {
-    const { period = 30, digits = 6, algorithm = 'sha1' } = options;
-    
-    if (totpGenerator) {
-      // Configurar otplib
-      totpGenerator.options = {
-        digits,
-        period,
-        algorithm: algorithm.toLowerCase()
-        // Não definir encoding - otplib usa base32 por padrão
-      };
-      
-      const code = totpGenerator.generate(secret);
-      const epoch = Math.floor(Date.now() / 1000);
-      const remaining = period - (epoch % period);
-      
-      return { success: true, code, remaining, period };
-    } else {
-      // Implementação simples de fallback
-      const epoch = Math.floor(Date.now() / 1000);
-      const counter = Math.floor(epoch / period);
-      
-      let hash = 0;
-      const combined = secret + counter.toString();
-      for (let i = 0; i < combined.length; i++) {
-        const char = combined.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-      }
-      
-      const code = Math.abs(hash) % Math.pow(10, digits);
-      const remaining = period - (epoch % period);
-      
-      return { 
-        success: true, 
-        code: code.toString().padStart(digits, '0'), 
-        remaining, 
-        period,
-        fallback: true 
-      };
-    }
+    return { success: true, ...otp.generateTotp(secret, options) };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -2127,37 +2078,7 @@ ipcMain.handle('generate-totp', async (event, secret, options = {}) => {
 
 ipcMain.handle('generate-hotp', async (event, secret, counter, options = {}) => {
   try {
-    const { digits = 6, algorithm = 'sha1' } = options;
-    
-    if (hotpGenerator) {
-      // Configurar otplib
-      hotpGenerator.options = {
-        digits,
-        algorithm: algorithm.toLowerCase()
-        // Não definir encoding - otplib usa base32 por padrão
-      };
-      
-      const code = hotpGenerator.generate(secret, counter);
-      return { success: true, code, counter: counter + 1 };
-    } else {
-      // Implementação simples de fallback
-      let hash = 0;
-      const combined = secret + counter.toString();
-      for (let i = 0; i < combined.length; i++) {
-        const char = combined.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-      }
-      
-      const code = Math.abs(hash) % Math.pow(10, digits);
-      
-      return { 
-        success: true, 
-        code: code.toString().padStart(digits, '0'), 
-        counter: counter + 1,
-        fallback: true 
-      };
-    }
+    return { success: true, ...otp.generateHotp(secret, counter, options) };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -2165,37 +2086,7 @@ ipcMain.handle('generate-hotp', async (event, secret, counter, options = {}) => 
 
 ipcMain.handle('verify-totp', async (event, token, secret, options = {}) => {
   try {
-    const { period = 30, digits = 6, algorithm = 'sha1', window = 1 } = options;
-    
-    if (totpGenerator) {
-      totpGenerator.options = {
-        digits,
-        period,
-        algorithm: algorithm.toLowerCase(),
-        window
-        // Não definir encoding - otplib usa base32 por padrão
-      };
-      
-      const isValid = totpGenerator.verify({ token, secret });
-      return { success: true, isValid };
-    } else {
-      // Verificação simples
-      const epoch = Math.floor(Date.now() / 1000);
-      const counter = Math.floor(epoch / period);
-      
-      let hash = 0;
-      const combined = secret + counter.toString();
-      for (let i = 0; i < combined.length; i++) {
-        const char = combined.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-      }
-      
-      const code = Math.abs(hash) % Math.pow(10, digits);
-      const expectedCode = code.toString().padStart(digits, '0');
-      
-      return { success: true, isValid: token === expectedCode, fallback: true };
-    }
+    return { success: true, isValid: otp.verifyTotp(token, secret, options) };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -2587,16 +2478,3 @@ app.on('web-contents-created', (event, contents) => {
   contents.on('will-navigate', (e) => e.preventDefault());
   contents.on('will-attach-webview', (e) => e.preventDefault());
 });
-
-// Teste das funções MFA (apenas para debugging)
-if (isDevMode) {
-  setTimeout(async () => {
-    try {
-      const secret = 'JBSWY3DPEHPK3PXP'; // Exemplo de secret base32
-      const totp = totpGenerator.generate(secret);
-      console.log('Teste TOTP gerado:', totp);
-    } catch (error) {
-      console.error('Erro no teste TOTP:', error);
-    }
-  }, 2000);
-}

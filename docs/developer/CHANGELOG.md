@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Desktop: the derived vault key is now cached for the session (like the Android app). Saving and syncing no longer run PBKDF2 (600k iterations) on the main process every time (≈70 ms on a fast PC, more on slower ones, freezing the window); writes reuse the session's salt with a fresh IV. Unlocking derives the key asynchronously. The cache is cleared when the vault locks.
 
 ### Fixed
+- Desktop: TOTP entries with a period other than 30 s (e.g. 60 s) showed wrong codes: the app passed `period` to otplib, which only reads `step`. If otplib failed to load, the app also made up a code from a hash and reported it as valid. App and MCP now share `src/lib/otp.js` (checked against the RFC 6238 test vector); errors are reported, never replaced by a fake code.
 - Desktop: the 2FA codes panel and the entry details used the same element ids (`mfa-code-<id>`); with both on screen one of them stopped updating or copied `••••••`. The panel now has its own ids.
 - Desktop: when generating a 2FA code failed, the app showed `000000`, which looked like a real code and could be copied. It now shows `ERRO` (not copyable), and a failed HOTP no longer reports an advanced counter.
 - Desktop: importing a MySecrets JSON dropped `token` entries.

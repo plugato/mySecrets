@@ -175,3 +175,14 @@ test('painel de códigos MFA e detalhes da mesma entrada não compartilham ids',
   assert.match(r.linha, /^\d{6}$/, 'o painel mostra o código, não ••••••');
   assert.match(r.detalhe, /^\d{6}$/);
 });
+
+test('TOTP de 60 s pelo app real usa o período certo', async () => {
+  const { authenticator } = require('otplib');
+  const S = 'JBSWY3DPEHPK3PXP';
+  const antes = Date.now();
+  const r = await api(`window.electronAPI.generateTOTP('${S}', { period: 60 })`);
+  const depois = Date.now();
+  const esperados = [antes, depois].map((t) => authenticator.clone({ step: 60, epoch: t }).generate(S));
+  assert.strictEqual(r.period, 60);
+  assert.ok(esperados.includes(r.code), `código ${r.code} não é o de 60 s (${esperados})`);
+});
