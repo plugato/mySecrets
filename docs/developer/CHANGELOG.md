@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-11-06
+
+### Fixed
+- CI: the extension `_locales` check failed on Windows because git checks files out with CRLF there; the comparison now ignores line endings. Because of this, 2.1.0 was tagged but never published; 2.1.1 is the first release with the changes below.
+
 ## [2.1.0] - 2026-11-06
 
 ### Added

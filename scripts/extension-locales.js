@@ -53,7 +53,8 @@ for (const k of Object.keys(pt)) {
 }
 
 if (process.argv.includes('--check')) {
-  const atual = fs.existsSync(ptPath) ? fs.readFileSync(ptPath, 'utf8') : '';
+  // No Windows o git entrega os arquivos com CRLF: compara sem as quebras de linha
+  const atual = (fs.existsSync(ptPath) ? fs.readFileSync(ptPath, 'utf8') : '').replace(/\r\n/g, '\n');
   if (atual !== json(pt)) problemas.push('_locales/pt_BR/messages.json desatualizado: rode node scripts/extension-locales.js');
   if (problemas.length) { console.error(problemas.join('\n')); process.exit(1); }
   console.log(`ok: ${Object.keys(pt).length} textos`);
