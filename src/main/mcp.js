@@ -18,6 +18,7 @@ const { app, ipcMain, dialog, Notification } = require('electron');
 const { createAgentWriteQueue } = require('../lib/agent-queue');
 const attachmentFiles = require('../../mcp-server/files');
 const tray = require('./tray');
+const { t } = require('./i18n');
 
 let deps = { getWindow: () => null };
 const win = () => deps.getWindow();
@@ -80,7 +81,7 @@ function startMcpServer(options = {}) {
     const serverPath = getMcpServerPath();
 
     if (!fs.existsSync(serverPath)) {
-      mcpLastError = 'Arquivo do servidor MCP não encontrado: ' + serverPath;
+      mcpLastError = t('Arquivo do servidor MCP não encontrado: ') + serverPath;
       return resolve({ success: false, error: mcpLastError });
     }
 
@@ -146,8 +147,8 @@ function startMcpServer(options = {}) {
       if (mcpProcess === child) removeMcpEndpoint();
       if (!settled) {
         mcpLastError = code === 2
-          ? `Não foi possível iniciar (porta ${port} em uso?)`
-          : `Servidor encerrou (código ${code})`;
+          ? t("Não foi possível iniciar (porta {0} em uso?)", { 0: port })
+          : t("Servidor encerrou (código {0})", { 0: code });
         finish({ success: false, error: mcpLastError });
       }
       mcpProcess = null;
@@ -162,7 +163,7 @@ function startMcpServer(options = {}) {
     setTimeout(() => {
       if (!settled) {
         try { child.kill(); } catch (_) {}
-        mcpLastError = 'Tempo esgotado ao iniciar o servidor MCP';
+        mcpLastError = t('Tempo esgotado ao iniciar o servidor MCP');
         finish({ success: false, error: mcpLastError });
       }
     }, 8000);
@@ -214,7 +215,7 @@ function handleMcpMessage(child, msg) {
   }
   if (msg && msg.type === 'pair_request') {
     approveExtension(msg.payload && msg.payload.origin).then((ok) => {
-      const result = ok ? { success: true } : { success: false, error: 'Conexão recusada no app' };
+      const result = ok ? { success: true } : { success: false, error: t('Conexão recusada no app') };
       try { child.send({ type: 'pair_result', reqId: msg.reqId, result }); } catch (_) { /* filho encerrado */ }
     });
     return;
@@ -224,12 +225,12 @@ function handleMcpMessage(child, msg) {
     try { child.send({ type: 'save_login_result', reqId: msg.reqId, result }); } catch (_) { /* filho encerrado */ }
   };
   if (!win() || win().isDestroyed()) {
-    responder({ success: false, error: 'App sem janela aberta' });
+    responder({ success: false, error: t('App sem janela aberta') });
     return;
   }
   extensionSaves.set(msg.reqId, responder);
   setTimeout(() => {
-    if (extensionSaves.delete(msg.reqId)) responder({ success: false, error: 'O app não respondeu' });
+    if (extensionSaves.delete(msg.reqId)) responder({ success: false, error: t('O app não respondeu') });
   }, EXTENSION_SAVE_TIMEOUT);
   win().webContents.send('extension-save-login', { reqId: msg.reqId, ...msg.payload });
 }
@@ -262,11 +263,11 @@ function approveExtension(origin) {
       win().focus();
       const { response } = await dialog.showMessageBox(win(), {
         type: 'question',
-        title: 'Conectar extensão',
-        message: 'Uma extensão do navegador quer se conectar ao MySecrets',
-        detail: `${origin}\n\nPermita só se você acabou de instalar ou abrir a extensão MySecrets Autofill. ` +
-          'Ela poderá preencher logins enquanto o cofre estiver desbloqueado.',
-        buttons: ['Permitir', 'Recusar'],
+        title: t('Conectar extensão'),
+        message: t('Uma extensão do navegador quer se conectar ao MySecrets'),
+        detail: t("{0}\n\nPermita só se você acabou de instalar ou abrir a extensão MySecrets Autofill. ", { 0: origin }) +
+          t('Ela poderá preencher logins enquanto o cofre estiver desbloqueado.'),
+        buttons: [t('Permitir'), t('Recusar')],
         defaultId: 1,
         cancelId: 1,
         noLink: true
@@ -311,12 +312,12 @@ const rendererAsks = new Map();
 function askRenderer(op, payload, timeout) {
   return new Promise((resolve) => {
     if (!win() || win().isDestroyed()) {
-      resolve({ success: false, error: 'App sem janela aberta' });
+      resolve({ success: false, error: t('App sem janela aberta') });
       return;
     }
     const reqId = crypto.randomUUID();
     const timer = setTimeout(() => {
-      if (rendererAsks.delete(reqId)) resolve({ success: false, error: 'O app não respondeu' });
+      if (rendererAsks.delete(reqId)) resolve({ success: false, error: t('O app não respondeu') });
     }, timeout);
     rendererAsks.set(reqId, (result) => { clearTimeout(timer); resolve(result); });
     win().webContents.send('agent-write', { reqId, op, ...payload });
@@ -327,7 +328,7 @@ ipcMain.handle('agent-write-result', async (event, reqId, result) => {
   const done = rendererAsks.get(reqId);
   if (done) {
     rendererAsks.delete(reqId);
-    done(result || { success: false, error: 'Resposta vazia' });
+    done(result || { success: false, error: t('Resposta vazia') });
   }
   return true;
 });
@@ -340,9 +341,9 @@ function oneLine(text, max = 120) {
 }
 
 function validateAgentRequest(req) {
-  if (!req || typeof req !== 'object' || !req.target) throw new Error('Pedido de gravação inválido');
+  if (!req || typeof req !== 'object' || !req.target) throw new Error(t('Pedido de gravação inválido'));
   if (!Array.isArray(req.files)) req.files = [];
-  if (req.files.length > attachmentFiles.MAX_ATTACHMENTS_PER_ENTRY) throw new Error('Arquivos demais num pedido');
+  if (req.files.length > attachmentFiles.MAX_ATTACHMENTS_PER_ENTRY) throw new Error(t('Arquivos demais num pedido'));
   req.files.forEach((f) => {
     attachmentFiles.verifyAttachment(f);
     f.name = attachmentFiles.sanitizeName(f.name);
@@ -410,9 +411,9 @@ function callAttention(job) {
         try { agentNotification.close(); } catch (_) {}
       }
       agentNotification = new Notification({
-        title: 'Pedido de gravação no cofre',
-        body: `Entrada: "${titulo}"${qtd ? ` (${qtd} arquivo${qtd > 1 ? 's' : ''})` : ''}. ` +
-          'Abra o MySecrets para aprovar ou recusar.',
+        title: t('Pedido de gravação no cofre'),
+        body: t("Entrada: \"{0}\"{1}. ", { 0: titulo, 1: qtd ? t(' ({0} arquivo(s))', { 0: qtd }) : '' }) +
+          t('Abra o MySecrets para aprovar ou recusar.'),
         urgency: 'critical'
       });
       // Clicar só abre o app no modal; nunca grava nada

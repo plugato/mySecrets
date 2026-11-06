@@ -15,6 +15,7 @@ const path = require('path');
 const { ipcMain } = require('electron');
 const QRCode = require('qrcode');
 const phoneLink = require('../lib/phone-link');
+const { t } = require('./i18n');
 
 let deps = null;
 
@@ -47,7 +48,7 @@ function removePhoneLinks() {
 
 function pairingFromStored(p) {
   const secret = deps.unprotectToken(p.secret);
-  if (!secret) throw new Error('Não foi possível ler o pareamento deste celular. Pareie de novo.');
+  if (!secret) throw new Error(t('Não foi possível ler o pareamento deste celular. Pareie de novo.'));
   return { pairId: p.pairId, name: p.desktopName || os.hostname(), secret: Buffer.from(secret, 'base64'), unlock: p.unlock };
 }
 
@@ -65,7 +66,7 @@ ipcMain.handle('phone-status', async () => ({ phones: phoneSummary() }));
 // Começa um pareamento: devolve o QR (imagem) e espera o celular confirmar
 ipcMain.handle('phone-pair-start', async (event, masterPassword) => {
   try {
-    if (!masterPassword) throw new Error('Cofre bloqueado');
+    if (!masterPassword) throw new Error(t('Cofre bloqueado'));
     if (phone.abort) phone.abort.abort();
     const { pairing, qr } = phoneLink.createPairing(masterPassword, os.hostname());
     phone.pending = pairing;
@@ -79,7 +80,7 @@ ipcMain.handle('phone-pair-start', async (event, masterPassword) => {
 // Procura o celular que leu o QR (repete por até 2 minutos)
 ipcMain.handle('phone-pair-wait', async () => {
   const pairing = phone.pending;
-  if (!pairing) return { success: false, error: 'Nenhum pareamento em andamento' };
+  if (!pairing) return { success: false, error: t('Nenhum pareamento em andamento') };
   const controller = new AbortController();
   phone.abort = controller;
   const limite = Date.now() + 5 * 60 * 1000;
@@ -91,8 +92,8 @@ ipcMain.handle('phone-pair-wait', async () => {
   try {
     while (Date.now() < limite) {
       status(ultimaResposta
-        ? `Procurando o celular na rede… Última resposta do celular: ${ultimaResposta}`
-        : 'Procurando o celular na rede… Leia o QR no celular e confirme com a digital.');
+        ? t("Procurando o celular na rede… Última resposta do celular: {0}", { 0: ultimaResposta })
+        : t('Procurando o celular na rede… Leia o QR no celular e confirme com a digital.'));
       try {
         const r = await phoneLink.confirmPairing(pairing, { signal: controller.signal, connectTimeout: 600, hosts: phoneTestHosts });
         const phones = readPhoneLinks().filter(p => p.pairId !== pairing.pairId);
@@ -118,8 +119,8 @@ ipcMain.handle('phone-pair-wait', async () => {
     return {
       success: false,
       error: ultimaResposta
-        ? `O celular respondeu, mas não confirmou este pareamento: ${ultimaResposta}`
-        : 'O celular não respondeu. Confira se ele está na mesma rede Wi-Fi e com o MySecrets aberto na tela de pareamento.'
+        ? t("O celular respondeu, mas não confirmou este pareamento: {0}", { 0: ultimaResposta })
+        : t('O celular não respondeu. Confira se ele está na mesma rede Wi-Fi e com o MySecrets aberto na tela de pareamento.')
     };
   } finally {
     if (phone.abort === controller) phone.abort = null;
@@ -141,7 +142,7 @@ ipcMain.handle('phone-unpair', async (event, pairId) => {
 // (o mesmo caminho do login por Windows Hello)
 ipcMain.handle('phone-unlock', async () => {
   const phones = readPhoneLinks();
-  if (!phones.length) return { success: false, error: 'Nenhum celular pareado' };
+  if (!phones.length) return { success: false, error: t('Nenhum celular pareado') };
   if (phone.abort) phone.abort.abort();
   const controller = new AbortController();
   phone.abort = controller;
@@ -166,7 +167,7 @@ ipcMain.handle('phone-unlock', async () => {
         ultimoErro = e;
       }
     }
-    return { success: false, error: ultimoErro ? ultimoErro.message : 'Celular não encontrado' };
+    return { success: false, error: ultimoErro ? ultimoErro.message : t('Celular não encontrado') };
   } finally {
     if (phone.abort === controller) phone.abort = null;
   }

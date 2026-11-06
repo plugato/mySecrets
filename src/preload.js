@@ -4,6 +4,10 @@ console.log('Preload.js sendo carregado...');
 
 // Expor APIs seguras para o renderer
 contextBridge.exposeInMainWorld('electronAPI', {
+  // Idioma: dicionário entregue pelo processo principal (texto em português -> tradução)
+  i18n: ipcRenderer.sendSync('i18n-get'),
+  setLanguage: (pref) => ipcRenderer.invoke('i18n-set', pref),
+
   // Operações de dados
   saveData: (data, masterPassword, options) => ipcRenderer.invoke('save-data', data, masterPassword, options || {}),
   loadData: (masterPassword) => ipcRenderer.invoke('load-data', masterPassword),

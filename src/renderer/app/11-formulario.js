@@ -72,7 +72,7 @@ function renderCustomFields() {
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.className = 'custom-field-input field-name';
-        nameInput.placeholder = 'Nome do campo (ex: CPF, PIN)';
+        nameInput.placeholder = tr('Nome do campo (ex: CPF, PIN)');
         nameInput.value = field.name || '';
         nameInput.addEventListener('input', (e) => {
             updateCustomField(field.id, 'name', e.target.value);
@@ -88,7 +88,7 @@ function renderCustomFields() {
         const valueInput = document.createElement('input');
         valueInput.type = field.type === 'password' ? 'password' : 'text';
         valueInput.className = 'custom-field-input';
-        valueInput.placeholder = 'Valor';
+        valueInput.placeholder = tr('Valor');
         valueInput.value = field.value || '';
         valueInput.style.flex = '1';
         valueInput.addEventListener('input', (e) => {
@@ -99,12 +99,12 @@ function renderCustomFields() {
         const typeSelect = document.createElement('select');
         typeSelect.className = 'custom-field-type-select';
         typeSelect.innerHTML = `
-            <option value="text">Texto</option>
-            <option value="password">Senha</option>
-            <option value="email">Email</option>
-            <option value="url">URL</option>
-            <option value="number">Número</option>
-            <option value="date">Data</option>
+            <option value="text">${escapeHtml(tr("Texto"))}</option>
+            <option value="password">${escapeHtml(tr("Senha"))}</option>
+            <option value="email">${escapeHtml(tr("Email"))}</option>
+            <option value="url">${escapeHtml(tr("URL"))}</option>
+            <option value="number">${escapeHtml(tr("Número"))}</option>
+            <option value="date">${escapeHtml(tr("Data"))}</option>
         `;
         typeSelect.value = field.type || 'text';
         typeSelect.addEventListener('change', (e) => {
@@ -210,7 +210,7 @@ async function saveEntry() {
     const type = entryType.value;
 
     if (!title) {
-        alert('Digite um título para a entrada');
+        alert(tr('Digite um título para a entrada'));
         return;
     }
 
@@ -278,9 +278,9 @@ async function saveEntry() {
             selectEntry(entry);
             closeModals();
         } else {
-            alert('Erro ao salvar entrada');
+            alert(tr('Erro ao salvar entrada'));
         }
     } catch (error) {
-        alert('Erro ao salvar entrada');
+        alert(tr('Erro ao salvar entrada'));
     }
 }

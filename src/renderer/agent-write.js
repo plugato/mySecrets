@@ -16,13 +16,17 @@
 //     files?:  [{ name, mime, size, sha256, note, data(base64) }]
 //   }
 
+// Tradução: tr() no renderer; nos testes em Node fica o português.
+const trAgente = (typeof tr === 'function') ? tr
+    : (texto, vars) => (vars ? texto.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : texto);
+
 const AGENT_FIELD_NAMES = ['username', 'password', 'url', 'token', 'tokenType', 'notes'];
 const AGENT_FIELD_LABELS = {
-    username: 'usuário',
+    username: trAgente('usuário'),
     password: 'senha',
-    url: 'URL',
+    url: trAgente('URL'),
     token: 'token',
-    tokenType: 'tipo de token',
+    tokenType: trAgente('tipo de token'),
     notes: 'notas'
 };
 
@@ -75,7 +79,7 @@ function inferType(req) {
  */
 function planAgentWrite(entries, req) {
     const { entry, byId } = findAgentTarget(entries, req);
-    if (byId && !entry) return { error: 'Entrada não encontrada no cofre (id informado)' };
+    if (byId && !entry) return { error: trAgente('Entrada não encontrada no cofre (id informado)') };
 
     const fields = req.fields || {};
     const fieldNames = AGENT_FIELD_NAMES.filter(k => fields[k] !== undefined && fields[k] !== null);
@@ -121,7 +125,7 @@ function applyAgentWrite(entries, req, opts = {}) {
     if (plan.mode === 'update') {
         entry = entries.find(e => e.id === plan.entryId);
     } else {
-        if (!plan.title) throw new Error('Informe o título da entrada');
+        if (!plan.title) throw new Error(trAgente('Informe o título da entrada'));
         entry = {
             id: newId(),
             type: plan.type,
@@ -201,7 +205,7 @@ function formatFileSize(bytes) {
     const n = Number(bytes) || 0;
     if (n < 1024) return `${n} B`;
     if (n < 1024 * 1024) return `${(n / 1024).toFixed(1).replace('.', ',')} KB`;
-    return `${(n / (1024 * 1024)).toFixed(2).replace('.', ',')} MB`;
+    return trAgente("{0} MB", { 0: (n / (1024 * 1024)).toFixed(2).replace('.', ',') });
 }
 
 /** "3:59" (minutos:segundos) para o tempo restante do pedido. */
@@ -215,9 +219,9 @@ function formatRemaining(ms) {
  * início do sha256: nunca valores nem conteúdo.
  */
 function planSummary(plan) {
-    const tipos = { login: 'Login', token: 'Token', note: 'Nota segura', mfa: 'MFA' };
+    const tipos = { login: trAgente('Login'), token: trAgente('Token'), note: trAgente('Nota segura'), mfa: trAgente('MFA') };
     return {
-        heading: plan.mode === 'new' ? 'Criar entrada nova' : 'Atualizar entrada existente',
+        heading: plan.mode === 'new' ? trAgente('Criar entrada nova') : trAgente('Atualizar entrada existente'),
         title: plan.title,
         type: tipos[plan.type] || plan.type,
         tags: plan.tags,
@@ -277,7 +281,7 @@ function createConfirmController({ render, now = () => Date.now(), setTimer = se
 
     return {
         request(jobId, plan, deadline, pending) {
-            finish({ success: false, error: 'Substituído por outro pedido' });
+            finish({ success: false, error: trAgente('Substituído por outro pedido') });
             total = pending || 1;
             return new Promise(resolve => {
                 current = { jobId, plan, deadline, resolve };
@@ -292,7 +296,7 @@ function createConfirmController({ render, now = () => Date.now(), setTimer = se
         answer(approved) { return finish({ success: true, approved: approved === true }); },
         cancel(jobId) {
             if (!current || current.jobId !== jobId) return false;
-            return finish({ success: false, cancelled: true, error: 'O agente cancelou o pedido. Nada foi gravado.' });
+            return finish({ success: false, cancelled: true, error: trAgente('O agente cancelou o pedido. Nada foi gravado.') });
         },
         cancelAll(error) { return finish({ success: false, error }); },
         setTotal(n) { total = n || 1; if (current) draw(); },

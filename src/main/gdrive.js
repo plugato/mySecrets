@@ -21,6 +21,7 @@ const { ipcMain, shell, safeStorage } = require('electron');
 const googleDrive = require('../lib/google-drive');
 const vaultSync = require('../lib/vault-sync');
 const gdriveSyncLib = require('../lib/gdrive-sync');
+const { t } = require('./i18n');
 
 let deps = { getWindow: () => null };
 const win = () => deps.getWindow();
@@ -164,7 +165,7 @@ async function runGdriveSync(masterPassword) {
       gdrive.client = null;
       updateGdriveState({
         token: null,
-        lastError: error.code === 'invalid_grant' ? 'O acesso ao Google foi revogado. Entre novamente.' : error.message
+        lastError: error.code === 'invalid_grant' ? t('O acesso ao Google foi revogado. Entre novamente.') : error.message
       });
     } else {
       updateGdriveState({ lastError: error.message });
@@ -217,7 +218,7 @@ ipcMain.handle('gdrive-status', async () => gdriveStatus());
 
 ipcMain.handle('gdrive-connect', async (event, masterPassword) => {
   const cfg = googleDrive.loadClientConfig();
-  if (!cfg) return { success: false, error: 'Esta versão do app não tem o login com Google configurado.' };
+  if (!cfg) return { success: false, error: t('Esta versão do app não tem o login com Google configurado.') };
   try {
     deps.disableFolderSync(); // as duas formas de sincronizar não convivem
 

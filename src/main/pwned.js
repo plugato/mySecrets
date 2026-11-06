@@ -5,11 +5,12 @@
 
 const { ipcMain } = require('electron');
 const pwned = require('../lib/pwned');
+const { t } = require('./i18n');
 
 ipcMain.handle('pwned-range', async (event, prefix) => {
   try {
     return { success: true, text: await pwned.fetchRange(prefix) };
   } catch (error) {
-    return { success: false, error: error.name === 'TimeoutError' ? 'Sem resposta do serviço de senhas vazadas' : error.message };
+    return { success: false, error: error.name === 'TimeoutError' ? t('Sem resposta do serviço de senhas vazadas') : error.message };
   }
 });

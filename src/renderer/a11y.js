@@ -81,7 +81,7 @@
     function rotular(btn) {
         if (btn.hasAttribute('aria-label')) return;
         const texto = btn.textContent.replace(/\s+/g, ' ').trim();
-        if (btn.classList.contains('close-btn') || texto === '×') { btn.setAttribute('aria-label', 'Fechar'); return; }
+        if (btn.classList.contains('close-btn') || texto === '×') { btn.setAttribute('aria-label', tr('Fechar')); return; }
         const soIcone = [...btn.childNodes].every((n) =>
             (n.nodeType === 3 && !n.textContent.trim()) ||
             (n.nodeType === 1 && n.classList.contains('material-symbols-outlined')));

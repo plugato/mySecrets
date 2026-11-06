@@ -12,6 +12,9 @@ const attachmentFiles = require('../mcp-server/files');
 
 // Códigos 2FA (o mesmo módulo do servidor MCP)
 const otp = require('./lib/otp');
+// Idioma (pt-BR/inglês): src/main/i18n.js; t('texto em português')
+const i18n = require('./main/i18n');
+const { t } = i18n;
 
 // Configuração de segurança
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
@@ -197,6 +200,18 @@ function destroySession() {
   }
 }
 
+// ===== Idioma =====
+
+i18n.register({
+  userDataPath,
+  existingInstall: () => fs.existsSync(vaultFile()),
+  onChange: () => {
+    buildAppMenu();
+    tray.updateTrayIndicator(mcp.pendingWrites());
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.reload();
+  }
+});
+
 // ===== Windows Hello: src/main/windows-hello.js =====
 
 const windowsHello = require('./main/windows-hello');
@@ -212,7 +227,7 @@ const { startMcpServer, stopMcpServer, showAndFocusWindow } = mcp;
 
 ipcMain.handle('attachment-pick', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Anexar arquivo ao cofre',
+    title: t('Anexar arquivo ao cofre'),
     properties: ['openFile', 'multiSelections']
   });
   if (result.canceled || result.filePaths.length === 0) return { success: true, files: [] };
@@ -228,7 +243,7 @@ ipcMain.handle('attachment-save', async (event, att) => {
   try {
     attachmentFiles.verifyAttachment(att);
     const result = await dialog.showSaveDialog(mainWindow, {
-      title: 'Salvar anexo',
+      title: t('Salvar anexo'),
       defaultPath: path.join(app.getPath('downloads'), attachmentFiles.sanitizeName(att.name))
     });
     if (result.canceled || !result.filePath) return { success: true, canceled: true };
@@ -299,51 +314,55 @@ function createWindow() {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
-  // Menu da aplicação
+  buildAppMenu();
+}
+
+// Menu da aplicação (refeito quando o idioma muda)
+function buildAppMenu() {
   const template = [
     {
-      label: 'Arquivo',
+      label: t('Arquivo'),
       submenu: [
         {
-          label: 'Exportar Backup',
+          label: t('Exportar Backup'),
           click: () => exportBackup()
         },
         {
-          label: 'Importar Backup',
+          label: t('Importar Backup'),
           click: () => importBackup()
         },
         { type: 'separator' },
         {
-          label: 'Sair',
+          label: t('Sair'),
           accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
           click: () => app.quit()
         }
       ]
     },
     {
-      label: 'Editar',
+      label: t('Editar'),
       submenu: [
-        { role: 'undo', label: 'Desfazer' },
-        { role: 'redo', label: 'Refazer' },
+        { role: 'undo', label: t('Desfazer') },
+        { role: 'redo', label: t('Refazer') },
         { type: 'separator' },
-        { role: 'cut', label: 'Recortar' },
-        { role: 'copy', label: 'Copiar' },
-        { role: 'paste', label: 'Colar' }
+        { role: 'cut', label: t('Recortar') },
+        { role: 'copy', label: t('Copiar') },
+        { role: 'paste', label: t('Colar') }
       ]
     },
     {
-      label: 'Visualizar',
+      label: t('Visualizar'),
       submenu: [
-        { role: 'reload', label: 'Recarregar' },
-        { role: 'forceReload', label: 'Forçar Recarregamento' },
+        { role: 'reload', label: t('Recarregar') },
+        { role: 'forceReload', label: t('Forçar Recarregamento') },
         // DevTools expõem o cofre destravado: só no modo --dev
-        ...(isDevMode ? [{ role: 'toggleDevTools', label: 'Ferramentas do Desenvolvedor' }] : []),
+        ...(isDevMode ? [{ role: 'toggleDevTools', label: t('Ferramentas do Desenvolvedor') }] : []),
         { type: 'separator' },
-        { role: 'resetZoom', label: 'Zoom Padrão' },
-        { role: 'zoomIn', label: 'Aumentar Zoom' },
-        { role: 'zoomOut', label: 'Diminuir Zoom' },
+        { role: 'resetZoom', label: t('Zoom Padrão') },
+        { role: 'zoomIn', label: t('Aumentar Zoom') },
+        { role: 'zoomOut', label: t('Diminuir Zoom') },
         { type: 'separator' },
-        { role: 'togglefullscreen', label: 'Tela Cheia' }
+        { role: 'togglefullscreen', label: t('Tela Cheia') }
       ]
     }
   ];
@@ -631,7 +650,7 @@ ipcMain.handle('load-data', async (event, masterPassword) => {
 
     return { success: true, data: entries };
   } catch (error) {
-    return { success: false, error: 'Senha mestra incorreta ou dados corrompidos' };
+    return { success: false, error: t('Senha mestra incorreta ou dados corrompidos') };
   }
 });
 
@@ -671,7 +690,7 @@ ipcMain.handle('sync-status', async () => ({
 
 ipcMain.handle('sync-choose-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Escolha a pasta do Google Drive',
+    title: t('Escolha a pasta do Google Drive'),
     defaultPath: vaultSync.detectGoogleDrive() || undefined,
     properties: ['openDirectory', 'createDirectory']
   });
@@ -681,14 +700,14 @@ ipcMain.handle('sync-choose-folder', async () => {
 ipcMain.handle('sync-enable', async (event, baseDir, masterPassword) => {
   try {
     if (isGdriveConnected()) {
-      return { success: false, error: 'Desconecte a conta Google antes de usar uma pasta sincronizada.' };
+      return { success: false, error: t('Desconecte a conta Google antes de usar uma pasta sincronizada.') };
     }
     if (!baseDir || !fs.existsSync(baseDir)) {
-      return { success: false, error: 'Pasta não encontrada.' };
+      return { success: false, error: t('Pasta não encontrada.') };
     }
     const destino = vaultSync.syncFolderFor(baseDir);
     if (path.resolve(destino) === path.resolve(vaultDir())) {
-      return { success: false, error: 'O cofre já está nessa pasta.' };
+      return { success: false, error: t('O cofre já está nessa pasta.') };
     }
 
     const local = fs.existsSync(vaultFile()) ? readVaultEntries(vaultFile(), masterPassword) : [];
@@ -705,7 +724,7 @@ ipcMain.handle('sync-enable', async (event, baseDir, masterPassword) => {
       } catch (_) {
         return {
           success: false,
-          error: 'Já existe um cofre nessa pasta com outra senha mestra. Use a mesma senha mestra em todos os PCs.'
+          error: t('Já existe um cofre nessa pasta com outra senha mestra. Use a mesma senha mestra em todos os PCs.')
         };
       }
       existia = true;
@@ -889,10 +908,10 @@ ipcMain.handle('verify-totp', async (event, token, secret, options = {}) => {
 // Funções de backup
 async function exportBackup() {
   const result = await dialog.showSaveDialog(mainWindow, {
-    title: 'Exportar Backup',
+    title: t('Exportar Backup'),
     defaultPath: `mysecrets-backup-${new Date().toISOString().slice(0, 10)}.enc`,
     filters: [
-      { name: 'Backup Criptografado', extensions: ['enc'] }
+      { name: t('Backup Criptografado'), extensions: ['enc'] }
     ]
   });
   
@@ -900,25 +919,25 @@ async function exportBackup() {
   if (!fs.existsSync(vaultFile())) {
     await dialog.showMessageBox(mainWindow, {
       type: 'error',
-      title: 'Exportar Backup',
-      message: 'Ainda não há cofre salvo para exportar.'
+      title: t('Exportar Backup'),
+      message: t('Ainda não há cofre salvo para exportar.')
     });
     return;
   }
   fs.copyFileSync(vaultFile(), result.filePath);
   dialog.showMessageBox(mainWindow, {
     type: 'info',
-    title: 'Backup Exportado',
-    message: 'Backup exportado com sucesso!'
+    title: t('Backup Exportado'),
+    message: t('Backup exportado com sucesso!')
   });
 }
 
 async function importBackup() {
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Importar Backup',
+    title: t('Importar Backup'),
     defaultPath: fs.existsSync(backupsPath()) ? backupsPath() : undefined,
     filters: [
-      { name: 'Backup Criptografado', extensions: ['enc'] }
+      { name: t('Backup Criptografado'), extensions: ['enc'] }
     ],
     properties: ['openFile']
   });
@@ -928,27 +947,27 @@ async function importBackup() {
 
   const info = inspectBackup(origem, currentSessionPassword());
   if (!info.ok) {
-    await dialog.showMessageBox(mainWindow, { type: 'error', title: 'Importar Backup', message: info.error });
+    await dialog.showMessageBox(mainWindow, { type: 'error', title: t('Importar Backup'), message: info.error });
     return;
   }
 
-  let detail = 'O cofre atual será guardado em backups/ antes da troca.';
+  let detail = t('O cofre atual será guardado em backups/ antes da troca.');
   if (info.opensWithCurrent === true) {
-    detail = `O backup abre com a sua senha atual (${info.count} entradas). ` + detail;
+    detail = t("O backup abre com a sua senha atual ({0} entradas). ", { 0: info.count }) + detail;
   } else if (info.opensWithCurrent === false) {
-    detail = 'ATENÇÃO: este backup NÃO abre com a sua senha mestra atual. Depois de importar, ' +
-      'você vai precisar da senha usada quando ele foi criado, senão não conseguirá abrir o cofre. ' + detail;
+    detail = t('ATENÇÃO: este backup NÃO abre com a sua senha mestra atual. Depois de importar, ') +
+      t('você vai precisar da senha usada quando ele foi criado, senão não conseguirá abrir o cofre. ') + detail;
   } else {
-    detail = 'Não foi possível conferir a senha do backup (cofre bloqueado). Depois de importar, ' +
-      'use a senha com que ele foi criado. ' + detail;
+    detail = t('Não foi possível conferir a senha do backup (cofre bloqueado). Depois de importar, ') +
+      t('use a senha com que ele foi criado. ') + detail;
   }
 
   const response = await dialog.showMessageBox(mainWindow, {
     type: 'warning',
-    title: 'Confirmar Importação',
-    message: 'Esta ação substituirá todos os dados atuais. Deseja continuar?',
+    title: t('Confirmar Importação'),
+    message: t('Esta ação substituirá todos os dados atuais. Deseja continuar?'),
     detail,
-    buttons: ['Cancelar', info.opensWithCurrent === false ? 'Importar mesmo assim' : 'Importar'],
+    buttons: [t('Cancelar'), info.opensWithCurrent === false ? t('Importar mesmo assim') : t('Importar')],
     defaultId: 0,
     cancelId: 0
   });
@@ -970,9 +989,9 @@ async function importBackup() {
 
   await dialog.showMessageBox(mainWindow, {
     type: 'info',
-    title: 'Backup Importado',
-    message: 'Backup importado com sucesso! A aplicação será reiniciada.',
-    detail: guardado ? `O cofre anterior foi guardado em:\n${guardado}` : undefined
+    title: t('Backup Importado'),
+    message: t('Backup importado com sucesso! A aplicação será reiniciada.'),
+    detail: guardado ? t("O cofre anterior foi guardado em:\n{0}", { 0: guardado }) : undefined
   });
   app.relaunch();
   app.exit();

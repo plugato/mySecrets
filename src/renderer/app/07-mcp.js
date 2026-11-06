@@ -134,8 +134,8 @@ function renderMcpStatus(status) {
     if (dot) dot.classList.toggle('running', !!running);
 
     if (running && status.info) {
-        if (badge) { badge.textContent = 'Em execução'; badge.classList.add('running'); }
-        if (text) text.textContent = `Escutando em ${status.info.url}`;
+        if (badge) { badge.textContent = tr('Em execução'); badge.classList.add('running'); }
+        if (text) text.textContent = tr("Escutando em {0}", { 0: status.info.url });
         if (startBtn) startBtn.disabled = true;
         if (stopBtn) stopBtn.disabled = false;
         if (connection) {
@@ -161,11 +161,11 @@ function renderMcpStatus(status) {
             }
         }
     } else {
-        if (badge) { badge.textContent = 'Parado'; badge.classList.remove('running'); }
+        if (badge) { badge.textContent = tr('Parado'); badge.classList.remove('running'); }
         if (text) {
             text.textContent = (status && status.error)
-                ? `Parado — ${status.error}`
-                : 'O servidor não está em execução.';
+                ? tr("Parado — {0}", { 0: status.error })
+                : tr('O servidor não está em execução.');
         }
         if (startBtn) startBtn.disabled = false;
         if (stopBtn) stopBtn.disabled = true;
@@ -178,7 +178,7 @@ async function startMcp() {
     const port = parseInt(document.getElementById('mcp-port-input').value, 10) || 8765;
     updateSettings({ mcpPort: port });
     startBtn.disabled = true;
-    document.getElementById('mcp-status-text').textContent = 'Iniciando...';
+    document.getElementById('mcp-status-text').textContent = tr('Iniciando...');
     try {
         const result = await window.electronAPI.mcpStart({ port });
         if (result.success) {

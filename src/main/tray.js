@@ -9,6 +9,7 @@
 const path = require('path');
 const fs = require('fs');
 const { app, Menu, Tray, ipcMain, nativeImage, globalShortcut, powerMonitor } = require('electron');
+const { t } = require('./i18n');
 
 let deps = null;
 
@@ -42,18 +43,18 @@ function updateTrayIndicator(pending) {
     tray.setImage(pending > 0 ? trayBadgeIcon(trayBaseIcon) : trayBaseIcon);
   } catch (_) { /* sem bitmap: fica só o texto */ }
   tray.setToolTip(pending > 0
-    ? `MySecrets — ${pending} pedido${pending > 1 ? 's' : ''} de gravação aguardando`
+    ? t("MySecrets — {0} pedido{1} de gravação aguardando", { 0: pending, 1: pending > 1 ? 's' : '' })
     : 'MySecrets');
   const itens = [];
   if (pending > 0) {
-    itens.push({ label: `Revisar pedido de gravação (${pending})`, click: () => deps.showAndFocusWindow() });
+    itens.push({ label: t("Revisar pedido de gravação ({0})", { 0: pending }), click: () => deps.showAndFocusWindow() });
     itens.push({ type: 'separator' });
   }
   itens.push(
-    { label: 'Mostrar/Ocultar', click: () => toggleMainWindow() },
-    { label: 'Bloquear', click: () => sendLockToRenderer() },
+    { label: t('Mostrar/Ocultar'), click: () => toggleMainWindow() },
+    { label: t('Bloquear'), click: () => sendLockToRenderer() },
     { type: 'separator' },
-    { label: 'Sair', click: () => app.quit() }
+    { label: t('Sair'), click: () => app.quit() }
   );
   tray.setContextMenu(Menu.buildFromTemplate(itens));
 }

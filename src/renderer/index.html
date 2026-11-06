@@ -628,6 +628,19 @@
             </div>
             <div class="modal-body">
                 <div class="settings-section">
+                    <h3><span class="material-symbols-outlined">translate</span> Idioma</h3>
+                    <div class="form-group">
+                        <label for="setting-language">Idioma da interface:</label>
+                        <select id="setting-language" class="input-field">
+                            <option value="auto">Automático (idioma do sistema)</option>
+                            <option value="pt-BR" data-no-i18n>Português (Brasil)</option>
+                            <option value="en" data-no-i18n>English</option>
+                        </select>
+                        <small>Ao trocar, o app recarrega e pede a senha mestra de novo.</small>
+                    </div>
+                </div>
+
+                <div class="settings-section">
                     <h3><span class="material-symbols-outlined">shield_lock</span> Segurança</h3>
 
                     <div class="form-group">
@@ -816,6 +829,7 @@
     <script src="jsQR.js"></script>
     <script src="proton-pass-import.js"></script>
     <script src="agent-write.js"></script>
+    <script src="i18n.js"></script>
     <script src="a11y.js"></script>
     <script src="app/00-util.js"></script>
     <script src="app/01-mfa.js"></script>

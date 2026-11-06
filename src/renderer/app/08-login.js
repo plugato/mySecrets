@@ -16,8 +16,8 @@ async function updateHelloButton() {
         helloShown = show;
         helloDivider.style.display = (show || phoneShown) ? 'flex' : 'none';
         helloLoginBtn.querySelector('span').textContent = helloSilentMode
-            ? 'Entrar com digital'
-            : 'Entrar com Windows Hello';
+            ? tr('Entrar com digital')
+            : tr('Entrar com Windows Hello');
     } catch (error) {
         console.error('Erro ao verificar status do Windows Hello:', error);
         helloLoginBtn.style.display = 'none';
@@ -62,8 +62,8 @@ async function handleHelloLogin(auto = false) {
     const label = helloLoginBtn.querySelector('span');
     const originalLabel = label.textContent;
     label.textContent = helloSilentMode
-        ? '👆 Encoste o dedo no leitor... (clique para cancelar)'
-        : 'Aguardando Windows Hello... (clique para cancelar)';
+        ? tr('👆 Encoste o dedo no leitor... (clique para cancelar)')
+        : tr('Aguardando Windows Hello... (clique para cancelar)');
 
     try {
         const helloResult = await window.electronAPI.helloLogin();
@@ -89,10 +89,10 @@ async function handleHelloLogin(auto = false) {
             // Remove o cadastro para forçar novo enroll com a senha atual.
             await window.electronAPI.helloDisable();
             updateHelloButton();
-            showError(loginError, 'A senha salva no Windows Hello não é mais válida. Entre com a senha mestra.');
+            showError(loginError, tr('A senha salva no Windows Hello não é mais válida. Entre com a senha mestra.'));
         }
     } catch (error) {
-        showError(loginError, 'Erro no login por digital');
+        showError(loginError, tr('Erro no login por digital'));
     } finally {
         helloWaiting = false;
         label.textContent = originalLabel;
@@ -110,9 +110,9 @@ async function offerHelloEnrollment(password) {
         if (localStorage.getItem('helloEnrollDeclined') === 'true') return;
 
         const enrollHint = status.silent
-            ? 'Ao aceitar, encoste o dedo no leitor para confirmar.'
-            : 'Ao aceitar, confirme sua identidade na janela do Windows Hello.';
-        const wants = confirm(`Deseja habilitar o login por digital?\n\nVocê poderá desbloquear o MySecrets usando sua biometria em vez da senha mestra.\n\n${enrollHint}`);
+            ? tr('Ao aceitar, encoste o dedo no leitor para confirmar.')
+            : tr('Ao aceitar, confirme sua identidade na janela do Windows Hello.');
+        const wants = confirm(tr("Deseja habilitar o login por digital?\n\nVocê poderá desbloquear o MySecrets usando sua biometria em vez da senha mestra.\n\n{0}", { 0: enrollHint }));
         if (!wants) {
             localStorage.setItem('helloEnrollDeclined', 'true');
             return;
@@ -120,9 +120,9 @@ async function offerHelloEnrollment(password) {
 
         const result = await window.electronAPI.helloEnroll(password);
         if (result.success) {
-            alert('✅ Login por digital habilitado! Na próxima vez, use o botão de digital na tela de login.');
+            alert(tr('✅ Login por digital habilitado! Na próxima vez, use o botão de digital na tela de login.'));
         } else {
-            alert('Não foi possível habilitar o login por digital: ' + result.error);
+            alert(tr('Não foi possível habilitar o login por digital: ') + result.error);
         }
     } catch (error) {
         console.error('Erro ao oferecer cadastro Windows Hello:', error);
@@ -149,7 +149,7 @@ async function handleLogin() {
     const password = masterPasswordInput.value.trim();
     
     if (!password) {
-        showError(loginError, 'Digite a senha mestra');
+        showError(loginError, tr('Digite a senha mestra'));
         return;
     }
 
@@ -168,7 +168,7 @@ async function handleLogin() {
             showError(loginError, result.error);
         }
     } catch (error) {
-        showError(loginError, 'Erro ao carregar dados');
+        showError(loginError, tr('Erro ao carregar dados'));
     }
 }
 
@@ -177,17 +177,17 @@ async function handleSetup() {
     const confirmPassword = confirmMasterPasswordInput.value.trim();
     
     if (!password) {
-        showError(setupError, 'Digite uma senha mestra');
+        showError(setupError, tr('Digite uma senha mestra'));
         return;
     }
     
     if (password.length < 8) {
-        showError(setupError, 'Senha deve ter pelo menos 8 caracteres');
+        showError(setupError, tr('Senha deve ter pelo menos 8 caracteres'));
         return;
     }
     
     if (password !== confirmPassword) {
-        showError(setupError, 'Senhas não coincidem');
+        showError(setupError, tr('Senhas não coincidem'));
         return;
     }
     
@@ -201,10 +201,10 @@ async function handleSetup() {
             showMainScreen();
             offerHelloEnrollment(password);
         } else {
-            showError(setupError, `Erro ao criar cofre: ${result.error}`);
+            showError(setupError, tr("Erro ao criar cofre: {0}", { 0: result.error }));
         }
     } catch (error) {
-        showError(setupError, `Erro ao criar cofre: ${error.message}`);
+        showError(setupError, tr("Erro ao criar cofre: {0}", { 0: error.message }));
     }
 }
 
@@ -292,7 +292,7 @@ function lockApp() {
     console.log('Bloqueando aplicação');
 
     // Pedido de agente aberto: bloqueou, então não grava
-    agentConfirm.cancelAll('O cofre foi bloqueado antes da confirmação. Nada foi gravado.');
+    agentConfirm.cancelAll(tr('O cofre foi bloqueado antes da confirmação. Nada foi gravado.'));
 
     // Fechar todos os modais primeiro
     closeModals();

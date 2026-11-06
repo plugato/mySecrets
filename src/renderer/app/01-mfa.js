@@ -6,7 +6,7 @@ class MFA {
     static async generateTOTP(secret, period = 30, digits = 6, algorithm = 'sha1') {
         if (!window.electronAPI || !window.electronAPI.generateTOTP) {
             console.error('API do Electron não disponível');
-            return { code: 'ERRO', error: 'API indisponível', remaining: 30, period };
+            return { code: 'ERRO', error: tr('API indisponível'), remaining: 30, period };
         }
         
         return await window.electronAPI.generateTOTP(secret, { period, digits, algorithm });
@@ -15,7 +15,7 @@ class MFA {
     static async generateHOTP(secret, counter = 0, digits = 6, algorithm = 'sha1') {
         if (!window.electronAPI || !window.electronAPI.generateHOTP) {
             console.error('API do Electron não disponível');
-            return { code: 'ERRO', error: 'API indisponível', counter };
+            return { code: 'ERRO', error: tr('API indisponível'), counter };
         }
         
         return await window.electronAPI.generateHOTP(secret, counter, { digits, algorithm });

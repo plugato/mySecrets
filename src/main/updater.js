@@ -10,6 +10,7 @@
  */
 
 const { app, dialog, ipcMain } = require('electron');
+const { t } = require('./i18n');
 
 let getWindow = () => null;
 
@@ -63,10 +64,10 @@ function setupAutoUpdater() {
 
     const result = await dialog.showMessageBox(getWindow(), {
       type: 'info',
-      title: 'Atualização pronta',
-      message: `A versão ${info.version} do MySecrets foi baixada.`,
-      detail: 'Reinicie agora para aplicar, ou ela será instalada ao fechar o app.',
-      buttons: ['Depois', 'Reiniciar agora'],
+      title: t('Atualização pronta'),
+      message: t("A versão {0} do MySecrets foi baixada.", { 0: info.version }),
+      detail: t('Reinicie agora para aplicar, ou ela será instalada ao fechar o app.'),
+      buttons: [t('Depois'), t('Reiniciar agora')],
       defaultId: 1
     });
     if (result.response === 1) {
@@ -94,7 +95,7 @@ ipcMain.handle('get-app-version', async () => app.getVersion());
 
 ipcMain.handle('check-for-updates', async () => {
   if (!autoUpdater) {
-    return { success: false, error: 'electron-updater não está instalado' };
+    return { success: false, error: t('electron-updater não está instalado') };
   }
   try {
     const result = await autoUpdater.checkForUpdates();

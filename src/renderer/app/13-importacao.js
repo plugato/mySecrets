@@ -27,15 +27,15 @@ function handleFileSelect(event) {
     confirmImportBtn.disabled = true;
 
     if (!/\.(json|csv|zip)$/i.test(file.name)) {
-        alert('Por favor, selecione um arquivo .json, .csv ou .zip.');
+        alert(tr('Por favor, selecione um arquivo .json, .csv ou .zip.'));
         return;
     }
 
     // Mostrar informações do arquivo
     // eslint-disable-next-line no-unsanitized/property -- nome escapado; tamanho é número
     fileInfo.innerHTML = `
-        <strong>Arquivo selecionado:</strong> ${escapeHtml(file.name)}<br>
-        <strong>Tamanho:</strong> ${(file.size / 1024).toFixed(2)} KB
+        <strong>${escapeHtml(tr("Arquivo selecionado:"))}</strong> ${escapeHtml(file.name)}<br>
+        <strong>${escapeHtml(tr("Tamanho:"))}</strong> ${(file.size / 1024).toFixed(2)} KB
     `;
     fileInfo.style.display = 'block';
 
@@ -46,7 +46,7 @@ function handleFileSelect(event) {
         const validEntries = validateImportData(importData);
 
         if (validEntries.length === 0) {
-            alert('Nenhuma entrada válida encontrada no arquivo.');
+            alert(tr('Nenhuma entrada válida encontrada no arquivo.'));
             return;
         }
 
@@ -56,7 +56,7 @@ function handleFileSelect(event) {
         confirmImportBtn.disabled = false;
     }).catch(error => {
         console.error('Erro ao processar arquivo:', error);
-        alert('Erro ao ler o arquivo. Verifique se o formato está correto.');
+        alert(tr('Erro ao ler o arquivo. Verifique se o formato está correto.'));
     });
 }
 
@@ -71,7 +71,7 @@ async function readImportFile(file) {
     if (nome.endsWith('.zip')) {
         const json = await extractTextFromZip(await file.arrayBuffer(), n => /(^|\/)data\.json$/i.test(n));
         if (json == null) {
-            alert('Nao encontrei o data.json dentro do ZIP. Use o export do Proton Pass sem criptografia.');
+            alert(tr('Nao encontrei o data.json dentro do ZIP. Use o export do Proton Pass sem criptografia.'));
             return null;
         }
         return normalizeImportData(JSON.parse(json));
@@ -81,7 +81,7 @@ async function readImportFile(file) {
 
     if (nome.endsWith('.csv')) {
         if (!isProtonPassCsv(texto)) {
-            alert('CSV nao reconhecido. Por enquanto so o CSV exportado pelo Proton Pass e suportado.');
+            alert(tr('CSV nao reconhecido. Por enquanto so o CSV exportado pelo Proton Pass e suportado.'));
             return null;
         }
         return convertProtonPassToMySecrets(protonPassCsvToJson(texto), generateId);
@@ -104,7 +104,7 @@ function normalizeImportData(parsed) {
 
     if (isProtonPassJson(parsed)) {
         if (parsed.encrypted === true) {
-            alert('Este export do Proton Pass esta criptografado (PGP). Exporte novamente sem criptografia.');
+            alert(tr('Este export do Proton Pass esta criptografado (PGP). Exporte novamente sem criptografia.'));
             return null;
         }
         return convertProtonPassToMySecrets(parsed, generateId);
@@ -112,13 +112,13 @@ function normalizeImportData(parsed) {
 
     if (parsed && Array.isArray(parsed.items)) {
         if (parsed.encrypted === true) {
-            alert('Este export do Bitwarden esta criptografado. Exporte novamente sem criptografia (unencrypted).');
+            alert(tr('Este export do Bitwarden esta criptografado. Exporte novamente sem criptografia (unencrypted).'));
             return null;
         }
         return convertBitwardenToMySecrets(parsed);
     }
 
-    alert('Formato de arquivo invalido. Esperado um array de entradas ou um export do Bitwarden ou do Proton Pass.');
+    alert(tr('Formato de arquivo invalido. Esperado um array de entradas ou um export do Bitwarden ou do Proton Pass.'));
     return null;
 }
 
@@ -376,7 +376,7 @@ function convertExternalToMySecrets(externalEntry) {
         mfaDigits: externalEntry.digits || 6,
         mfaCounter: externalEntry.counter || 0,
         mfaHash: (externalEntry.algorithm || 'sha1').toLowerCase(),
-        notes: `Importado de autenticador externo\nIssuer: ${externalEntry.issuer}\nLabel: ${externalEntry.label}\nAlgoritmo: ${(externalEntry.algorithm || 'SHA1').toUpperCase()}\nDígitos: ${externalEntry.digits || 6}\nPeríodo: ${externalEntry.period || 30}s`,
+        notes: tr("Importado de autenticador externo\nIssuer: {0}\nLabel: {1}\nAlgoritmo: {2}\nDígitos: {3}\nPeríodo: {4}s", { 0: externalEntry.issuer, 1: externalEntry.label, 2: (externalEntry.algorithm || 'SHA1').toUpperCase(), 3: externalEntry.digits || 6, 4: externalEntry.period || 30 }),
         createdAt: now,
         updatedAt: now,
         tags: ['importado', 'mfa', ...(externalEntry.tags || []), issuerLower.replace(/\s+/g, '-')]
@@ -391,10 +391,10 @@ function showImportPreview(entries) {
         div.className = 'import-entry-item';
         
         let details = [];
-        if (entry.username) details.push(`Usuário: ${entry.username}`);
-        if (entry.url) details.push(`URL: ${entry.url}`);
+        if (entry.username) details.push(tr("Usuário: {0}", { 0: entry.username }));
+        if (entry.url) details.push(tr("URL: {0}", { 0: entry.url }));
         if (entry.type === 'mfa' && entry.mfaSecret) {
-            details.push(`Secret: ${entry.mfaSecret.substring(0, 8)}...`);
+            details.push(tr("Secret: {0}...", { 0: entry.mfaSecret.substring(0, 8) }));
         }
         
         div.innerHTML = `
@@ -427,7 +427,7 @@ async function handleImportEntries() {
         }
         
         if (entriesToImport.length === 0) {
-            alert('Nenhuma entrada nova para importar (todas já existem).');
+            alert(tr('Nenhuma entrada nova para importar (todas já existem).'));
             return;
         }
         
@@ -456,7 +456,7 @@ async function handleImportEntries() {
 
             // Fechar modal e mostrar sucesso
             closeModals();
-            alert(`${entriesToImport.length} entradas importadas com sucesso!`);
+            alert(tr("{0} entradas importadas com sucesso!", { 0: entriesToImport.length }));
 
             // Se não havia entradas antes, remover mensagem de boas-vindas
             if (currentData.length === entriesToImport.length) {
@@ -466,10 +466,10 @@ async function handleImportEntries() {
                 }
             }
         } else {
-            alert('Erro ao salvar entradas importadas: ' + result.error);
+            alert(tr('Erro ao salvar entradas importadas: ') + result.error);
         }
     } catch (error) {
         console.error('Erro na importação:', error);
-        alert('Erro ao importar entradas: ' + error.message);
+        alert(tr('Erro ao importar entradas: ') + error.message);
     }
 }

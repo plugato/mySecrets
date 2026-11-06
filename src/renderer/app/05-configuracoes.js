@@ -14,8 +14,17 @@ function setupSettingsControls() {
     const autoBackupCheck = document.getElementById('setting-auto-backup');
     const globalShortcutCheck = document.getElementById('setting-global-shortcut');
 
+    const languageSelect = document.getElementById('setting-language');
+    if (languageSelect) {
+        languageSelect.addEventListener('change', async () => {
+            // O processo principal guarda a escolha e recarrega a janela
+            await window.electronAPI.setLanguage(languageSelect.value);
+        });
+    }
+
     settingsBtn.addEventListener('click', async () => {
         const s = getSettings();
+        if (languageSelect) languageSelect.value = window.I18N.pref || 'auto';
         autoLockSelect.value = String(s.autoLockMinutes);
         clipboardSelect.value = String(s.clipboardClearSeconds);
         lockOnSuspendCheck.checked = s.lockOnSuspend !== false;
@@ -29,8 +38,8 @@ function setupSettingsControls() {
             try {
                 const backups = await window.electronAPI.listBackups();
                 info.textContent = backups.length > 0
-                    ? `${backups.length} backup(s) automático(s) — mais recente: ${new Date(backups[0].modifiedAt).toLocaleString('pt-BR')}`
-                    : 'Nenhum backup automático ainda.';
+                    ? tr("{0} backup(s) automático(s) — mais recente: {1}", { 0: backups.length, 1: new Date(backups[0].modifiedAt).toLocaleString(I18N.locale) })
+                    : tr('Nenhum backup automático ainda.');
             } catch (_) { /* opcional */ }
         }
     });
@@ -63,7 +72,7 @@ function setupSettingsControls() {
         try {
             await window.electronAPI.exportBackup();
         } catch (error) {
-            alert('Erro ao exportar backup: ' + error.message);
+            alert(tr('Erro ao exportar backup: ') + error.message);
         }
     });
 
@@ -71,7 +80,7 @@ function setupSettingsControls() {
         try {
             await window.electronAPI.importBackup();
         } catch (error) {
-            alert('Erro ao restaurar backup: ' + error.message);
+            alert(tr('Erro ao restaurar backup: ') + error.message);
         }
     });
 
@@ -94,16 +103,16 @@ function setupGdriveControls() {
 
     function render(st) {
         if (!st.available) {
-            statusEl.textContent = 'Login com Google indisponível nesta versão do app. Use a opção avançada abaixo.';
+            statusEl.textContent = tr('Login com Google indisponível nesta versão do app. Use a opção avançada abaixo.');
             connectBtn.style.display = 'none';
             syncBtn.style.display = 'none';
             disconnectBtn.style.display = 'none';
             return;
         }
         if (st.connected) {
-            let texto = `✅ Conectado como ${st.email || 'conta Google'}`;
-            if (st.syncing) texto += ' · sincronizando…';
-            else if (st.lastSyncAt) texto += ` · última sincronização: ${new Date(st.lastSyncAt).toLocaleString('pt-BR')}`;
+            let texto = tr("✅ Conectado como {0}", { 0: st.email || 'conta Google' });
+            if (st.syncing) texto += tr(' · sincronizando…');
+            else if (st.lastSyncAt) texto += tr(" · última sincronização: {0}", { 0: new Date(st.lastSyncAt).toLocaleString(I18N.locale) });
             if (st.lastError) texto += `\n⚠️ ${st.lastError}`;
             statusEl.textContent = texto;
             connectBtn.style.display = 'none';
@@ -113,7 +122,7 @@ function setupGdriveControls() {
         } else {
             statusEl.textContent = st.lastError
                 ? `⚠️ ${st.lastError}`
-                : 'Cofre só neste PC. Entre com sua conta Google para sincronizar automaticamente.';
+                : tr('Cofre só neste PC. Entre com sua conta Google para sincronizar automaticamente.');
             connectBtn.style.display = '';
             syncBtn.style.display = 'none';
             disconnectBtn.style.display = 'none';
@@ -127,10 +136,10 @@ function setupGdriveControls() {
 
     connectBtn.addEventListener('click', async () => {
         connectBtn.disabled = true;
-        statusEl.textContent = 'Abrindo o login do Google no navegador… conclua por lá.';
+        statusEl.textContent = tr('Abrindo o login do Google no navegador… conclua por lá.');
         try {
             const result = await window.electronAPI.gdriveConnect(currentMasterPassword);
-            if (!result.success) alert('Não foi possível conectar ao Google: ' + result.error);
+            if (!result.success) alert(tr('Não foi possível conectar ao Google: ') + result.error);
         } finally {
             connectBtn.disabled = false;
             refresh();
@@ -147,9 +156,9 @@ function setupGdriveControls() {
     });
 
     disconnectBtn.addEventListener('click', async () => {
-        if (!confirm('Desconectar a conta Google? O cofre continua neste PC e a cópia no Drive não é apagada.')) return;
+        if (!confirm(tr('Desconectar a conta Google? O cofre continua neste PC e a cópia no Drive não é apagada.'))) return;
         const result = await window.electronAPI.gdriveDisconnect();
-        if (!result.success) alert('Erro ao desconectar: ' + result.error);
+        if (!result.success) alert(tr('Erro ao desconectar: ') + result.error);
         refresh();
     });
 
@@ -174,45 +183,45 @@ function setupSyncControls() {
             const st = await window.electronAPI.syncStatus();
             detected = st.detected;
             if (st.enabled) {
-                statusEl.textContent = `✅ Sincronizando em: ${st.dir}`;
+                statusEl.textContent = tr("✅ Sincronizando em: {0}", { 0: st.dir });
                 driveBtn.style.display = 'none';
-                chooseBtn.querySelector('span:last-child').textContent = 'Mudar pasta…';
+                chooseBtn.querySelector('span:last-child').textContent = tr('Mudar pasta…');
                 disableBtn.style.display = '';
             } else {
                 statusEl.textContent = detected
-                    ? `Cofre só neste PC. Google Drive encontrado em: ${detected}`
-                    : 'Cofre só neste PC. Google Drive para computador não encontrado — instale-o ou escolha a pasta manualmente.';
+                    ? tr("Cofre só neste PC. Google Drive encontrado em: {0}", { 0: detected })
+                    : tr('Cofre só neste PC. Google Drive para computador não encontrado — instale-o ou escolha a pasta manualmente.');
                 driveBtn.style.display = detected ? '' : 'none';
-                chooseBtn.querySelector('span:last-child').textContent = 'Escolher pasta…';
+                chooseBtn.querySelector('span:last-child').textContent = tr('Escolher pasta…');
                 disableBtn.style.display = 'none';
             }
         } catch (_) {
-            statusEl.textContent = 'Não foi possível verificar a sincronização.';
+            statusEl.textContent = tr('Não foi possível verificar a sincronização.');
         }
     }
 
     async function enable(baseDir) {
         if (!baseDir) return;
-        const ok = confirm(`O cofre criptografado será guardado em:\n${baseDir}${/MySecrets$/.test(baseDir) ? '' : (baseDir.includes('\\') ? '\\' : '/') + 'MySecrets'}\n\nSe já houver um cofre lá (de outro PC), os dois serão mesclados. Continuar?`);
+        const ok = confirm(tr("O cofre criptografado será guardado em:\n{0}{1}\n\nSe já houver um cofre lá (de outro PC), os dois serão mesclados. Continuar?", { 0: baseDir, 1: /MySecrets$/.test(baseDir) ? '' : (baseDir.includes('\\') ? '\\' : '/') + 'MySecrets' }));
         if (!ok) return;
         const result = await window.electronAPI.syncEnable(baseDir, currentMasterPassword);
         if (!result.success) {
-            alert('Não foi possível ligar a sincronização: ' + result.error);
+            alert(tr('Não foi possível ligar a sincronização: ') + result.error);
             return;
         }
         if (Array.isArray(result.data)) replaceVaultData(result.data);
         alert(result.merged
-            ? 'Sincronização ligada. O cofre deste PC foi mesclado com o que já estava no Drive.'
-            : 'Sincronização ligada. Nos outros PCs, escolha esta mesma pasta.');
+            ? tr('Sincronização ligada. O cofre deste PC foi mesclado com o que já estava no Drive.')
+            : tr('Sincronização ligada. Nos outros PCs, escolha esta mesma pasta.'));
         refresh();
     }
 
     driveBtn.addEventListener('click', () => enable(detected));
     chooseBtn.addEventListener('click', async () => enable(await window.electronAPI.syncChooseFolder()));
     disableBtn.addEventListener('click', async () => {
-        if (!confirm('Parar de sincronizar? O cofre volta a ficar só neste PC (com a versão atual do Drive). A pasta no Drive não é apagada.')) return;
+        if (!confirm(tr('Parar de sincronizar? O cofre volta a ficar só neste PC (com a versão atual do Drive). A pasta no Drive não é apagada.'))) return;
         const result = await window.electronAPI.syncDisable();
-        if (!result.success) alert('Erro ao desligar a sincronização: ' + result.error);
+        if (!result.success) alert(tr('Erro ao desligar a sincronização: ') + result.error);
         refresh();
     });
 

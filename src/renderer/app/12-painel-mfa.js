@@ -31,11 +31,11 @@ function renderMFACodes() {
         mfaCodesGrid.innerHTML = `
             <div class="mfa-empty-state">
                 <span class="material-symbols-outlined">security</span>
-                <h3>Nenhuma entrada MFA encontrada</h3>
-                <p>Adicione suas primeiras entradas de autenticação multifator</p>
+                <h3>${escapeHtml(tr("Nenhuma entrada MFA encontrada"))}</h3>
+                <p>${escapeHtml(tr("Adicione suas primeiras entradas de autenticação multifator"))}</p>
                 <button class="btn btn-primary" id="mfa-empty-add-btn">
                     <span class="material-symbols-outlined">add</span>
-                    Adicionar MFA
+                    ${escapeHtml(tr("Adicionar MFA"))}
                 </button>
             </div>
         `;
@@ -47,11 +47,11 @@ function renderMFACodes() {
     // Criar cabeçalho da tabela
     mfaCodesGrid.innerHTML = `
         <div class="mfa-table-header">
-            <div>Serviço</div>
-            <div>Código MFA</div>
+            <div>${escapeHtml(tr("Serviço"))}</div>
+            <div>${escapeHtml(tr("Código MFA"))}</div>
             <div>Timer</div>
-            <div>Algoritmo</div>
-            <div>Ações</div>
+            <div>${escapeHtml(tr("Algoritmo"))}</div>
+            <div>${escapeHtml(tr("Ações"))}</div>
         </div>
     `;
     
@@ -108,10 +108,10 @@ function createMFARow(entry) {
         </div>
 
         <div class="mfa-row-actions">
-            <button class="mfa-copy-btn" title="Copiar código">
+            <button class="mfa-copy-btn" title="${escapeHtml(tr("Copiar código"))}">
                 <span class="material-symbols-outlined">content_copy</span>
             </button>
-            <button class="mfa-edit-btn" title="Editar">
+            <button class="mfa-edit-btn" title="${escapeHtml(tr("Editar"))}">
                 <span class="material-symbols-outlined">edit</span>
             </button>
         </div>
@@ -211,7 +211,7 @@ async function copyMFACode(entryId) {
             
         } catch (error) {
             console.error('Erro ao copiar código MFA:', error);
-            alert('Erro ao copiar código');
+            alert(tr('Erro ao copiar código'));
         }
     }
 }

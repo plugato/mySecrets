@@ -38,7 +38,7 @@ function generateNewPassword() {
 
 function copyGeneratedPassword() {
     window.electronAPI.copyToClipboard(generatedPassword.value);
-    alert('Senha copiada!');
+    alert(tr('Senha copiada!'));
 }
 
 function useGeneratedPassword() {
@@ -58,13 +58,13 @@ function togglePasswordVisibility() {
 }
 
 // Funções de utilidade
-function copyToClipboard(text, label = 'Copiado') {
+function copyToClipboard(text, label = tr('Copiado')) {
     const clearSeconds = getSettings().clipboardClearSeconds;
     window.electronAPI.copyToClipboard(text, clearSeconds);
 
     // Feedback visual
     const tooltip = document.createElement('div');
-    tooltip.textContent = clearSeconds > 0 ? `${label}! (limpa em ${clearSeconds}s)` : `${label}!`;
+    tooltip.textContent = clearSeconds > 0 ? tr("{0}! (limpa em {1}s)", { 0: label, 1: clearSeconds }) : `${label}!`;
     tooltip.style.cssText = `
         position: fixed;
         top: 50%;
@@ -99,12 +99,12 @@ async function deleteEntry(entryId) {
 
     if (entry.deletedAt) {
         // Já está na lixeira: excluir definitivamente
-        if (!confirm('Excluir esta entrada DEFINITIVAMENTE? Esta ação não pode ser desfeita.')) {
+        if (!confirm(tr('Excluir esta entrada DEFINITIVAMENTE? Esta ação não pode ser desfeita.'))) {
             return;
         }
         currentData = currentData.filter(e => e.id !== entryId);
     } else {
-        if (!confirm('Mover esta entrada para a lixeira? Você poderá restaurá-la em até 30 dias.')) {
+        if (!confirm(tr('Mover esta entrada para a lixeira? Você poderá restaurá-la em até 30 dias.'))) {
             return;
         }
         entry.deletedAt = new Date().toISOString();
@@ -127,10 +127,10 @@ async function deleteEntry(entryId) {
                 }
             }
         } else {
-            alert('Erro ao excluir entrada');
+            alert(tr('Erro ao excluir entrada'));
         }
     } catch (error) {
-        alert('Erro ao excluir entrada');
+        alert(tr('Erro ao excluir entrada'));
     }
 }
 
@@ -156,10 +156,10 @@ async function restoreEntry(entryId) {
                 renderGridView();
             }
         } else {
-            alert('Erro ao restaurar entrada');
+            alert(tr('Erro ao restaurar entrada'));
         }
     } catch (error) {
-        alert('Erro ao restaurar entrada');
+        alert(tr('Erro ao restaurar entrada'));
     }
 }
 
@@ -183,10 +183,10 @@ async function updateHOTPCounter(entryId) {
             // Atualizar interface
             await renderEntryDetails(entry);
         } else {
-            alert('Erro ao atualizar contador HOTP');
+            alert(tr('Erro ao atualizar contador HOTP'));
         }
     } catch (error) {
-        alert('Erro ao atualizar contador HOTP');
+        alert(tr('Erro ao atualizar contador HOTP'));
     }
 }
 
@@ -228,11 +228,11 @@ async function handleReset() {
             authScreen.style.display = 'block';
             showSetupForm();
             
-            alert('Cofre resetado com sucesso! Você pode criar uma nova senha mestra.');
+            alert(tr('Cofre resetado com sucesso! Você pode criar uma nova senha mestra.'));
         } else {
-            alert('Erro ao resetar cofre: ' + result.error);
+            alert(tr('Erro ao resetar cofre: ') + result.error);
         }
     } catch (error) {
-        alert('Erro ao resetar cofre: ' + error.message);
+        alert(tr('Erro ao resetar cofre: ') + error.message);
     }
 }

@@ -306,3 +306,90 @@ test('senhas vazadas: só prefixos de 5 caracteres saem; a vazada aparece no pai
   assert.strictEqual(r.painel, true);
   assert.strictEqual(r.depoisDoBloqueio, true);
 });
+
+test('idiomas: todo texto estático tem tradução; nenhuma tradução sobrando', async () => {
+  const en = require('../../src/locales/en.json');
+  const estaticas = await app.evaluate('JSON.stringify(window.I18N.staticKeys())').then(JSON.parse);
+  const semTraducao = estaticas.filter((k) => !(k in en));
+  assert.deepStrictEqual(semTraducao, [], 'texto do index.html sem tradução em src/locales/en.json');
+
+  // Chaves usadas no código (mesma regra do teste unitário) + estáticas = tudo que o en.json precisa ter
+  const espree = require('espree');
+  const usadas = new Set(estaticas);
+  const raiz = path.join(__dirname, '..', '..');
+  const arquivos = ['src/main.js', ...fs.readdirSync(path.join(raiz, 'src/main')).map((f) => `src/main/${f}`),
+    ...fs.readdirSync(path.join(raiz, 'src/renderer/app')).map((f) => `src/renderer/app/${f}`),
+    'src/renderer/agent-write.js', 'src/renderer/proton-pass-import.js', 'src/renderer/a11y.js'];
+  for (const f of arquivos) {
+    const ast = espree.parse(fs.readFileSync(path.join(raiz, f), 'utf8'), { ecmaVersion: 2023, sourceType: 'script' });
+    (function walk(n) {
+      if (!n || typeof n.type !== 'string') return;
+      if (n.type === 'CallExpression' && ['tr', 't', 'trAgente', 'trProton'].includes(n.callee.name) && n.arguments[0] && typeof n.arguments[0].value === 'string') usadas.add(n.arguments[0].value);
+      for (const k of Object.keys(n)) { const v = n[k]; if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v.type === 'string') walk(v); }
+    })(ast);
+  }
+  assert.deepStrictEqual(Object.keys(en).filter((k) => !usadas.has(k)), [], 'tradução que ninguém usa mais');
+});
+
+test('idiomas: app em inglês mostra a interface em inglês', async () => {
+  const ui = await launchApp({ files: { 'language.json': JSON.stringify({ language: 'en' }) } });
+  try {
+    const r = await ui.evaluate(`(async () => {
+      const visivel = (id) => getComputedStyle(document.getElementById(id)).display !== 'none';
+      const telas = [];
+      telas.push(document.body.innerText);
+      // Abre as configurações e o gerador (textos de modais e montados em JS)
+      document.getElementById('settings-modal').style.display = 'flex';
+      telas.push(document.getElementById('settings-modal').innerText);
+      document.getElementById('settings-modal').style.display = 'none';
+      return JSON.stringify({
+        lang: document.documentElement.lang,
+        locale: I18N.locale,
+        botaoCriar: document.getElementById('setup-btn').textContent.trim(),
+        dinamico: tr('Senhas vazadas'),
+        comVariavel: tr('{0} entradas importadas com sucesso!', { 0: 3 }),
+        textoPt: telas.join('\\n').split('\\n').filter((l) => /[ãõçáéíóúâêôà]/i.test(l) && !/Português/.test(l))
+      });
+    })()`).then(JSON.parse);
+    assert.strictEqual(r.lang, 'en');
+    assert.strictEqual(r.locale, 'en-US');
+    assert.strictEqual(r.botaoCriar, 'Create Vault');
+    assert.strictEqual(r.dinamico, 'Leaked passwords');
+    assert.strictEqual(r.comVariavel, '3 entries imported successfully!');
+    assert.deepStrictEqual(r.textoPt, [], 'texto em português na interface em inglês');
+  } finally {
+    await ui.close();
+  }
+});
+
+test('idiomas: quem já tinha cofre continua em português; instalação nova segue o sistema', async () => {
+  const cofre = JSON.stringify(encryptVault('[]', PW));
+  const antigo = await launchApp({ files: { 'language.json': null, 'secrets.enc': cofre } });
+  try {
+    assert.strictEqual(await antigo.evaluate('I18N.lang'), 'pt-BR');
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(antigo.vaultDir, 'language.json'), 'utf8')), { language: 'pt-BR' });
+  } finally { await antigo.close(); }
+
+  const novo = await launchApp({ files: { 'language.json': null } });
+  try {
+    assert.strictEqual(await novo.evaluate('I18N.pref'), 'auto');
+    assert.ok(['pt-BR', 'en'].includes(await novo.evaluate('I18N.lang')));
+    assert.ok(!fs.existsSync(path.join(novo.vaultDir, 'language.json')), 'instalação nova não fixa idioma');
+  } finally { await novo.close(); }
+});
+
+test('idiomas: trocar nas configurações recarrega a janela no novo idioma', async () => {
+  const ui = await launchApp();
+  try {
+    assert.strictEqual(await ui.evaluate('I18N.lang'), 'pt-BR');
+    await ui.evaluate(`(() => { const s = document.getElementById('setting-language'); s.value = 'en'; s.dispatchEvent(new Event('change')); })()`);
+    let lang = null;
+    for (let i = 0; i < 40 && lang !== 'en'; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      lang = await ui.evaluate('window.I18N && I18N.lang').catch(() => null);
+    }
+    assert.strictEqual(lang, 'en');
+    assert.strictEqual(await ui.evaluate("document.getElementById('setup-btn').textContent.trim()"), 'Create Vault');
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(ui.vaultDir, 'language.json'), 'utf8')), { language: 'en' });
+  } finally { await ui.close(); }
+});

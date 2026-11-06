@@ -9,7 +9,7 @@
  * histórico, como numa edição normal).
  */
 async function saveLoginFromExtension({ id, url, username, password }) {
-    if (!currentMasterPassword) return { success: false, error: 'Cofre bloqueado' };
+    if (!currentMasterPassword) return { success: false, error: tr('Cofre bloqueado') };
 
     const now = new Date().toISOString();
     let entry;
@@ -17,7 +17,7 @@ async function saveLoginFromExtension({ id, url, username, password }) {
 
     if (id) {
         entry = currentData.find(e => e.id === id && !e.deletedAt);
-        if (!entry) return { success: false, error: 'Entrada não encontrada no cofre' };
+        if (!entry) return { success: false, error: tr('Entrada não encontrada no cofre') };
         if (entry.password && entry.password !== password) {
             entry.passwordHistory = [...(entry.passwordHistory || []), { password: entry.password, changedAt: now }].slice(-10);
         }
@@ -51,7 +51,7 @@ async function saveLoginFromExtension({ id, url, username, password }) {
     }
 
     const result = await persistData();
-    if (!result.success) return { success: false, error: result.error || 'Erro ao salvar o cofre' };
+    if (!result.success) return { success: false, error: result.error || tr('Erro ao salvar o cofre') };
 
     updateEntryCounts();
     renderTagsSidebar();
@@ -89,18 +89,18 @@ function renderAgentConfirm(state) {
     const marca = (r, texto = 'substitui') => r ? ` <span class="agent-write-replace">(${texto})</span>` : '';
     const lista = (itens) => `<ul>${itens.join('')}</ul>`;
     let html = `<dl>
-        <dt>Ação</dt><dd><strong>${escapeHtml(s.heading)}</strong></dd>
-        <dt>Entrada</dt><dd>${escapeHtml(s.title)}</dd>
-        <dt>Tipo</dt><dd>${escapeHtml(s.type)}</dd>`;
-    if (s.tags.length) html += `<dt>Projeto/tags</dt><dd>${s.tags.map(escapeHtml).join(', ')}</dd>`;
+        <dt>${escapeHtml(tr("Ação"))}</dt><dd><strong>${escapeHtml(s.heading)}</strong></dd>
+        <dt>${escapeHtml(tr("Entrada"))}</dt><dd>${escapeHtml(s.title)}</dd>
+        <dt>${escapeHtml(tr("Tipo"))}</dt><dd>${escapeHtml(s.type)}</dd>`;
+    if (s.tags.length) html += `<dt>${escapeHtml(tr("Projeto/tags"))}</dt><dd>${s.tags.map(escapeHtml).join(', ')}</dd>`;
     if (s.fields.length) {
-        html += `<dt>Campos</dt><dd>${s.fields.map(f => escapeHtml(f.name) + marca(f.replaces)).join(', ')}</dd>`;
+        html += `<dt>${escapeHtml(tr("Campos"))}</dt><dd>${s.fields.map(f => escapeHtml(f.name) + marca(f.replaces)).join(', ')}</dd>`;
     }
     if (s.customFields.length) {
-        html += `<dt>Campos extras</dt><dd>${s.customFields.map(c => escapeHtml(c.name) + marca(c.replaces)).join(', ')}</dd>`;
+        html += `<dt>${escapeHtml(tr("Campos extras"))}</dt><dd>${s.customFields.map(c => escapeHtml(c.name) + marca(c.replaces)).join(', ')}</dd>`;
     }
     if (s.files.length) {
-        html += `<dt>Arquivos</dt><dd>${lista(s.files.map(f =>
+        html += `<dt>${escapeHtml(tr("Arquivos"))}</dt><dd>${lista(s.files.map(f =>
             `<li>${escapeHtml(f.name)} — ${escapeHtml(f.size)} <span class="agent-write-sha">sha256 ${escapeHtml(f.sha256)}…</span>` +
             `${marca(f.replaces, 'substitui o anexo atual')}</li>`))}</dd>`;
     }
@@ -115,9 +115,9 @@ function renderAgentConfirm(state) {
         setTimeout(() => document.getElementById('agent-write-decline').focus(), 0);
     }
     document.getElementById('agent-write-queue').textContent =
-        state.total > 1 ? `Pedido 1 de ${state.total}` : '';
+        state.total > 1 ? tr("Pedido 1 de {0}", { 0: state.total }) : '';
     const timerEl = document.getElementById('agent-write-timer');
-    timerEl.textContent = `Vence em ${state.remaining} — depois disso nada é gravado`;
+    timerEl.textContent = tr("Vence em {0} — depois disso nada é gravado", { 0: state.remaining });
     timerEl.classList.toggle('urgent', state.remainingMs < 30000);
     agentModal.style.display = 'flex';
 }
@@ -129,7 +129,7 @@ document.getElementById('agent-write-decline').addEventListener('click', () => a
 
 async function handleAgentWriteRequest({ op, jobId, request, deadline, total }) {
     if (!currentMasterPassword) {
-        return { success: false, error: 'O cofre está bloqueado. Desbloqueie o MySecrets e peça a gravação de novo. Nada foi gravado.' };
+        return { success: false, error: tr('O cofre está bloqueado. Desbloqueie o MySecrets e peça a gravação de novo. Nada foi gravado.') };
     }
 
     if (op === 'confirm') {
@@ -138,14 +138,14 @@ async function handleAgentWriteRequest({ op, jobId, request, deadline, total }) 
         return agentConfirm.request(jobId, plan, deadline, total);
     }
 
-    if (op !== 'apply') return { success: false, error: 'Operação desconhecida' };
+    if (op !== 'apply') return { success: false, error: tr('Operação desconhecida') };
 
     const antes = currentData.map(e => ({ ...e }));
     const { entry, mode } = applyAgentWrite(currentData, request, { newId: generateId });
     const result = await persistData();
     if (!result.success) {
         currentData = antes;
-        return { success: false, error: result.error || 'Erro ao salvar o cofre' };
+        return { success: false, error: result.error || tr('Erro ao salvar o cofre') };
     }
 
     updateEntryCounts();
@@ -181,7 +181,7 @@ async function attachFilesToEntry(entryId) {
     if (!entry) return;
     const picked = await window.electronAPI.attachmentPick();
     if (!picked.success) {
-        alert('Não foi possível anexar: ' + picked.error);
+        alert(tr('Não foi possível anexar: ') + picked.error);
         return;
     }
     if (picked.files.length === 0) return;
@@ -191,14 +191,14 @@ async function attachFilesToEntry(entryId) {
     for (const f of picked.files) {
         const idx = anexos.findIndex(a => a.name === f.name);
         if (idx >= 0) {
-            if (!confirm(`Já existe um anexo "${f.name}" nesta entrada. Substituir?`)) continue;
+            if (!confirm(tr("Já existe um anexo \"{0}\" nesta entrada. Substituir?", { 0: f.name }))) continue;
             anexos[idx] = { ...f, id: anexos[idx].id, addedAt: anexos[idx].addedAt || now, updatedAt: now };
         } else {
             anexos.push({ ...f, id: generateId(), addedAt: now, updatedAt: now });
         }
     }
     if (anexos.length > MAX_ATTACHMENTS_PER_ENTRY) {
-        alert(`No máximo ${MAX_ATTACHMENTS_PER_ENTRY} anexos por entrada.`);
+        alert(tr("No máximo {0} anexos por entrada.", { 0: MAX_ATTACHMENTS_PER_ENTRY }));
         return;
     }
     await saveEntryAttachments(entry, anexos);
@@ -209,7 +209,7 @@ async function removeAttachment(entryId, attachmentId) {
     if (!entry) return;
     const att = entryAttachments(entry).find(a => a.id === attachmentId);
     if (!att) return;
-    if (!confirm(`Remover o anexo "${att.name}" do cofre? Baixe uma cópia antes se ainda precisar dele.`)) return;
+    if (!confirm(tr("Remover o anexo \"{0}\" do cofre? Baixe uma cópia antes se ainda precisar dele.", { 0: att.name }))) return;
     await saveEntryAttachments(entry, entryAttachments(entry).filter(a => a.id !== attachmentId));
 }
 
@@ -222,7 +222,7 @@ async function saveEntryAttachments(entry, anexos) {
     if (!result.success) {
         entry.attachments = anteriores;
         entry.updatedAt = updatedAt;
-        alert('Erro ao salvar o cofre');
+        alert(tr('Erro ao salvar o cofre'));
         return;
     }
     const atual = currentData.find(e => e.id === entry.id) || entry;
@@ -235,7 +235,7 @@ async function downloadAttachment(entryId, attachmentId) {
     const att = entry && entryAttachments(entry).find(a => a.id === attachmentId);
     if (!att) return;
     const result = await window.electronAPI.attachmentSave(att);
-    if (!result.success) alert('Não foi possível salvar o arquivo: ' + result.error);
+    if (!result.success) alert(tr('Não foi possível salvar o arquivo: ') + result.error);
 }
 
 // ===== Atualizações automáticas (UI) =====
@@ -256,22 +256,22 @@ function setupUpdateControls() {
         window.electronAPI.onUpdateStatus((data) => {
             switch (data.status) {
                 case 'checking':
-                    setStatus('Verificando atualizações...');
+                    setStatus(tr('Verificando atualizações...'));
                     break;
                 case 'available':
-                    setStatus(`Nova versão ${data.version} encontrada — baixando...`);
+                    setStatus(tr("Nova versão {0} encontrada — baixando...", { 0: data.version }));
                     break;
                 case 'downloading':
-                    setStatus(`Baixando atualização... ${data.percent}%`);
+                    setStatus(tr("Baixando atualização... {0}%", { 0: data.percent }));
                     break;
                 case 'downloaded':
-                    setStatus(`Versão ${data.version} baixada! Reinicie para aplicar.`);
+                    setStatus(tr("Versão {0} baixada! Reinicie para aplicar.", { 0: data.version }));
                     break;
                 case 'none':
-                    setStatus('Você já está na versão mais recente.');
+                    setStatus(tr('Você já está na versão mais recente.'));
                     break;
                 case 'error':
-                    setStatus(`Falha ao verificar: ${data.message}`);
+                    setStatus(tr("Falha ao verificar: {0}", { 0: data.message }));
                     break;
             }
         });
@@ -279,15 +279,15 @@ function setupUpdateControls() {
 
     checkBtn.addEventListener('click', async () => {
         checkBtn.disabled = true;
-        setStatus('Verificando atualizações...');
+        setStatus(tr('Verificando atualizações...'));
         try {
             const result = await window.electronAPI.checkForUpdates();
             if (!result.success) {
-                setStatus(`Falha ao verificar: ${result.error}`);
+                setStatus(tr("Falha ao verificar: {0}", { 0: result.error }));
             }
             // Resultados de sucesso chegam pelos eventos update-status
         } catch (error) {
-            setStatus(`Falha ao verificar: ${error.message}`);
+            setStatus(tr("Falha ao verificar: {0}", { 0: error.message }));
         } finally {
             checkBtn.disabled = false;
         }

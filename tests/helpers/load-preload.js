@@ -9,7 +9,7 @@ function loadPreload({ invoke = async () => ({}) } = {}) {
   let api = null;
   const fakeElectron = {
     contextBridge: { exposeInMainWorld: (_name, obj) => { api = obj; } },
-    ipcRenderer: { invoke, on: () => {}, send: () => {}, removeListener: () => {}, removeAllListeners: () => {} }
+    ipcRenderer: { invoke, sendSync: () => ({ lang: 'pt-BR', pref: 'auto', messages: {} }), on: () => {}, send: () => {}, removeListener: () => {}, removeAllListeners: () => {} }
   };
   const origLoad = Module._load;
   const orig = { log: console.log, error: console.error };

@@ -39,10 +39,10 @@ function updateStrengthMeter() {
     const score = computePasswordStrength(password);
     const levels = [
         { pct: 5, color: 'var(--danger-color)', text: '' },
-        { pct: 25, color: 'var(--danger-color)', text: 'Muito fraca' },
-        { pct: 50, color: 'var(--warning-color)', text: 'Fraca' },
-        { pct: 75, color: 'var(--info-color)', text: 'Boa' },
-        { pct: 100, color: 'var(--success-color)', text: 'Forte' }
+        { pct: 25, color: 'var(--danger-color)', text: tr('Muito fraca') },
+        { pct: 50, color: 'var(--warning-color)', text: tr('Fraca') },
+        { pct: 75, color: 'var(--info-color)', text: tr('Boa') },
+        { pct: 100, color: 'var(--success-color)', text: tr('Forte') }
     ];
     const level = levels[score];
     fill.style.width = password ? `${level.pct}%` : '0';
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('Inicialização concluída com sucesso');
     } catch (error) {
         console.error('Erro na inicialização:', error);
-        alert('Erro na inicialização da aplicação: ' + error.message);
+        alert(tr('Erro na inicialização da aplicação: ') + error.message);
         // Em caso de erro, mostrar tela de setup como fallback
         showSetupForm();
     }

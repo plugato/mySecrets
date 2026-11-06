@@ -35,8 +35,8 @@ async function handlePhoneLogin() {
     }
     hideError(loginError);
     phoneWaiting = true;
-    label.textContent = 'Cancelar pedido ao celular';
-    setPhoneLoginStatus('Procurando o celular na rede…');
+    label.textContent = tr('Cancelar pedido ao celular');
+    setPhoneLoginStatus(tr('Procurando o celular na rede…'));
     try {
         const r = await window.electronAPI.phoneUnlock();
         if (mainScreen.style.display === 'block') return;
@@ -50,13 +50,13 @@ async function handlePhoneLogin() {
             currentData = result.data || [];
             showMainScreen();
         } else {
-            showError(loginError, 'A senha guardada para o celular não abre mais este cofre. Entre com a senha mestra e pareie o celular de novo.');
+            showError(loginError, tr('A senha guardada para o celular não abre mais este cofre. Entre com a senha mestra e pareie o celular de novo.'));
         }
     } catch (error) {
-        showError(loginError, 'Erro ao pedir aprovação ao celular');
+        showError(loginError, tr('Erro ao pedir aprovação ao celular'));
     } finally {
         phoneWaiting = false;
-        label.textContent = 'Aprovar pelo celular';
+        label.textContent = tr('Aprovar pelo celular');
         setPhoneLoginStatus('');
     }
 }
@@ -64,9 +64,9 @@ async function handlePhoneLogin() {
 if (window.electronAPI && window.electronAPI.onPhoneUnlockStatus) {
     window.electronAPI.onPhoneUnlockStatus((s) => {
         if (!phoneWaiting) return;
-        if (s.stage === 'searching') setPhoneLoginStatus('Procurando o celular na rede…');
+        if (s.stage === 'searching') setPhoneLoginStatus(tr('Procurando o celular na rede…'));
         if (s.stage === 'waiting') {
-            setPhoneLoginStatus(`Aprove no celular${s.phoneName ? ' (' + s.phoneName + ')' : ''} com a digital. Código: ${s.code}`);
+            setPhoneLoginStatus(tr("Aprove no celular{0} com a digital. Código: {1}", { 0: s.phoneName ? ' (' + s.phoneName + ')' : '', 1: s.code }));
         }
     });
 }
@@ -92,18 +92,18 @@ function setupPhoneControls() {
     function render(phones) {
         list.innerHTML = '';
         statusEl.textContent = phones.length
-            ? `${phones.length} celular(es) pareado(s).`
-            : 'Nenhum celular pareado.';
+            ? tr("{0} celular(es) pareado(s).", { 0: phones.length })
+            : tr('Nenhum celular pareado.');
         phones.forEach((p) => {
             const li = document.createElement('li');
             const quando = new Date(p.lastUsedAt || p.pairedAt).toLocaleString();
             // eslint-disable-next-line no-unsanitized/property -- nome e datas escapados
-            li.innerHTML = `<span><strong>${escapeHtml(p.phoneName || 'Android')}</strong> <small>${p.lastUsedAt ? 'usado em' : 'pareado em'} ${escapeHtml(quando)}</small></span>`;
+            li.innerHTML = `<span><strong>${escapeHtml(p.phoneName || 'Android')}</strong> <small>${p.lastUsedAt ? tr('usado em') : tr('pareado em')} ${escapeHtml(quando)}</small></span>`;
             const rm = document.createElement('button');
             rm.className = 'btn btn-secondary btn-small';
-            rm.textContent = 'Remover';
+            rm.textContent = tr('Remover');
             rm.addEventListener('click', async () => {
-                if (!confirm(`Remover o celular "${p.phoneName}"? Ele não poderá mais aprovar o login neste PC.`)) return;
+                if (!confirm(tr("Remover o celular \"{0}\"? Ele não poderá mais aprovar o login neste PC.", { 0: p.phoneName }))) return;
                 const r = await window.electronAPI.phoneUnpair(p.pairId);
                 render(r.phones);
                 updatePhoneButton();
@@ -130,7 +130,7 @@ function setupPhoneControls() {
         pairBtn.disabled = true;
         const start = await window.electronAPI.phonePairStart(currentMasterPassword);
         if (!start.success) {
-            alert('Não foi possível iniciar o pareamento: ' + start.error);
+            alert(tr('Não foi possível iniciar o pareamento: ') + start.error);
             pairBtn.disabled = false;
             return;
         }
@@ -140,9 +140,9 @@ function setupPhoneControls() {
         const r = await window.electronAPI.phonePairWait();
         endPairing();
         if (r.success) {
-            alert(`✅ Celular "${r.phoneName}" pareado! Na tela de login, use "Aprovar pelo celular".`);
+            alert(tr("✅ Celular \"{0}\" pareado! Na tela de login, use \"Aprovar pelo celular\".", { 0: r.phoneName }));
         } else if (!r.cancelled) {
-            alert('Pareamento não concluído: ' + r.error);
+            alert(tr('Pareamento não concluído: ') + r.error);
         }
         refresh();
         updatePhoneButton();

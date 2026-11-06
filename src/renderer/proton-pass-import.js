@@ -6,6 +6,11 @@
 // Carregado como script clássico no renderer; também exporta via module.exports
 // para os testes em tests/.
 
+// Mensagens de erro traduzidas no renderer (tr); nos testes em Node, português.
+// Os textos gravados no cofre durante a importação não são traduzidos.
+const trProton = (typeof tr === 'function') ? tr
+    : (texto, vars) => (vars ? texto.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : texto);
+
 /**
  * Lê um segredo TOTP em base32 ou uma URI otpauth://.
  * Retorna { secret, algoritmo, digitos, periodo } ou null se inválido.
@@ -302,13 +307,13 @@ async function extractTextFromZip(buffer, predicado) {
     for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--) {
         if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
     }
-    if (eocd < 0) throw new Error('Arquivo ZIP inválido');
+    if (eocd < 0) throw new Error(trProton('Arquivo ZIP inválido'));
 
     const total = view.getUint16(eocd + 10, true);
     let p = view.getUint32(eocd + 16, true);
 
     for (let n = 0; n < total; n++) {
-        if (view.getUint32(p, true) !== 0x02014b50) throw new Error('Arquivo ZIP inválido');
+        if (view.getUint32(p, true) !== 0x02014b50) throw new Error(trProton('Arquivo ZIP inválido'));
         const metodo = view.getUint16(p + 10, true);
         const tamanho = view.getUint32(p + 20, true);
         const lenNome = view.getUint16(p + 28, true);
@@ -324,7 +329,7 @@ async function extractTextFromZip(buffer, predicado) {
         const dados = bytes.subarray(ini, ini + tamanho);
 
         if (metodo === 0) return new TextDecoder().decode(dados);
-        if (metodo !== 8) throw new Error('Compressão do ZIP não suportada (método ' + metodo + ')');
+        if (metodo !== 8) throw new Error(trProton('Compressão do ZIP não suportada (método {0})', { 0: metodo }));
 
         const fluxo = new Blob([dados]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
         return await new Response(fluxo).text();

@@ -11,8 +11,14 @@ const ROOT = path.join(__dirname, '..', '..');
 const ELECTRON = require(path.join(ROOT, 'node_modules', 'electron'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function launchApp() {
+/** files: { 'language.json': '...' } gravados na pasta do app no perfil antes de abrir (null = não gravar). */
+async function launchApp({ files = {} } = {}) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'mysecrets-e2e-'));
+  const pastaApp = path.join(profile, 'mysecrets');
+  fs.mkdirSync(pastaApp, { recursive: true });
+  // Idioma fixo (pt-BR) a menos que o teste peça outro: não depende da máquina
+  const iniciais = { 'language.json': JSON.stringify({ language: 'pt-BR' }), ...files };
+  for (const [nome, conteudo] of Object.entries(iniciais)) if (conteudo !== null) fs.writeFileSync(path.join(pastaApp, nome), conteudo);
   const port = 20000 + Math.floor(Math.random() * 20000);
   const env = { ...process.env, XDG_CONFIG_HOME: profile, APPDATA: profile };
   delete env.ELECTRON_RUN_AS_NODE;

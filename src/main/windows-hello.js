@@ -13,6 +13,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 const { ipcMain, safeStorage } = require('electron');
+const { t } = require('./i18n');
 
 let deps = { getWindow: () => null, helloPath: null };
 const getWindow = () => deps.getWindow();
@@ -41,7 +42,7 @@ function runPowerShell(script, timeoutMs, onSpawn) {
   return new Promise((resolve, reject) => {
     const psPath = getPowerShellPath();
     if (!psPath) {
-      reject(new Error('PowerShell não disponível nesta plataforma'));
+      reject(new Error(t('PowerShell não disponível nesta plataforma')));
       return;
     }
     const encoded = Buffer.from(script, 'utf16le').toString('base64');
@@ -80,7 +81,7 @@ let helloAvailabilityCache = null;
 
 async function checkHelloAvailability() {
   if (process.platform !== 'win32' && !isWSL) {
-    return { available: false, reason: 'Windows Hello só está disponível no Windows' };
+    return { available: false, reason: t('Windows Hello só está disponível no Windows') };
   }
 
   // Cacheia apenas resultado positivo: indisponibilidade pode ser transitória
@@ -104,19 +105,19 @@ try {
     // UserConsentVerifierAvailability: 0=Available, 1=DeviceNotPresent,
     // 2=NotConfiguredForUser, 3=DisabledByPolicy, 4=DeviceBusy
     const reasons = {
-      1: 'Nenhum dispositivo biométrico encontrado',
-      2: 'Windows Hello não está configurado para este usuário',
-      3: 'Windows Hello desabilitado por política do sistema',
-      4: 'Dispositivo biométrico ocupado'
+      1: t('Nenhum dispositivo biométrico encontrado'),
+      2: t('Windows Hello não está configurado para este usuário'),
+      3: t('Windows Hello desabilitado por política do sistema'),
+      4: t('Dispositivo biométrico ocupado')
     };
     if (code === 0) {
       helloAvailabilityCache = { available: true };
       return helloAvailabilityCache;
     }
-    return { available: false, reason: reasons[code] || 'Windows Hello indisponível' };
+    return { available: false, reason: reasons[code] || t('Windows Hello indisponível') };
   } catch (error) {
     console.error('Erro ao verificar Windows Hello:', error.message);
-    return { available: false, reason: 'Não foi possível verificar o Windows Hello' };
+    return { available: false, reason: t('Não foi possível verificar o Windows Hello') };
   }
 }
 
@@ -273,7 +274,7 @@ async function verifyUserIdentity(message) {
   const verified = await requestHelloVerification(message);
   return verified
     ? { verified: true }
-    : { verified: false, error: 'Verificação do Windows Hello cancelada ou falhou' };
+    : { verified: false, error: t('Verificação do Windows Hello cancelada ou falhou') };
 }
 
 // Fallback quando safeStorage não está disponível (ex.: WSL sem keyring):
@@ -341,7 +342,7 @@ ipcMain.handle('hello-enroll', async (event, masterPassword) => {
     }
 
     const result = await verifyUserIdentity(
-      'Confirme sua identidade para habilitar o login por digital no MySecrets'
+      t('Confirme sua identidade para habilitar o login por digital no MySecrets')
     );
     if (!result.verified) {
       return { success: false, error: result.error };
@@ -365,10 +366,10 @@ ipcMain.handle('hello-enroll', async (event, masterPassword) => {
 ipcMain.handle('hello-login', async () => {
   try {
     if (!isHelloEnrolled()) {
-      return { success: false, error: 'Login por digital não está habilitado' };
+      return { success: false, error: t('Login por digital não está habilitado') };
     }
 
-    const result = await verifyUserIdentity('Desbloqueie o MySecrets');
+    const result = await verifyUserIdentity(t('Desbloqueie o MySecrets'));
     if (!result.verified) {
       return { success: false, error: result.error };
     }
@@ -378,7 +379,7 @@ ipcMain.handle('hello-login', async () => {
     return { success: true, password: masterPassword };
   } catch (error) {
     console.error('Erro no login Windows Hello:', error);
-    return { success: false, error: 'Não foi possível recuperar as credenciais. Use a senha mestra.' };
+    return { success: false, error: t('Não foi possível recuperar as credenciais. Use a senha mestra.') };
   }
 });
 

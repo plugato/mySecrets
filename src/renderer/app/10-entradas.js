@@ -9,16 +9,16 @@ const TYPE_ICONS = {
 };
 
 const TYPE_LABELS = {
-    login: 'Login',
-    mfa: 'MFA',
-    token: 'Token',
-    note: 'Nota'
+    login: tr('Login'),
+    mfa: tr('MFA'),
+    token: tr('Token'),
+    note: tr('Nota')
 };
 
 function entrySubtitle(entry) {
     return entry.username || entry.url ||
-           (entry.type === 'token' ? (entry.tokenType ? `Token ${String(entry.tokenType).toUpperCase()}` : 'Token') : '') ||
-           (entry.type === 'note' ? 'Nota segura' : '');
+           (entry.type === 'token' ? (entry.tokenType ? tr("Token {0}", { 0: String(entry.tokenType).toUpperCase() }) : tr('Token')) : '') ||
+           (entry.type === 'note' ? tr('Nota segura') : '');
 }
 
 function entryTagsHTML(entry, max = 3) {
@@ -46,19 +46,19 @@ function createGridCard(entry) {
     if (!inTrash) {
         if (entry.type === 'login' && entry.password) {
             quickCopyHTML += `
-            <button class="grid-card-btn-secondary" data-action="copy-password" title="Copiar senha">
+            <button class="grid-card-btn-secondary" data-action="copy-password" title="${escapeHtml(tr("Copiar senha"))}">
                 <span class="material-symbols-outlined">key</span>
             </button>`;
         }
         if (linkedMfaEntry || (entry.type === 'mfa' && entry.mfaSecret)) {
             quickCopyHTML += `
-            <button class="grid-card-btn-secondary" data-action="copy-mfa" title="Copiar código MFA">
+            <button class="grid-card-btn-secondary" data-action="copy-mfa" title="${escapeHtml(tr("Copiar código MFA"))}">
                 <span class="material-symbols-outlined">pin</span>
             </button>`;
         }
         if (entry.type === 'token' && entry.token) {
             quickCopyHTML += `
-            <button class="grid-card-btn-secondary" data-action="copy-token" title="Copiar token">
+            <button class="grid-card-btn-secondary" data-action="copy-token" title="${escapeHtml(tr("Copiar token"))}">
                 <span class="material-symbols-outlined">content_copy</span>
             </button>`;
         }
@@ -68,9 +68,9 @@ function createGridCard(entry) {
         <div class="grid-card-footer">
             <button class="grid-card-btn" data-action="restore">
                 <span class="material-symbols-outlined">restore_from_trash</span>
-                Restaurar
+                ${escapeHtml(tr("Restaurar"))}
             </button>
-            <button class="grid-card-btn-secondary btn-danger-hover" data-action="delete-forever" title="Excluir definitivamente">
+            <button class="grid-card-btn-secondary btn-danger-hover" data-action="delete-forever" title="${escapeHtml(tr("Excluir definitivamente"))}">
                 <span class="material-symbols-outlined">delete_forever</span>
             </button>
         </div>
@@ -78,10 +78,10 @@ function createGridCard(entry) {
         <div class="grid-card-footer">
             <button class="grid-card-btn" data-action="view">
                 <span class="material-symbols-outlined">visibility</span>
-                Ver Detalhes
+                ${escapeHtml(tr("Ver Detalhes"))}
             </button>
             ${quickCopyHTML}
-            <button class="grid-card-btn-secondary" data-action="edit" title="Editar">
+            <button class="grid-card-btn-secondary" data-action="edit" title="${escapeHtml(tr("Editar"))}">
                 <span class="material-symbols-outlined">edit</span>
             </button>
         </div>
@@ -93,8 +93,8 @@ function createGridCard(entry) {
             <div class="grid-card-icon badge-${escapeHtml(entry.type)}">
                 <span class="material-symbols-outlined">${TYPE_ICONS[entry.type]}</span>
             </div>
-            ${entry.favorite && !inTrash ? '<span class="material-symbols-outlined favorite-star" title="Favorito">star</span>' : ''}
-            <div class="grid-card-type">${inTrash ? 'Na lixeira' : TYPE_LABELS[entry.type]}</div>
+            ${entry.favorite && !inTrash ? `<span class="material-symbols-outlined favorite-star" title="${escapeHtml(tr('Favorito'))}">star</span>` : ''}
+            <div class="grid-card-type">${inTrash ? tr('Na lixeira') : TYPE_LABELS[entry.type]}</div>
         </div>
         <div class="grid-card-content">
             <h3>${escapeHtml(entry.title)}</h3>
@@ -128,11 +128,11 @@ function createGridCard(entry) {
         }, 1000);
     };
     bind('copy-password', () => {
-        copyToClipboard(entry.password, 'Senha copiada');
+        copyToClipboard(entry.password, tr('Senha copiada'));
         flashCopied('copy-password');
     });
     bind('copy-token', () => {
-        copyToClipboard(entry.token, 'Token copiado');
+        copyToClipboard(entry.token, tr('Token copiado'));
         flashCopied('copy-token');
     });
     bind('copy-mfa', async () => {
@@ -140,7 +140,7 @@ function createGridCard(entry) {
         if (!mfaEntry) return;
         try {
             const result = await MFA.generate(mfaEntry);
-            copyToClipboard(result.code, 'Código MFA copiado');
+            copyToClipboard(result.code, tr('Código MFA copiado'));
             flashCopied('copy-mfa');
         } catch (error) {
             console.error('Erro ao gerar código MFA:', error);
@@ -168,7 +168,7 @@ function createEntryElement(entry) {
             <h3>${escapeHtml(entry.title)}</h3>
             ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ''}
         </div>
-        ${entry.favorite && !entry.deletedAt ? '<span class="material-symbols-outlined favorite-star" title="Favorito">star</span>' : ''}
+        ${entry.favorite && !entry.deletedAt ? `<span class="material-symbols-outlined favorite-star" title="${escapeHtml(tr('Favorito'))}">star</span>` : ''}
     `;
 
     div.addEventListener('click', () => selectEntry(entry));
@@ -211,7 +211,7 @@ async function renderEntryDetails(entry) {
     // Valores a copiar ficam neste array — os botões referenciam o índice via
     // data-copy-idx, nunca o valor dentro do HTML (evita injeção e vaza menos)
     const copyValues = [];
-    const copyBtnHTML = (value, label = 'Copiar') => {
+    const copyBtnHTML = (value, label = tr('Copiar')) => {
         copyValues.push(value);
         return `<button class="copy-btn" data-copy-idx="${copyValues.length - 1}">${label}</button>`;
     };
@@ -220,14 +220,14 @@ async function renderEntryDetails(entry) {
         <div class="detail-header">
             <button class="btn-back" data-action="back">
                 <span class="material-symbols-outlined">arrow_back</span>
-                Voltar
+                ${escapeHtml(tr("Voltar"))}
             </button>
         </div>
         <h2>
             <span class="detail-type-icon badge-${escapeHtml(entry.type)}"><span class="material-symbols-outlined">${TYPE_ICONS[entry.type]}</span></span>
             <span class="detail-title-text">${escapeHtml(entry.title)}</span>
             ${inTrash ? '' : `
-                <button class="favorite-btn ${entry.favorite ? 'active' : ''}" data-action="toggle-favorite" title="${entry.favorite ? 'Remover dos favoritos' : 'Marcar como favorito'}">
+                <button class="favorite-btn ${entry.favorite ? 'active' : ''}" data-action="toggle-favorite" title="${entry.favorite ? tr('Remover dos favoritos') : tr('Marcar como favorito')}">
                     <span class="material-symbols-outlined">star</span>
                 </button>
             `}
@@ -236,7 +236,7 @@ async function renderEntryDetails(entry) {
         ${inTrash ? `
             <div class="trash-banner">
                 <span class="material-symbols-outlined">delete</span>
-                Esta entrada está na lixeira desde ${new Date(entry.deletedAt).toLocaleDateString('pt-BR')} e será removida definitivamente após 30 dias.
+                ${escapeHtml(tr("Esta entrada está na lixeira desde"))} ${new Date(entry.deletedAt).toLocaleDateString(I18N.locale)} ${escapeHtml(tr("e será removida definitivamente após 30 dias."))}
             </div>
         ` : ''}
         <div class="detail-section">
@@ -246,7 +246,7 @@ async function renderEntryDetails(entry) {
         if (entry.url) {
             detailsHTML += `
                 <div class="detail-row">
-                    <span class="detail-label">URL:</span>
+                    <span class="detail-label">${escapeHtml(tr("URL:"))}</span>
                     <div class="detail-value">
                         <span>${escapeHtml(entry.url)}</span>
                         ${copyBtnHTML(entry.url)}
@@ -258,7 +258,7 @@ async function renderEntryDetails(entry) {
         if (entry.username) {
             detailsHTML += `
                 <div class="detail-row">
-                    <span class="detail-label">Usuário:</span>
+                    <span class="detail-label">${escapeHtml(tr("Usuário:"))}</span>
                     <div class="detail-value">
                         <span>${escapeHtml(entry.username)}</span>
                         ${copyBtnHTML(entry.username)}
@@ -270,7 +270,7 @@ async function renderEntryDetails(entry) {
         if (entry.password) {
             detailsHTML += `
                 <div class="detail-row">
-                    <span class="detail-label">Senha:</span>
+                    <span class="detail-label">${escapeHtml(tr("Senha:"))}</span>
                     <div class="detail-value">
                         <span>••••••••</span>
                         ${copyBtnHTML(entry.password)}
@@ -286,7 +286,7 @@ async function renderEntryDetails(entry) {
                 const mfaResult = await MFA.generate(mfaEntry);
                 detailsHTML += `
                     <div class="detail-row detail-mfa-linked">
-                        <span class="detail-label">2FA Vinculado:</span>
+                        <span class="detail-label">${escapeHtml(tr("2FA Vinculado:"))}</span>
                         <div class="detail-value">
                             <span class="mfa-linked-title">${escapeHtml(mfaEntry.title)}</span>
                             <span class="totp-code" id="linked-mfa-code-${escapeHtml(entry.id)}">${mfaResult.code}</span>
@@ -294,7 +294,7 @@ async function renderEntryDetails(entry) {
                                 `<div class="totp-timer" id="linked-mfa-timer-${escapeHtml(entry.id)}">${mfaResult.remaining}s</div>` :
                                 ''
                             }
-                            <button class="copy-btn" data-copy-live="linked-mfa-code-${escapeHtml(entry.id)}">Copiar Código</button>
+                            <button class="copy-btn" data-copy-live="linked-mfa-code-${escapeHtml(entry.id)}">${escapeHtml(tr("Copiar Código"))}</button>
                         </div>
                     </div>
                 `;
@@ -312,22 +312,22 @@ async function renderEntryDetails(entry) {
 
             detailsHTML += `
                 <div class="detail-row">
-                    <span class="detail-label">Algoritmo:</span>
+                    <span class="detail-label">${escapeHtml(tr("Algoritmo:"))}</span>
                     <div class="detail-value">
-                        <span>${algorithmLabel} (${escapeHtml(entry.mfaDigits || 6)} dígitos, ${escapeHtml(String(entry.mfaHash || 'sha1').toUpperCase())})</span>
+                        <span>${algorithmLabel} (${escapeHtml(entry.mfaDigits || 6)} ${escapeHtml(tr("dígitos,"))} ${escapeHtml(String(entry.mfaHash || 'sha1').toUpperCase())})</span>
                     </div>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Código ${algorithmLabel}:</span>
+                    <span class="detail-label">${escapeHtml(tr("Código"))} ${algorithmLabel}:</span>
                     <div class="detail-value">
                         <span class="totp-code" id="mfa-code-${escapeHtml(entry.id)}">${mfaResult.code}</span>
                         ${entry.mfaAlgorithm === 'totp' ?
                             `<div class="totp-timer" id="mfa-timer-${escapeHtml(entry.id)}">${mfaResult.remaining}s</div>` :
-                            `<div class="hotp-counter" id="mfa-counter-${escapeHtml(entry.id)}">Contador: ${escapeHtml(mfaResult.counter)}</div>`
+                            `<div class="hotp-counter" id="mfa-counter-${escapeHtml(entry.id)}">${escapeHtml(tr("Contador:"))} ${escapeHtml(mfaResult.counter)}</div>`
                         }
-                        <button class="copy-btn" data-copy-live="mfa-code-${escapeHtml(entry.id)}">Copiar</button>
+                        <button class="copy-btn" data-copy-live="mfa-code-${escapeHtml(entry.id)}">${escapeHtml(tr("Copiar"))}</button>
                         ${entry.mfaAlgorithm === 'hotp' ?
-                            `<button class="btn btn-secondary" data-action="hotp-next">Próximo</button>` :
+                            `<button class="btn btn-secondary" data-action="hotp-next">${escapeHtml(tr("Próximo"))}</button>` :
                             ''
                         }
                     </div>
@@ -337,7 +337,7 @@ async function renderEntryDetails(entry) {
             if (entry.mfaAlgorithm === 'totp') {
                 detailsHTML += `
                     <div class="detail-row">
-                        <span class="detail-label">Período:</span>
+                        <span class="detail-label">${escapeHtml(tr("Período:"))}</span>
                         <div class="detail-value">
                             <span>${escapeHtml(entry.mfaPeriod || 30)} segundos</span>
                         </div>
@@ -351,16 +351,16 @@ async function renderEntryDetails(entry) {
             const tokenIdx = copyValues.length - 1;
             detailsHTML += `
                 <div class="detail-row">
-                    <span class="detail-label">Tipo de Token:</span>
+                    <span class="detail-label">${escapeHtml(tr("Tipo de Token:"))}</span>
                     <div class="detail-value">
-                        <span class="token-badge ${escapeHtml(entry.tokenType || 'other')}">${entry.tokenType ? escapeHtml(String(entry.tokenType).toUpperCase()) : 'OUTRO'}</span>
+                        <span class="token-badge ${escapeHtml(entry.tokenType || 'other')}">${entry.tokenType ? escapeHtml(String(entry.tokenType).toUpperCase()) : tr('OUTRO')}</span>
                     </div>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Token:</span>
+                    <span class="detail-label">${escapeHtml(tr("Token:"))}</span>
                     <div class="detail-value token-display">
                         <div class="token-value" data-copy-idx="${tokenIdx}">${escapeHtml(entry.token)}</div>
-                        <button class="copy-btn" style="margin-top: 0.5rem;" data-copy-idx="${tokenIdx}">Copiar Token</button>
+                        <button class="copy-btn" style="margin-top: 0.5rem;" data-copy-idx="${tokenIdx}">${escapeHtml(tr("Copiar Token"))}</button>
                     </div>
                 </div>
             `;
@@ -373,11 +373,11 @@ async function renderEntryDetails(entry) {
 
                 detailsHTML += `
                     <div class="detail-row">
-                        <span class="detail-label">Expiração:</span>
+                        <span class="detail-label">${escapeHtml(tr("Expiração:"))}</span>
                         <div class="detail-value">
                             <span class="${isExpired ? 'token-expired' : 'token-valid'}">
-                                ${expiresDate.toLocaleDateString('pt-BR')}
-                                ${isExpired ? ' (Expirado)' : daysUntilExpiry > 0 ? ` (${daysUntilExpiry} dias restantes)` : ' (Expira hoje)'}
+                                ${expiresDate.toLocaleDateString(I18N.locale)}
+                                ${isExpired ? tr(' (Expirado)') : daysUntilExpiry > 0 ? tr(" ({0} dias restantes)", { 0: daysUntilExpiry }) : tr(' (Expira hoje)')}
                             </span>
                         </div>
                     </div>
@@ -389,7 +389,7 @@ async function renderEntryDetails(entry) {
     if (entry.notes) {
         detailsHTML += `
             <div class="detail-row">
-                <span class="detail-label">Notas:</span>
+                <span class="detail-label">${escapeHtml(tr("Notas:"))}</span>
                 <div class="detail-value">
                     <span>${escapeHtml(entry.notes).replace(/\n/g, '<br>')}</span>
                 </div>
@@ -405,7 +405,7 @@ async function renderEntryDetails(entry) {
     if (entry.customFields && Array.isArray(entry.customFields) && entry.customFields.length > 0) {
         detailsHTML += `
             <div class="detail-custom-fields">
-                <h3>Campos Personalizados</h3>
+                <h3>${escapeHtml(tr("Campos Personalizados"))}</h3>
         `;
 
         entry.customFields.forEach(field => {
@@ -421,7 +421,7 @@ async function renderEntryDetails(entry) {
                         <span>${escapeHtml(field.value)}</span>
                         <button class="custom-field-copy-btn" data-copy-idx="${idx}">
                             <span class="material-symbols-outlined">content_copy</span>
-                            Copiar
+                            ${escapeHtml(tr("Copiar"))}
                         </button>
                     </div>
                 </div>
@@ -437,20 +437,20 @@ async function renderEntryDetails(entry) {
     if (Array.isArray(entry.passwordHistory) && entry.passwordHistory.length > 0) {
         detailsHTML += `
             <div class="detail-custom-fields password-history">
-                <h3>Histórico de Senhas</h3>
+                <h3>${escapeHtml(tr("Histórico de Senhas"))}</h3>
         `;
         [...entry.passwordHistory].reverse().forEach(hist => {
             copyValues.push(hist.password);
             const idx = copyValues.length - 1;
-            const when = hist.changedAt ? new Date(hist.changedAt).toLocaleString('pt-BR') : '';
+            const when = hist.changedAt ? new Date(hist.changedAt).toLocaleString(I18N.locale) : '';
             detailsHTML += `
                 <div class="custom-field-detail">
-                    <span class="custom-field-detail-label">Trocada em ${escapeHtml(when)}:</span>
+                    <span class="custom-field-detail-label">${escapeHtml(tr("Trocada em"))} ${escapeHtml(when)}:</span>
                     <div class="custom-field-detail-value password-type" data-copy-idx="${idx}">
                         <span>${escapeHtml(hist.password)}</span>
                         <button class="custom-field-copy-btn" data-copy-idx="${idx}">
                             <span class="material-symbols-outlined">content_copy</span>
-                            Copiar
+                            ${escapeHtml(tr("Copiar"))}
                         </button>
                     </div>
                 </div>
@@ -464,13 +464,13 @@ async function renderEntryDetails(entry) {
     if (anexos.length > 0 || !inTrash) {
         detailsHTML += `
             <div class="detail-custom-fields detail-attachments">
-                <h3>Anexos${anexos.length ? ` (${anexos.length})` : ''}</h3>
+                <h3>${escapeHtml(tr("Anexos"))}${anexos.length ? ` (${anexos.length})` : ''}</h3>
         `;
         anexos.forEach(att => {
             const quando = att.updatedAt || att.addedAt;
             const meta = [
                 formatFileSize(att.size),
-                quando ? new Date(quando).toLocaleDateString('pt-BR') : '',
+                quando ? new Date(quando).toLocaleDateString(I18N.locale) : '',
                 att.note || ''
             ].filter(Boolean).map(escapeHtml).join(' · ');
             detailsHTML += `
@@ -480,12 +480,12 @@ async function renderEntryDetails(entry) {
                         <span class="attachment-name">${escapeHtml(att.name)}</span>
                         <span class="attachment-meta" title="sha256 ${escapeHtml(att.sha256)}">${meta}</span>
                     </div>
-                    <button class="custom-field-copy-btn" data-att-save="${escapeHtml(att.id)}" title="Salvar uma cópia no disco">
+                    <button class="custom-field-copy-btn" data-att-save="${escapeHtml(att.id)}" title="${escapeHtml(tr("Salvar uma cópia no disco"))}">
                         <span class="material-symbols-outlined">download</span>
-                        Baixar
+                        ${escapeHtml(tr("Baixar"))}
                     </button>
                     ${inTrash ? '' : `
-                        <button class="custom-field-copy-btn attachment-remove" data-att-remove="${escapeHtml(att.id)}" title="Remover do cofre">
+                        <button class="custom-field-copy-btn attachment-remove" data-att-remove="${escapeHtml(att.id)}" title="${escapeHtml(tr("Remover do cofre"))}">
                             <span class="material-symbols-outlined">delete</span>
                         </button>
                     `}
@@ -496,9 +496,9 @@ async function renderEntryDetails(entry) {
             detailsHTML += `
                 <button class="btn btn-secondary attachment-add" data-action="attach">
                     <span class="material-symbols-outlined">attach_file</span>
-                    Anexar arquivo
+                    ${escapeHtml(tr("Anexar arquivo"))}
                 </button>
-                <p class="attachment-hint">Até 1 MB por arquivo (keystore, .pem, .json, .env...). O conteúdo fica cifrado dentro do cofre e sincroniza junto.</p>
+                <p class="attachment-hint">${escapeHtml(tr("Até 1 MB por arquivo (keystore, .pem, .json, .env...). O conteúdo fica cifrado dentro do cofre e sincroniza junto."))}</p>
             `;
         }
         detailsHTML += `</div>`;
@@ -508,17 +508,17 @@ async function renderEntryDetails(entry) {
         <div class="entry-actions">
             <button class="btn btn-primary" data-action="restore">
                 <span class="material-symbols-outlined">restore_from_trash</span>
-                Restaurar
+                ${escapeHtml(tr("Restaurar"))}
             </button>
             <button class="btn btn-danger" data-action="delete">
                 <span class="material-symbols-outlined">delete_forever</span>
-                Excluir definitivamente
+                ${escapeHtml(tr("Excluir definitivamente"))}
             </button>
         </div>
     ` : `
         <div class="entry-actions">
-            <button class="btn btn-primary" data-action="edit">Editar</button>
-            <button class="btn btn-danger" data-action="delete">Excluir</button>
+            <button class="btn btn-primary" data-action="edit">${escapeHtml(tr("Editar"))}</button>
+            <button class="btn btn-danger" data-action="delete">${escapeHtml(tr("Excluir"))}</button>
         </div>
     `;
 
@@ -590,11 +590,11 @@ async function toggleFavorite(entryId) {
             }
         } else {
             entry.favorite = !entry.favorite; // desfaz
-            alert('Erro ao salvar favorito');
+            alert(tr('Erro ao salvar favorito'));
         }
     } catch (error) {
         entry.favorite = !entry.favorite;
-        alert('Erro ao salvar favorito');
+        alert(tr('Erro ao salvar favorito'));
     }
 }
 
@@ -672,11 +672,11 @@ function openEntryModal(entry = null) {
     editingEntry = entry;
     
     if (entry) {
-        modalTitle.textContent = 'Editar Entrada';
+        modalTitle.textContent = tr('Editar Entrada');
         populateForm(entry);
         loadCustomFields(entry); // Carregar custom fields
     } else {
-        modalTitle.textContent = 'Adicionar Entrada';
+        modalTitle.textContent = tr('Adicionar Entrada');
         entryForm.reset();
         currentCustomFields = []; // Limpar custom fields
         renderCustomFields();
@@ -743,11 +743,11 @@ function processQrImageFile(file) {
     if (!file) return;
 
     if (typeof jsQR !== 'function') {
-        setStatus('Leitor de QR indisponivel.', 'var(--danger, #e11d48)');
+        setStatus(tr('Leitor de QR indisponivel.'), 'var(--danger, #e11d48)');
         return;
     }
 
-    setStatus('Lendo imagem...', '');
+    setStatus(tr('Lendo imagem...'), '');
 
     const img = new Image();
     img.onload = () => {
@@ -763,23 +763,23 @@ function processQrImageFile(file) {
             URL.revokeObjectURL(img.src);
 
             if (!result || !result.data) {
-                setStatus('Nenhum QR code reconhecido na imagem.', 'var(--danger, #e11d48)');
+                setStatus(tr('Nenhum QR code reconhecido na imagem.'), 'var(--danger, #e11d48)');
                 return;
             }
 
             const ok = applyOtpauthToForm(result.data);
             if (ok) {
-                setStatus('QR code importado com sucesso!', 'var(--success, #16a34a)');
+                setStatus(tr('QR code importado com sucesso!'), 'var(--success, #16a34a)');
             } else {
-                setStatus('QR code nao e um codigo TOTP/HOTP valido.', 'var(--danger, #e11d48)');
+                setStatus(tr('QR code nao e um codigo TOTP/HOTP valido.'), 'var(--danger, #e11d48)');
             }
         } catch (e) {
             console.error('Erro ao decodificar QR:', e);
-            setStatus('Erro ao processar a imagem.', 'var(--danger, #e11d48)');
+            setStatus(tr('Erro ao processar a imagem.'), 'var(--danger, #e11d48)');
         }
     };
     img.onerror = () => {
-        setStatus('Nao foi possivel abrir a imagem.', 'var(--danger, #e11d48)');
+        setStatus(tr('Nao foi possivel abrir a imagem.'), 'var(--danger, #e11d48)');
     };
     img.src = URL.createObjectURL(file);
 }
@@ -883,7 +883,7 @@ function populateMfaSelect() {
     const mfaEntries = activeData().filter(entry => entry.type === 'mfa');
     
     // Limpar e adicionar opção padrão
-    entryLinkedMfa.innerHTML = '<option value="">Nenhum (sem 2FA)</option>';
+    entryLinkedMfa.innerHTML = `<option value="">${escapeHtml(tr('Nenhum (sem 2FA)'))}</option>`;
     
     // Adicionar cada entrada MFA
     mfaEntries.forEach(entry => {
