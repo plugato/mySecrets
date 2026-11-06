@@ -77,6 +77,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   attachmentPick: () => ipcRenderer.invoke('attachment-pick'),
   attachmentSave: (attachment) => ipcRenderer.invoke('attachment-save', attachment),
   
+  // Senhas vazadas: só o prefixo de 5 caracteres do SHA-1 vai ao processo principal
+  pwnedRange: (prefix) => ipcRenderer.invoke('pwned-range', prefix),
+
   // Utilidades
   // Usa o gerador criptográfico (crypto.getRandomValues). Descarta os bytes
   // acima do maior múltiplo do tamanho do alfabeto (rejection sampling) para

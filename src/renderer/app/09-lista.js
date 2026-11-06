@@ -172,6 +172,85 @@ function renderTagsSidebar() {
 
 const HEALTH_OLD_DAYS = 365;
 
+// ===== Senhas vazadas (Have I Been Pwned) =====
+// Só os 5 primeiros caracteres do SHA-1 de cada senha saem do computador; a
+// comparação é feita aqui. Roda só quando a pessoa pede. Resultado só em
+// memória (apagado ao bloquear).
+let pwnedState = null; // { checkedAt, hashByPassword: Map, counts: Map(hash -> n), error }
+let pwnedRunning = false;
+
+async function sha1Hex(texto) {
+    const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(texto));
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+function parsePwnedRange(texto) {
+    const out = new Map();
+    for (const linha of String(texto).split(/\r?\n/)) {
+        const m = /^([0-9A-Fa-f]{35}):(\d+)$/.exec(linha.trim());
+        if (m) out.set(m[1].toUpperCase(), parseInt(m[2], 10));
+    }
+    return out;
+}
+
+/**
+ * Verifica as senhas do cofre. fetchRange(prefixo) -> { success, text } (o
+ * padrão é o IPC do app; os testes passam outro).
+ */
+async function checkPwnedPasswords(fetchRange = (p) => window.electronAPI.pwnedRange(p)) {
+    const senhas = [...new Set(activeData().filter((e) => e.password).map((e) => e.password))];
+    const hashByPassword = new Map();
+    for (const pw of senhas) hashByPassword.set(pw, await sha1Hex(pw));
+    const porPrefixo = new Map();
+    for (const h of hashByPassword.values()) {
+        const pre = h.slice(0, 5);
+        if (!porPrefixo.has(pre)) porPrefixo.set(pre, []);
+        porPrefixo.get(pre).push(h);
+    }
+    const counts = new Map();
+    const prefixos = [...porPrefixo.keys()];
+    let erro = null;
+    // Algumas consultas ao mesmo tempo, não todas de uma vez
+    for (let i = 0; i < prefixos.length; i += 4) {
+        const lote = prefixos.slice(i, i + 4);
+        const respostas = await Promise.all(lote.map((pre) => fetchRange(pre).catch((e) => ({ success: false, error: e.message }))));
+        respostas.forEach((r, k) => {
+            if (!r || !r.success) { erro = (r && r.error) || 'Falha na consulta'; return; }
+            const sufixos = parsePwnedRange(r.text);
+            for (const h of porPrefixo.get(lote[k])) counts.set(h, sufixos.get(h.slice(5)) || 0);
+        });
+    }
+    return { checkedAt: new Date().toISOString(), hashByPassword, counts, error: erro };
+}
+
+/** Entradas cuja senha apareceu em vazamentos, com a contagem. */
+function pwnedEntries() {
+    if (!pwnedState) return { leaked: [], unchecked: 0 };
+    const leaked = [];
+    let unchecked = 0;
+    activeData().filter((e) => e.password).forEach((e) => {
+        const h = pwnedState.hashByPassword.get(e.password);
+        if (!h || !pwnedState.counts.has(h)) { unchecked++; return; }
+        const n = pwnedState.counts.get(h);
+        if (n > 0) leaked.push({ ...e, pwnedCount: n });
+    });
+    return { leaked, unchecked };
+}
+
+async function runPwnedCheck() {
+    if (pwnedRunning) return;
+    pwnedRunning = true;
+    renderHealthOverview();
+    try {
+        pwnedState = await checkPwnedPasswords();
+    } catch (error) {
+        pwnedState = { checkedAt: new Date().toISOString(), hashByPassword: new Map(), counts: new Map(), error: error.message };
+    } finally {
+        pwnedRunning = false;
+        renderHealthOverview();
+    }
+}
+
 /**
  * Analisa as senhas do cofre: reutilizadas, fracas e antigas.
  */
@@ -197,9 +276,10 @@ function computeHealthIssues() {
         return ref > 0 && ref < cutoff;
     });
 
-    const uniqueIssueIds = new Set([...reused, ...weak, ...old].map(e => e.id));
+    const { leaked } = pwnedEntries();
+    const uniqueIssueIds = new Set([...reused, ...weak, ...old, ...leaked].map(e => e.id));
 
-    return { reused, reusedGroups, weak, old, total: uniqueIssueIds.size };
+    return { reused, reusedGroups, weak, old, leaked, total: uniqueIssueIds.size };
 }
 
 function showHealthOverview() {
@@ -242,7 +322,7 @@ function renderHealthOverview() {
                     <button class="health-item" data-entry-id="${escapeHtml(e.id)}">
                         <span class="material-symbols-outlined">key</span>
                         <span class="health-item-title">${escapeHtml(e.title)}</span>
-                        <span class="health-item-subtitle">${escapeHtml(e.username || e.url || '')}</span>
+                        <span class="health-item-subtitle">${escapeHtml(e.pwnedCount ? `Apareceu ${e.pwnedCount.toLocaleString('pt-BR')} vez(es) em vazamentos` : (e.username || e.url || ''))}</span>
                         <span class="material-symbols-outlined health-item-arrow">chevron_right</span>
                     </button>
                 `;
@@ -253,12 +333,34 @@ function renderHealthOverview() {
         return html;
     };
 
+    // Seção de vazamentos: só depois que a pessoa pede a verificação
+    const { unchecked } = pwnedEntries();
+    const pwnedDesc = 'Senhas que aparecem em vazamentos públicos (Have I Been Pwned). Só os 5 primeiros caracteres do hash SHA-1 de cada senha saem do computador; a senha nunca é enviada.';
+    let pwnedHTML;
+    if (!pwnedState) {
+        pwnedHTML = `
+            <div class="health-section health-danger">
+                <div class="health-section-header">
+                    <span class="material-symbols-outlined">travel_explore</span>
+                    <h3>Senhas vazadas</h3>
+                </div>
+                <p class="health-description">${pwnedDesc}</p>
+                <button class="btn btn-primary" id="pwned-check-btn" ${pwnedRunning ? 'disabled' : ''}>${pwnedRunning ? 'Verificando…' : 'Verificar vazamentos'}</button>
+            </div>`;
+    } else {
+        pwnedHTML = sectionHTML('Senhas vazadas', 'travel_explore', 'health-danger', issues.leaked,
+            escapeHtml(pwnedDesc) + (pwnedState.error ? ` <strong>Verificação incompleta: ${escapeHtml(pwnedState.error)}</strong>` : '') +
+            (unchecked ? ` ${unchecked} senha(s) nova(s) ainda não verificada(s).` : '') +
+            ` <button class="btn btn-secondary" id="pwned-check-btn" ${pwnedRunning ? 'disabled' : ''}>${pwnedRunning ? 'Verificando…' : 'Verificar de novo'}</button>`);
+    }
+
     // eslint-disable-next-line no-unsanitized/property -- números e sectionHTML (escapa os dados das entradas)
     healthOverview.innerHTML = `
         <div class="health-header">
             <h2>Saúde das Senhas</h2>
             <p>${totalWithPassword} senha(s) analisada(s) — ${issues.total} com algum problema</p>
         </div>
+        ${pwnedHTML}
         ${sectionHTML('Senhas reutilizadas', 'content_copy', 'health-danger', issues.reused,
             'A mesma senha usada em mais de uma conta: se uma vazar, todas ficam expostas.')}
         ${sectionHTML('Senhas fracas', 'warning', 'health-warning', issues.weak,
@@ -266,6 +368,9 @@ function renderHealthOverview() {
         ${sectionHTML('Senhas antigas', 'history', 'health-info', issues.old,
             `Sem alteração há mais de ${HEALTH_OLD_DAYS} dias. Considere renová-las.`)}
     `;
+
+    const pwnedBtn = document.getElementById('pwned-check-btn');
+    if (pwnedBtn) pwnedBtn.addEventListener('click', runPwnedCheck);
 
     // Clique no item abre a entrada
     healthOverview.querySelectorAll('.health-item').forEach(item => {

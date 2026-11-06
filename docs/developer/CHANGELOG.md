@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Desktop: "Senhas vazadas" in Password Health checks your passwords against Have I Been Pwned when you click "Verificar vazamentos". Only the first 5 characters of each password's SHA-1 hash leave the computer (k-anonymity, with padding); the comparison happens in the app and results are kept only in memory until the vault locks.
+
 ### Removed
 - `native-host/` (Chrome Native Messaging host): unused since the extension talks to the app's local server; it also had a third copy of the vault crypto and hard-coded paths.
 - Stray scripts `test-*.js` at the repo root and the outdated `mySecrets-extension.zip`. `make test` now runs `npm test`; `make test-android` runs the Android unit tests; `make ext-pack` writes to `dist/`.

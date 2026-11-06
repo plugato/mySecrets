@@ -271,3 +271,38 @@ test('pela interface: criar o cofre, adicionar uma entrada, bloquear e desbloque
     await ui.close();
   }
 });
+
+test('senhas vazadas: só prefixos de 5 caracteres saem; a vazada aparece no painel', async () => {
+  const crypto = require('node:crypto');
+  const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex').toUpperCase();
+  const VAZADA = sha1('password');
+  const r = await app.evaluate(`(async () => {
+    const e = [{id:'v1',type:'login',title:'Conta vazada',username:'eu',password:'password',updatedAt:new Date().toISOString()},
+               {id:'v2',type:'login',title:'Conta segura',username:'eu',password:'qZ8!vN2#Lm5$wR9@xT4',updatedAt:new Date().toISOString()}];
+    await window.electronAPI.saveData(e, '${PW}', {autoBackup:false});
+    const r = await window.electronAPI.loadData('${PW}');
+    currentMasterPassword = '${PW}'; currentData = r.data; filteredData = r.data;
+    const pedidos = [];
+    // API falsa: responde a sufixo da senha vazada (e um de preenchimento)
+    const falsa = async (pre) => {
+      pedidos.push(pre);
+      const linhas = ['0018A45C4D1DEF81644B54AB7F969B88D65:0'];
+      if (pre === '${VAZADA.slice(0, 5)}') linhas.push('${VAZADA.slice(5)}:9545824');
+      return { success: true, text: linhas.join('\\r\\n') };
+    };
+    pwnedState = await checkPwnedPasswords(falsa);
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'flex';
+    showHealthOverview();
+    const painel = document.getElementById('health-overview').textContent;
+    const out = { pedidos, vazadas: computeHealthIssues().leaked.map((x) => x.id), painel: painel.includes('Conta vazada') && painel.includes('vez(es) em vazamentos') };
+    lockApp();
+    out.depoisDoBloqueio = pwnedState === null;
+    return JSON.stringify(out);
+  })()`).then(JSON.parse);
+  assert.ok(r.pedidos.length >= 1 && r.pedidos.every((p) => /^[0-9A-F]{5}$/.test(p)), `só prefixos: ${r.pedidos}`);
+  assert.ok(!r.pedidos.some((p) => p.includes('password')));
+  assert.deepStrictEqual(r.vazadas, ['v1']);
+  assert.strictEqual(r.painel, true);
+  assert.strictEqual(r.depoisDoBloqueio, true);
+});

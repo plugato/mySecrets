@@ -323,6 +323,7 @@ function lockApp() {
     selectedEntry = null;
     selectedTag = null;
     searchInput.value = '';
+    pwnedState = null;
 
     // Tirar da tela o que veio do cofre (estava só escondido)
     entriesList.innerHTML = '';

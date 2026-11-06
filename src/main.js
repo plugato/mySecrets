@@ -978,6 +978,10 @@ async function importBackup() {
   app.exit();
 }
 
+// ===== Senhas vazadas (Have I Been Pwned, só prefixo do hash): src/main/pwned.js =====
+
+require('./main/pwned');
+
 // ===== Atualizações automáticas: src/main/updater.js =====
 
 const updater = require('./main/updater');

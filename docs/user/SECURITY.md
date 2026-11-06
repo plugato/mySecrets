@@ -58,6 +58,10 @@ no MySecrets server and no account.
 
 ## Desktop app (Electron)
 
+- **Leaked-password check** (Password Health, only when you click it): only
+  the first 5 characters of each password's SHA-1 hash are sent to Have I Been
+  Pwned; the rest of the comparison happens on your computer.
+
 - Renderer isolated: `contextIsolation`, `sandbox`, no Node.js; a narrow
   `preload.js` API with no generic IPC or file access by path.
 - Strict CSP (`script-src 'self'`); vault data is escaped before it reaches the
