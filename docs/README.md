@@ -22,6 +22,7 @@ Um índice só. Cada assunto tem um documento.
 | [Como contribuir](developer/CONTRIBUTING.md) | Fluxo de trabalho, padrões de código e pull requests |
 | [Makefile](guides/MAKEFILE_GUIA.md) | Atalhos `make` para rodar, testar e gerar instaladores |
 | [Changelog](developer/CHANGELOG.md) | O que mudou em cada versão |
+| [Passkeys (plano)](developer/PASSKEYS.md) | Desenho e fases da próxima grande funcionalidade (ainda não iniciada) |
 
 ## Páginas públicas
 
