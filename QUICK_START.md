@@ -164,7 +164,7 @@ node --version
 ## 📚 Next Steps
 
 - Read the full [README.md](README.md) for detailed features
-- Check [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) to contribute
+- Check [DEVELOPER_GUIDE.md](docs/developer/DEVELOPER_GUIDE.md) to contribute
 - Import your existing MFA codes (see JSON format in README)
 
 ## 🔗 Useful Shortcuts
@@ -238,7 +238,7 @@ Then: Click **"Import"** → Select file → Confirm
 ## 📞 Need Help?
 
 1. Check the [README.md](README.md) troubleshooting section
-2. Look at [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for technical details
+2. Look at [DEVELOPER_GUIDE.md](docs/developer/DEVELOPER_GUIDE.md) for technical details
 3. Open an issue on GitHub with:
    - What you tried to do
    - What happened instead

@@ -360,6 +360,7 @@ mySecrets/
 
 | | Documento | Conteúdo |
 |---|---|---|
+| 📚 | [docs/README.md](docs/README.md) | Índice de toda a documentação |
 | 👤 | [QUICK_START.md](QUICK_START.md) | Começar em 5 minutos |
 | 👤 | [docs/user/INSTALLATION.md](docs/user/INSTALLATION.md) | Instalação detalhada |
 | 🔐 | [docs/user/SECURITY.md](docs/user/SECURITY.md) | Segurança e criptografia |

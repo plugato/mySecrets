@@ -4,7 +4,7 @@
 # Comandos simplificados para desenvolvimento
 # ============================================
 
-.PHONY: help install dev start run run-win build build-linux build-win pack pack-win clean test icons extension ext-install ext-dev ext-reload docs docs-open docs-user docs-dev docs-ext mcp mcp-test mcp-config
+.PHONY: help install dev start run run-win build build-linux build-win pack pack-win clean test icons extension ext-install ext-dev ext-reload docs docs-open mcp mcp-test mcp-config
 
 # Cores para output
 GREEN  := \033[0;32m
@@ -61,7 +61,7 @@ help:
 	@echo "  $(GREEN)make version$(NC)       - Mostra versões"
 	@echo "  $(GREEN)make size$(NC)          - Mostra tamanho dos builds"
 	@echo "  $(GREEN)make docs$(NC)          - 📚 Ver documentação organizada"
-	@echo "  $(GREEN)make docs-open$(NC)     - Abrir INDEX.md"
+	@echo "  $(GREEN)make docs-open$(NC)     - Abrir o índice da documentação"
 	@echo ""
 	@echo "$(YELLOW)🎯 Comandos Rápidos:$(NC)"
 	@echo "  $(GREEN)make$(NC)              - Mostra esta ajuda"
@@ -370,51 +370,25 @@ build-all: clean build-linux build-win
 # Abre documentação
 docs:
 	@echo "$(BLUE)═══════════════════════════════════════════════════════$(NC)"
-	@echo "$(GREEN)  📚 Documentação Organizada$(NC)"
+	@echo "$(GREEN)  📚 Documentação$(NC)"
 	@echo "$(BLUE)═══════════════════════════════════════════════════════$(NC)"
 	@echo ""
-	@echo "$(YELLOW)📖 Essencial:$(NC)"
-	@echo "  README.md              - Visão geral"
-	@echo "  QUICK_START.md         - Início rápido (5 min)"
-	@echo "  INDEX.md               - 🔥 Navegação de tudo"
+	@echo "  docs/README.md                      - Índice de tudo"
+	@echo "  README.md / QUICK_START.md          - Visão geral e início rápido"
+	@echo "  docs/user/                          - Instalação e segurança"
+	@echo "  docs/developer/                     - Guia do desenvolvedor, contribuição, changelog"
+	@echo "  android/, chrome-extension/, mcp-server/ - README de cada parte"
 	@echo ""
-	@echo "$(YELLOW)📂 Por Categoria:$(NC)"
-	@echo "  docs/user/             - Para usuários"
-	@echo "  docs/developer/        - Para desenvolvedores"
-	@echo "  docs/extension/        - Extensão Chrome"
-	@echo "  docs/guides/           - Guias práticos"
-	@echo "  docs/summaries/        - Resumos e índices"
-	@echo ""
-	@echo "$(YELLOW)💡 Comandos:$(NC)"
-	@echo "  $(GREEN)make docs-open$(NC)         - Abrir INDEX.md"
-	@echo "  $(GREEN)make docs-user$(NC)         - Docs de usuário"
-	@echo "  $(GREEN)make docs-dev$(NC)          - Docs de desenvolvedor"
-	@echo "  $(GREEN)make docs-ext$(NC)          - Docs da extensão"
-	@echo ""
+	@echo "  $(GREEN)make docs-open$(NC)  - Abrir o índice"
 	@echo "$(BLUE)═══════════════════════════════════════════════════════$(NC)"
 
-# Abrir documentação
+# Abrir o índice da documentação
 docs-open:
 	@if command -v xdg-open &> /dev/null; then \
-		xdg-open INDEX.md 2>/dev/null || cat INDEX.md; \
+		xdg-open docs/README.md 2>/dev/null || cat docs/README.md; \
 	else \
-		cat INDEX.md; \
+		cat docs/README.md; \
 	fi
-
-# Ver docs de usuário
-docs-user:
-	@echo "$(YELLOW)📖 Documentação para Usuários:$(NC)"
-	@ls -1 docs/user/
-
-# Ver docs de desenvolvedor
-docs-dev:
-	@echo "$(YELLOW)💻 Documentação para Desenvolvedores:$(NC)"
-	@ls -1 docs/developer/
-
-# Ver docs da extensão
-docs-ext:
-	@echo "$(YELLOW)🌐 Documentação da Extensão:$(NC)"
-	@ls -1 docs/extension/
 
 # Mostra atalhos de teclado
 shortcuts:

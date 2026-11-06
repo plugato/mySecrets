@@ -168,7 +168,7 @@ Any other information, screenshots, or mockups.
 1. **Check existing issues**: Is someone already working on this?
 2. **Open an issue**: Discuss your approach before implementing
 3. **Get feedback**: Wait for maintainer response on large changes
-4. **Create branch**: Create a feature branch from `main`
+4. **Create branch**: Create a feature branch from `master`
 
 ## Development Setup
 
@@ -177,16 +177,19 @@ Any other information, screenshots, or mockups.
 ```
 mySecrets/
 ├── src/
-│   ├── main.js              # Main process
-│   ├── preload.js           # Preload script
-│   └── renderer/            # Renderer process
-│       ├── index.html       # HTML structure
-│       ├── styles.css       # Styles
-│       └── app.js           # Application logic
-├── assets/                  # Icons and resources
-├── test-*.js               # Test scripts
-└── package.json            # Project configuration
+│   ├── main.js              # Main process: vault core, window, lifecycle
+│   ├── main/                # Main process modules (MCP, Drive, phone, Hello, tray, updater)
+│   ├── lib/                 # Shared pure-Node logic (crypto, sync, OTP…)
+│   ├── preload.js           # The only bridge to the renderer
+│   └── renderer/            # UI: index.html, styles.css, app/*.js (loaded in order)
+├── mcp-server/              # MCP server (stdio and local HTTP)
+├── chrome-extension/        # Browser extension (Manifest V3)
+├── android/                 # Android app (Kotlin)
+├── tests/                   # Unit tests (*.test.js) and e2e tests (e2e/)
+└── package.json
 ```
+
+See the [developer guide](DEVELOPER_GUIDE.md) for what each file does.
 
 ### Running Development Build
 
@@ -437,13 +440,14 @@ No logic changes.
 1. **Update from upstream**:
    ```bash
    git fetch upstream
-   git rebase upstream/main
+   git rebase upstream/master
    ```
 
 2. **Test your changes**:
    ```bash
-   npm run dev  # Manual testing
-   node test-*.js  # Run test scripts
+   npm run dev        # Manual testing
+   npm test           # Unit tests
+   npm run test:e2e   # The real app, end to end
    ```
 
 3. **Check for linting errors**:
@@ -569,7 +573,7 @@ Use JSDoc comments for functions:
 
 ```javascript
 /**
- * Encrypts data using AES-256-CBC with PBKDF2 key derivation
+ * Encrypts the vault (AES-256-GCM, PBKDF2-SHA256)
  * @param {string} plaintext - Data to encrypt
  * @param {string} password - Master password
  * @returns {{encrypted: string, salt: string, iv: string}} Encrypted data with salt and IV

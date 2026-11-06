@@ -651,7 +651,7 @@ certutil -hashfile MySecrets-Setup-1.0.0.exe SHA256
 
 If you encounter issues not covered here:
 
-1. Check the [main README](README.md) troubleshooting section
+1. Check the [main README](../../README.md) troubleshooting section
 2. Search [existing issues](https://github.com/your-repo/mysecrets/issues)
 3. Open a [new issue](https://github.com/your-repo/mysecrets/issues/new) with:
    - Your OS and version
@@ -661,9 +661,9 @@ If you encounter issues not covered here:
 
 ## Next Steps
 
-- Read [QUICK_START.md](QUICK_START.md) to learn basic usage
-- See [README.md](README.md) for complete feature documentation
-- Check [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) if you want to contribute
+- Read [QUICK_START.md](../../QUICK_START.md) to learn basic usage
+- See [README.md](../../README.md) for complete feature documentation
+- Check [DEVELOPER_GUIDE.md](../developer/DEVELOPER_GUIDE.md) if you want to contribute
 
 ---
 

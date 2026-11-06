@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Desktop: Electron 38 (no longer receiving security fixes) → 45.2.3; electron-builder 26.18, electron-updater 6.8.11; fixed the high-severity `js-yaml` advisory. The remaining `npm audit` items are in build-only tooling (electron-builder's `minimatch`).
 
 ### Changed
+- Code structure: `src/main.js` (2,600 lines) split into `src/main/` modules (MCP, Google Drive, phone, Windows Hello, tray, updater) and the renderer `app.js` (4,300 lines) into 16 ordered scripts in `src/renderer/app/`. No behaviour change; covered by unit and end-to-end tests, including a new UI-driven e2e test (create vault, add entry, lock, unlock).
+- Documentation consolidated: one index (`docs/README.md`); redundant summaries and outdated guides removed (they described the old Native Messaging design); `SECURITY.md` rewritten (it still described AES-CBC) to match the current code, including what MySecrets does not protect against; developer guide rewritten for the new structure; broken links fixed.
 - Desktop accessibility: modals are now real dialogs (`role="dialog"`, `aria-modal`, labelled by their title); opening one moves focus inside and traps Tab, closing returns focus to where it was; icon-only buttons and the × close buttons get accessible names; keyboard focus is visible (`:focus-visible`); animations are off with "reduce motion". Text contrast now meets WCAG AA (4.5:1) in all five themes (new `--primary-text` and `--danger-contrast` tokens; `--text-tertiary` adjusted). axe-core reports no WCAG 2 A/AA violations on the main screen in any theme.
 - Tooling: ESLint 9 (`npm run lint`) with correctness/security rules and `eslint-plugin-no-unsanitized`, which rejects any new `innerHTML` built from values that did not go through `escapeHtml()` (the 12 existing ones were audited and annotated). Android Lint errors fixed (two screens read `StateFlow.value` during composition and did not update).
 - Tests: new end-to-end suite (`npm run test:e2e`, `tests/e2e/`) that drives the real Electron app with a throwaway profile over the Chrome DevTools Protocol: preload password generator, HTML escaping of vault data, saving from a stale screen after a sync, locking clears the page, modal focus + axe-core (WCAG A/AA) in all five themes, and the MCP server started by the app. Runs in CI under `xvfb-run`.
@@ -378,7 +380,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    ```
 
 2. **Install new version**:
-   - Follow installation instructions in [INSTALLATION.md](INSTALLATION.md)
+   - Follow installation instructions in [INSTALLATION.md](../user/INSTALLATION.md)
 
 3. **Import data**:
    ```bash
@@ -590,7 +592,7 @@ See [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for details on:
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](../../LICENSE) file for details.
 
 ---
 
