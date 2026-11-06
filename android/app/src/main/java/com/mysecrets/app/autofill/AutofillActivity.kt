@@ -1,5 +1,7 @@
 package com.mysecrets.app.autofill
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -144,7 +146,7 @@ class AutofillActivity : FragmentActivity() {
             }
             .sortedBy { entryTitle(it).lowercase() }
         Column(Modifier.fillMaxSize()) {
-            OutlinedTextField(q, { q = it }, label = { Text("Procurar login") }, singleLine = true,
+            OutlinedTextField(q, { q = it }, label = { Text(str(R.string.procurar_login)) }, singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(16.dp))
             LazyColumn(Modifier.weight(1f)) {
                 items(list, key = { it.optString("id") }) { e ->
@@ -156,7 +158,7 @@ class AutofillActivity : FragmentActivity() {
                     HorizontalDivider()
                 }
             }
-            TextButton(onClick = { finish() }, modifier = Modifier.padding(8.dp)) { Text("Cancelar") }
+            TextButton(onClick = { finish() }, modifier = Modifier.padding(8.dp)) { Text(str(R.string.cancelar)) }
         }
     }
 
@@ -172,18 +174,18 @@ class AutofillActivity : FragmentActivity() {
                 Structure.score(e, form.copyFor(p)) > 0 && e.optString("username").equals(p.username, true)
         }
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(if (existing != null) "Atualizar senha no MySecrets?" else "Salvar login no MySecrets?", style = MaterialTheme.typography.headlineSmall)
+            Text(if (existing != null) str(R.string.atualizar_senha_no_mysecrets) else str(R.string.salvar_login_no_mysecrets), style = MaterialTheme.typography.headlineSmall)
             Text(host ?: p.packageName)
-            if (p.username.isNotBlank()) Text("Usuário: ${p.username}")
+            if (p.username.isNotBlank()) Text(str(R.string.usuario_2, p.username))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextButton(onClick = { pendingSave = null; finish() }) { Text("Agora não") }
+                TextButton(onClick = { pendingSave = null; finish() }) { Text(str(R.string.agora_nao)) }
                 Button(onClick = {
                     scope.launch {
                         save(p, existing)
                         pendingSave = null
                         finish()
                     }
-                }) { Text(if (existing != null) "Atualizar" else "Salvar") }
+                }) { Text(if (existing != null) str(R.string.atualizar) else str(R.string.salvar)) }
             }
         }
     }

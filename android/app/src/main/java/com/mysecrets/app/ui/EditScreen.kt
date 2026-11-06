@@ -1,5 +1,7 @@
 package com.mysecrets.app.ui
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -78,9 +80,9 @@ fun EditScreen(activity: FragmentActivity, id: String?, onDone: (String?) -> Uni
     var error by remember { mutableStateOf<String?>(null) }
 
     fun save() {
-        if (title.isBlank()) { error = "Digite um título"; return }
+        if (title.isBlank()) { error = str(R.string.digite_um_titulo); return }
         if (type == "mfa" && mfaSecret.isNotBlank()) {
-            try { Otp.base32Decode(mfaSecret) } catch (_: Exception) { error = "Segredo MFA inválido (base32)"; return }
+            try { Otp.base32Decode(mfaSecret) } catch (_: Exception) { error = str(R.string.segredo_mfa_invalido_base32); return }
         }
         val now = Vault.now()
         // Parte da entrada original (mantém campos que esta tela não edita: anexos, campos extras…)
@@ -118,9 +120,9 @@ fun EditScreen(activity: FragmentActivity, id: String?, onDone: (String?) -> Uni
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text(if (original == null) "Nova entrada" else "Editar") },
-            navigationIcon = { IconButton(onClick = { onDone(id) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Cancelar") } },
-            actions = { IconButton(onClick = ::save) { Icon(Icons.Default.Check, "Salvar") } }
+            title = { Text(if (original == null) str(R.string.nova_entrada) else str(R.string.editar)) },
+            navigationIcon = { IconButton(onClick = { onDone(id) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, str(R.string.cancelar)) } },
+            actions = { IconButton(onClick = ::save) { Icon(Icons.Default.Check, str(R.string.salvar)) } }
         )
     }) { pad ->
         Column(Modifier.padding(pad).imePadding().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -130,28 +132,28 @@ fun EditScreen(activity: FragmentActivity, id: String?, onDone: (String?) -> Uni
                 }
             }
             if (error != null) Text(error!!, color = androidx.compose.material3.MaterialTheme.colorScheme.error)
-            OutlinedTextField(title, { title = it }, label = { Text("Título") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(title, { title = it }, label = { Text(str(R.string.titulo)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             if (type == "login" || type == "token") {
-                OutlinedTextField(url, { url = it }, label = { Text("Site (URL)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                OutlinedTextField(url, { url = it }, label = { Text(str(R.string.site_url)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
             }
             if (type == "login") {
-                OutlinedTextField(username, { username = it }, label = { Text("Usuário / e-mail") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                OutlinedTextField(username, { username = it }, label = { Text(str(R.string.usuario_e_mail)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    PasswordField(password, { password = it }, "Senha", Modifier.weight(1f))
-                    IconButton(onClick = { password = generatePassword() }) { Icon(Icons.Default.Casino, "Gerar senha") }
+                    PasswordField(password, { password = it }, str(R.string.senha), Modifier.weight(1f))
+                    IconButton(onClick = { password = generatePassword() }) { Icon(Icons.Default.Casino, str(R.string.gerar_senha)) }
                 }
             }
             if (type == "mfa") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(mfaSecret, { mfaSecret = it }, label = { Text("Segredo MFA (base32)") }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(mfaSecret, { mfaSecret = it }, label = { Text(str(R.string.segredo_mfa_base32)) }, singleLine = true, modifier = Modifier.weight(1f))
                     IconButton(onClick = {
                         scope.launch {
                             try {
                                 val raw = scanQr(activity) ?: return@launch
                                 val o = Otp.parseOtpAuth(raw)
-                                if (o == null) { error = "Esse QR code não é de MFA (otpauth://)"; return@launch }
+                                if (o == null) { error = str(R.string.esse_qr_code_nao_e_de); return@launch }
                                 mfaSecret = o.secret
                                 mfaAlgorithm = o.algorithm
                                 mfaDigits = o.digits.toString()
@@ -161,7 +163,7 @@ fun EditScreen(activity: FragmentActivity, id: String?, onDone: (String?) -> Uni
                                 if (title.isBlank()) title = o.issuer.ifBlank { o.label }
                             } catch (e: Exception) { error = e.message }
                         }
-                    }) { Icon(Icons.Default.QrCodeScanner, "Ler QR code") }
+                    }) { Icon(Icons.Default.QrCodeScanner, str(R.string.ler_qr_code)) }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = mfaAlgorithm == "totp", onClick = { mfaAlgorithm = "totp" }, label = { Text("TOTP") })
@@ -169,25 +171,25 @@ fun EditScreen(activity: FragmentActivity, id: String?, onDone: (String?) -> Uni
                     listOf("sha1", "sha256", "sha512").forEach { h -> FilterChip(selected = mfaHash == h, onClick = { mfaHash = h }, label = { Text(h.uppercase()) }) }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(mfaDigits, { mfaDigits = it }, label = { Text("Dígitos") }, singleLine = true, modifier = Modifier.weight(1f),
+                    OutlinedTextField(mfaDigits, { mfaDigits = it }, label = { Text(str(R.string.digitos)) }, singleLine = true, modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    if (mfaAlgorithm == "totp") OutlinedTextField(mfaPeriod, { mfaPeriod = it }, label = { Text("Período (s)") }, singleLine = true,
+                    if (mfaAlgorithm == "totp") OutlinedTextField(mfaPeriod, { mfaPeriod = it }, label = { Text(str(R.string.periodo_s)) }, singleLine = true,
                         modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    else OutlinedTextField(mfaCounter, { mfaCounter = it }, label = { Text("Contador") }, singleLine = true,
+                    else OutlinedTextField(mfaCounter, { mfaCounter = it }, label = { Text(str(R.string.contador)) }, singleLine = true,
                         modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                 }
             }
             if (type == "token") PasswordField(token, { token = it }, "Token")
-            OutlinedTextField(notes, { notes = it }, label = { Text("Notas") }, minLines = if (type == "note") 6 else 2, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(tags, { tags = it }, label = { Text("Tags (separadas por vírgula)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(notes, { notes = it }, label = { Text(str(R.string.notas)) }, minLines = if (type == "note") 6 else 2, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(tags, { tags = it }, label = { Text(str(R.string.tags_separadas_por_virgula)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(favorite, { favorite = it })
-                Text("Favorito")
+                Text(str(R.string.favorito))
             }
             if (original?.optJSONArray("attachments")?.length() ?: 0 > 0 || original?.optJSONArray("customFields")?.length() ?: 0 > 0) {
-                Text("Anexos e campos extras são mantidos; edite-os no app do PC.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                Text(str(R.string.anexos_e_campos_extras_sao_mantidos), style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
             }
-            OutlinedButton(onClick = ::save, modifier = Modifier.fillMaxWidth()) { Text("Salvar") }
+            OutlinedButton(onClick = ::save, modifier = Modifier.fillMaxWidth()) { Text(str(R.string.salvar)) }
         }
     }
 }

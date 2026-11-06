@@ -1,5 +1,6 @@
 package com.mysecrets.app.autofill
 
+import com.mysecrets.app.str
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.app.slice.Slice
@@ -98,7 +99,7 @@ class MySecretsAutofillService : AutofillService() {
                 .take(8)
             val out = mutableListOf<Dataset>()
             matches.forEachIndexed { i, e ->
-                val title = e.optString("title").ifBlank { Structure.hostOf(e.optString("url")) ?: "Login" }
+                val title = e.optString("title").ifBlank { Structure.hostOf(e.optString("url")) ?: str(R.string.login) }
                 val sub = e.optString("username")
                 val spec = if (i < maxInline - 1) specs.getOrNull(minOf(i, specs.size - 1)) else null
                 out += dataset(ctx, form, e, title, sub, spec)

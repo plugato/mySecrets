@@ -1,5 +1,7 @@
 package com.mysecrets.app.drive
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.content.Context
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
@@ -38,8 +40,8 @@ object GoogleAuth {
     private const val USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
     private const val REVOKE_URL = "https://oauth2.googleapis.com/revoke"
     const val DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
-    const val NO_DRIVE_PERMISSION = "A permissão do Google Drive não foi concedida. Entre de novo e, na tela do Google, " +
-        "marque a opção de acesso aos arquivos do Google Drive usados com o MySecrets."
+    val NO_DRIVE_PERMISSION: String
+        get() = str(R.string.a_permissao_do_google_drive_nao) + str(R.string.marque_a_opcao_de_acesso_aos)
 
     val http = OkHttpClient()
 
@@ -91,7 +93,7 @@ object GoogleAuth {
                 .build()
             val tokens = withNetworkRetry { postJson(Request.Builder().url(TOKEN_URL).post(body).build()) }
             val refresh = tokens.optString("refresh_token")
-            if (refresh.isEmpty()) throw Exception("O Google não devolveu um refresh token.")
+            if (refresh.isEmpty()) throw Exception(str(R.string.o_google_nao_devolveu_um_refresh))
             // Sem revogar: o grant é do mesmo OAuth client do PC
             if (DRIVE_SCOPE !in tokens.optString("scope").split(" ")) throw Exception(NO_DRIVE_PERMISSION)
             val access = tokens.getString("access_token")
@@ -138,7 +140,7 @@ object GoogleAuth {
                 delay(700L * (tentativa + 1))
             }
         }
-        throw Exception("Sem conexão com o Google (${ultimo?.message}). Confira a internet e tente de novo.")
+        throw Exception(str(R.string.sem_conexao_com_o_google_confira, ultimo?.message))
     }
 
     /** Aceita conexões no loopback até chegar o redirecionamento do Google (5 min). */
@@ -166,14 +168,14 @@ object GoogleAuth {
                         if (!ok) return@use
                         if (cont.isActive) {
                             if (code != null) cont.resume(code)
-                            else cont.resumeWithException(Exception(if (error == "access_denied") "Login cancelado." else "Erro do Google: $error"))
+                            else cont.resumeWithException(Exception(if (error == "access_denied") str(R.string.login_cancelado) else str(R.string.erro_do_google, error)))
                         }
                         return@Thread
                     }
                 }
-                if (cont.isActive) cont.resumeWithException(Exception("Tempo esgotado esperando o login do Google."))
+                if (cont.isActive) cont.resumeWithException(Exception(str(R.string.tempo_esgotado_esperando_o_login_do)))
             } catch (e: Exception) {
-                if (cont.isActive) cont.resumeWithException(Exception("Login com Google interrompido."))
+                if (cont.isActive) cont.resumeWithException(Exception(str(R.string.login_com_google_interrompido)))
             }
         }.start()
     }
@@ -194,13 +196,17 @@ object GoogleAuth {
         } catch (_: Exception) {}
     }
 
-    private const val PAGE_OK = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+    private fun page(titulo: String, texto: String, botao: String, redirecionar: Boolean): String {
+        val esc = { t: String -> t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") }
+        return """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>MySecrets</title><body style="font-family:system-ui;text-align:center;padding:3rem 1rem">
-<h2>✅ Conta Google conectada</h2><p>Volte ao MySecrets.</p>
-<p><a href="mysecrets://oauth-done" style="display:inline-block;padding:12px 20px;background:#6d4ae0;color:#fff;border-radius:10px;text-decoration:none">Voltar ao MySecrets</a></p>
-<script>setTimeout(function(){location.href='mysecrets://oauth-done'},300)</script></body>"""
-    private const val PAGE_ERROR = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<title>MySecrets</title><body style="font-family:system-ui;text-align:center;padding:3rem 1rem">
-<h2>Não foi possível conectar</h2><p>Volte ao MySecrets e tente de novo.</p>
-<p><a href="mysecrets://oauth-done">Voltar ao MySecrets</a></p></body>"""
+<h2>${esc(titulo)}</h2><p>${esc(texto)}</p>
+<p><a href="mysecrets://oauth-done" style="display:inline-block;padding:12px 20px;background:#6d4ae0;color:#fff;border-radius:10px;text-decoration:none">${esc(botao)}</a></p>""" +
+            (if (redirecionar) "<script>setTimeout(function(){location.href='mysecrets://oauth-done'},300)</script>" else "") + "</body>"
+    }
+
+    private val PAGE_OK: String
+        get() = page(str(R.string.oauth_ok_titulo), str(R.string.oauth_ok_texto), str(R.string.oauth_voltar), true)
+    private val PAGE_ERROR: String
+        get() = page(str(R.string.oauth_erro_titulo), str(R.string.oauth_erro_texto), str(R.string.oauth_voltar), false)
 }

@@ -1,5 +1,7 @@
 package com.mysecrets.app.ui
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
@@ -105,7 +107,7 @@ fun App(activity: FragmentActivity) {
                     DriveSync.schedule(300)
                 }
                 if (DriveSync.connected.not() && GoogleAuth.configured()) {
-                    Text("Dica: em Configurações você pode entrar com Google para sincronizar com o PC.",
+                    Text(str(R.string.dica_em_configuracoes_voce_pode_entrar),
                         style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(24.dp))
                 }
             }
@@ -125,17 +127,17 @@ fun App(activity: FragmentActivity) {
         val scope = rememberCoroutineScope()
         AlertDialog(
             onDismissRequest = { offerBio = false },
-            title = { Text("Desbloquear com a digital?") },
-            text = { Text("Na próxima vez você abre o MySecrets (e o preenchimento automático) só encostando o dedo.") },
+            title = { Text(str(R.string.desbloquear_com_a_digital)) },
+            text = { Text(str(R.string.na_proxima_vez_voce_abre_o)) },
             confirmButton = {
                 Button(onClick = {
                     offerBio = false
                     scope.launch {
-                        try { enableBiometric(activity) } catch (e: Exception) { if (e !is Biometric.Cancelled) toast(activity, e.message ?: "Erro") }
+                        try { enableBiometric(activity) } catch (e: Exception) { if (e !is Biometric.Cancelled) toast(activity, e.message ?: str(R.string.erro)) }
                     }
-                }) { Text("Ativar") }
+                }) { Text(str(R.string.ativar)) }
             },
-            dismissButton = { TextButton(onClick = { offerBio = false; Settings.bioOfferDeclined = true }) { Text("Agora não") } }
+            dismissButton = { TextButton(onClick = { offerBio = false; Settings.bioOfferDeclined = true }) { Text(str(R.string.agora_nao)) } }
         )
     }
 }
@@ -165,26 +167,26 @@ fun PairFlowHost(activity: FragmentActivity) {
             val done = confirmed == s.pairId
             AlertDialog(
                 onDismissRequest = {},
-                title = { Text(if (done) "✅ Pareado" else "Quase lá") },
+                title = { Text(if (done) str(R.string.pareado) else str(R.string.quase_la)) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(if (done) "Pronto! Na tela de login do ${s.desktopName}, clique em \"Aprovar pelo celular\"."
-                        else "Aguardando o ${s.desktopName} encontrar este celular na rede Wi-Fi… Mantenha o app aberto.")
+                        Text(if (done) str(R.string.pronto_na_tela_de_login_do, s.desktopName)
+                        else str(R.string.aguardando_o_encontrar_este_celular_na, s.desktopName))
                         if (!done) {
-                            Text("Este celular: ${localIp() ?: "sem Wi-Fi?"} · ${if (LinkServer.listening) "escutando" else "NÃO está escutando"} na porta ${com.mysecrets.app.link.LinkProtocol.PORT}",
+                            Text(str(R.string.diag_este_celular, localIp() ?: str(R.string.diag_sem_wifi), str(if (LinkServer.listening) R.string.diag_escutando else R.string.diag_nao_escutando), com.mysecrets.app.link.LinkProtocol.PORT),
                                 style = MaterialTheme.typography.bodySmall)
-                            Text("Último contato do PC: ${last ?: "nenhum ainda"}", style = MaterialTheme.typography.bodySmall)
+                            Text(str(R.string.diag_ultimo_contato, last ?: str(R.string.diag_nenhum_ainda)), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 },
-                confirmButton = { TextButton(onClick = { PairFlow.dismiss() }) { Text(if (done) "OK" else "Fechar") } }
+                confirmButton = { TextButton(onClick = { PairFlow.dismiss() }) { Text(if (done) str(R.string.ok) else str(R.string.fechar)) } }
             )
         }
         is PairFlow.State.Error -> AlertDialog(
             onDismissRequest = { PairFlow.dismiss() },
-            title = { Text("Pareamento") },
+            title = { Text(str(R.string.pareamento)) },
             text = { Text(s.message) },
-            confirmButton = { TextButton(onClick = { PairFlow.dismiss() }) { Text("OK") } }
+            confirmButton = { TextButton(onClick = { PairFlow.dismiss() }) { Text(str(R.string.ok)) } }
         )
         PairFlow.State.Idle -> {}
     }
@@ -200,11 +202,11 @@ fun ApprovalDialog(activity: FragmentActivity) {
 
     AlertDialog(
         onDismissRequest = {},
-        title = { Text("Desbloquear o PC?") },
+        title = { Text(str(R.string.desbloquear_o_pc)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("${r.desktopName} quer abrir o MySecrets.")
-                Text("Confira se o código é o mesmo da tela do PC:")
+                Text(str(R.string.quer_abrir_o_mysecrets, r.desktopName))
+                Text(str(R.string.confira_se_o_codigo_e_o))
                 Text(r.code, fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
             }
@@ -215,23 +217,23 @@ fun ApprovalDialog(activity: FragmentActivity) {
                     busy = true
                     error = null
                     try {
-                        val pc = Pairings.find(r.pairId) ?: error("Pareamento não encontrado")
+                        val pc = Pairings.find(r.pairId) ?: error(str(R.string.pareamento_nao_encontrado))
                         val cipher = Keys.bioDecryptCipher(Keys.BIO_LINK, pc.unlockSealed)
-                        val ok = Biometric.authenticate(activity, cipher, "Aprovar login no ${r.desktopName}", "Código ${r.code}")
+                        val ok = Biometric.authenticate(activity, cipher, str(R.string.aprovar_login_no, r.desktopName), str(R.string.codigo, r.code))
                         r.answer.complete(Keys.finishOpen(ok, pc.unlockSealed))
-                        toast(activity, "Login aprovado")
+                        toast(activity, str(R.string.login_aprovado))
                     } catch (e: Biometric.Cancelled) {
                     } catch (e: Keys.InvalidatedException) {
-                        error = "As digitais do aparelho mudaram. Remova e pareie este PC de novo."
+                        error = str(R.string.as_digitais_do_aparelho_mudaram_remova)
                     } catch (e: Exception) {
                         error = e.message
                     } finally {
                         busy = false
                     }
                 }
-            }) { Text("Aprovar com digital") }
+            }) { Text(str(R.string.aprovar_com_digital)) }
         },
-        dismissButton = { TextButton(onClick = { r.answer.complete(null) }) { Text("Negar") } }
+        dismissButton = { TextButton(onClick = { r.answer.complete(null) }) { Text(str(R.string.negar)) } }
     )
 }
 
@@ -251,7 +253,7 @@ fun SetupScreen(activity: FragmentActivity, onReady: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("🔐 MySecrets", style = MaterialTheme.typography.headlineLarge)
-        Text("Senhas, MFA e notas seguras — o mesmo cofre do seu PC.", textAlign = TextAlign.Center)
+        Text(str(R.string.senhas_mfa_e_notas_seguras_o), textAlign = TextAlign.Center)
         if (msg != null) Text(msg!!, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
         if (busy) {
             CircularProgressIndicator()
@@ -269,7 +271,7 @@ fun SetupScreen(activity: FragmentActivity, onReady: () -> Unit) {
                             Vault.importEncrypted(content)
                             onReady()
                         } else {
-                            msg = "Nenhum cofre encontrado no Google Drive desta conta. Crie um novo — ele será enviado ao Drive."
+                            msg = str(R.string.nenhum_cofre_encontrado_no_google_drive)
                             creating = true
                         }
                     } catch (e: Exception) {
@@ -278,15 +280,15 @@ fun SetupScreen(activity: FragmentActivity, onReady: () -> Unit) {
                         busy = false
                     }
                 }
-            }) { Text("Entrar com Google e baixar meu cofre") }
-            Text("Use a mesma conta do Google que está em Configurações > Sincronização no PC.",
+            }) { Text(str(R.string.entrar_com_google_e_baixar_meu)) }
+            Text(str(R.string.use_a_mesma_conta_do_google),
                 style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
-            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { creating = true }) { Text("Criar um cofre novo") }
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { creating = true }) { Text(str(R.string.criar_um_cofre_novo)) }
         } else {
-            Text("Crie uma senha mestra", style = MaterialTheme.typography.titleMedium)
-            PasswordField(p1, { p1 = it }, "Senha mestra")
-            PasswordField(p2, { p2 = it }, "Confirme a senha mestra")
-            Text(if (DriveSync.connected) "Use a MESMA senha mestra do PC para sincronizar." else "Mínimo de 8 caracteres.",
+            Text(str(R.string.crie_uma_senha_mestra), style = MaterialTheme.typography.titleMedium)
+            PasswordField(p1, { p1 = it }, str(R.string.senha_mestra))
+            PasswordField(p2, { p2 = it }, str(R.string.confirme_a_senha_mestra))
+            Text(if (DriveSync.connected) str(R.string.use_a_mesma_senha_mestra_do) else str(R.string.minimo_de_8_caracteres),
                 style = MaterialTheme.typography.bodySmall)
             Button(modifier = Modifier.fillMaxWidth(), enabled = p1.length >= 8 && p1 == p2, onClick = {
                 scope.launch {
@@ -301,8 +303,8 @@ fun SetupScreen(activity: FragmentActivity, onReady: () -> Unit) {
                         busy = false
                     }
                 }
-            }) { Text("Criar cofre") }
-            if (GoogleAuth.configured()) TextButton(onClick = { creating = false }) { Text("Voltar") }
+            }) { Text(str(R.string.criar_cofre)) }
+            if (GoogleAuth.configured()) TextButton(onClick = { creating = false }) { Text(str(R.string.voltar)) }
         }
     }
 }

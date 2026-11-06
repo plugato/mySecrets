@@ -1,5 +1,7 @@
 package com.mysecrets.app.ui
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
@@ -88,7 +90,7 @@ fun copySecret(ctx: Context, label: String, text: String) {
         putBoolean(if (Build.VERSION.SDK_INT >= 33) ClipDescription.EXTRA_IS_SENSITIVE else "android.content.extra.IS_SENSITIVE", true)
     }
     cm.setPrimaryClip(clip)
-    if (Build.VERSION.SDK_INT < 33) toast(ctx, "$label copiado")
+    if (Build.VERSION.SDK_INT < 33) toast(ctx, str(R.string.copiado, label))
     val segundos = Settings.clipboardClearSeconds
     if (segundos > 0) {
         Handler(Looper.getMainLooper()).postDelayed({
@@ -108,35 +110,35 @@ private suspend fun scanQrRaw(ctx: Context): String? = suspendCancellableCorouti
     GmsBarcodeScanning.getClient(ctx, opts).startScan()
         .addOnSuccessListener { cont.resume(it.rawValue) }
         .addOnCanceledListener { cont.resume(null) }
-        .addOnFailureListener { cont.resumeWithException(Exception("Não foi possível abrir o leitor de QR code: ${it.message}")) }
+        .addOnFailureListener { cont.resumeWithException(Exception(str(R.string.nao_foi_possivel_abrir_o_leitor, it.message))) }
 }
 
 fun bioUnlockEnabled(): Boolean = Settings.bioUnlockBlob != null
 
 /** Desbloqueia com a digital (senha mestra guardada sob a chave biométrica). */
 suspend fun unlockWithBiometric(activity: FragmentActivity) {
-    val blob = Settings.bioUnlockBlob ?: error("Digital não configurada")
+    val blob = Settings.bioUnlockBlob ?: error(str(R.string.digital_nao_configurada))
     val cipher = try {
         Keys.bioDecryptCipher(Keys.BIO_UNLOCK, blob)
     } catch (e: Keys.InvalidatedException) {
         Settings.bioUnlockBlob = null
         throw e
     }
-    val ok = Biometric.authenticate(activity, cipher, "Desbloquear o MySecrets")
+    val ok = Biometric.authenticate(activity, cipher, str(R.string.desbloquear_o_mysecrets))
     val pass = String(Keys.finishOpen(ok, blob), Charsets.UTF_8)
     try {
         Vault.unlock(pass)
     } catch (e: Vault.WrongPassword) {
         Settings.bioUnlockBlob = null
-        throw Exception("A senha guardada para a digital não abre mais o cofre. Entre com a senha mestra.")
+        throw Exception(str(R.string.a_senha_guardada_para_a_digital))
     }
 }
 
 /** Ativa a digital: cifra a senha mestra atual com a chave biométrica. */
 suspend fun enableBiometric(activity: FragmentActivity) {
-    val pass = Vault.currentPassword() ?: error("Cofre bloqueado")
+    val pass = Vault.currentPassword() ?: error(str(R.string.cofre_bloqueado))
     val cipher = Keys.bioEncryptCipher(Keys.BIO_UNLOCK)
-    val ok = Biometric.authenticate(activity, cipher, "Ativar desbloqueio por digital")
+    val ok = Biometric.authenticate(activity, cipher, str(R.string.ativar_desbloqueio_por_digital))
     Settings.bioUnlockBlob = Keys.finishSeal(ok, pass.toByteArray(Charsets.UTF_8))
 }
 
@@ -153,7 +155,7 @@ fun PasswordField(value: String, onChange: (String) -> Unit, label: String, modi
         keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
         trailingIcon = {
             IconButton(onClick = { show = !show }) {
-                Icon(if (show) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (show) "Ocultar" else "Mostrar")
+                Icon(if (show) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (show) str(R.string.ocultar) else str(R.string.mostrar))
             }
         },
         modifier = modifier.fillMaxWidth()
@@ -206,18 +208,18 @@ fun UnlockPanel(activity: FragmentActivity, autoBiometric: Boolean = true, onUnl
 
     Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("🔐 MySecrets", style = MaterialTheme.typography.headlineMedium)
-        Text("Digite sua senha mestra", style = MaterialTheme.typography.bodyMedium)
-        PasswordField(pass, { pass = it }, "Senha mestra", onDone = ::submit)
+        Text(str(R.string.digite_sua_senha_mestra), style = MaterialTheme.typography.bodyMedium)
+        PasswordField(pass, { pass = it }, str(R.string.senha_mestra), onDone = ::submit)
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
         if (busy) {
             CircularProgressIndicator()
         } else {
-            Button(onClick = ::submit, modifier = Modifier.fillMaxWidth(), enabled = pass.isNotEmpty()) { Text("Desbloquear") }
+            Button(onClick = ::submit, modifier = Modifier.fillMaxWidth(), enabled = pass.isNotEmpty()) { Text(str(R.string.desbloquear)) }
             if (bioUnlockEnabled()) {
                 OutlinedButton(onClick = ::bio, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Fingerprint, null)
                     Spacer(Modifier.padding(4.dp))
-                    Text("Usar digital")
+                    Text(str(R.string.usar_digital))
                 }
             }
         }
@@ -226,12 +228,12 @@ fun UnlockPanel(activity: FragmentActivity, autoBiometric: Boolean = true, onUnl
 }
 
 fun entryTitle(e: org.json.JSONObject): String =
-    e.optString("title").ifBlank { com.mysecrets.app.autofill.Structure.hostOf(e.optString("url")) ?: "(sem título)" }
+    e.optString("title").ifBlank { com.mysecrets.app.autofill.Structure.hostOf(e.optString("url")) ?: str(R.string.sem_titulo) }
 
 fun typeLabel(type: String) = when (type) {
     "login" -> "Login"
     "mfa" -> "MFA"
     "token" -> "Token"
-    "note" -> "Nota segura"
+    "note" -> str(R.string.nota_segura)
     else -> type
 }

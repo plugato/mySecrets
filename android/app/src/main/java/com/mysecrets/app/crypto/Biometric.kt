@@ -1,5 +1,7 @@
 package com.mysecrets.app.crypto
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.content.Context
 import androidx.biometric.BiometricManager
 import android.os.Build
@@ -28,11 +30,11 @@ object Biometric {
 
     fun unavailableReason(context: Context): String = when (BiometricManager.from(context).canAuthenticate(allowed)) {
         BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED ->
-            "Nenhuma digital (nem bloqueio de tela) cadastrada. Cadastre uma digital nas Configurações do Android > Senhas e segurança."
-        BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> "Este aparelho não tem leitor biométrico forte"
-        BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> "Leitor biométrico indisponível agora. Tente de novo."
-        BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED -> "O Android pede uma atualização de segurança para usar a biometria"
-        else -> "Biometria indisponível neste aparelho"
+            str(R.string.nenhuma_digital_nem_bloqueio_de_tela)
+        BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> str(R.string.este_aparelho_nao_tem_leitor_biometrico)
+        BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> str(R.string.leitor_biometrico_indisponivel_agora_tente_de)
+        BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED -> str(R.string.o_android_pede_uma_atualizacao_de)
+        else -> str(R.string.biometria_indisponivel_neste_aparelho)
     }
 
     /** Mostra o prompt de digital e devolve o Cipher liberado pelo Keystore. */
@@ -41,7 +43,7 @@ object Biometric {
             val prompt = BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     val c = result.cryptoObject?.cipher
-                    if (c != null) cont.resume(c) else cont.resumeWithException(Cancelled("Falha na biometria"))
+                    if (c != null) cont.resume(c) else cont.resumeWithException(Cancelled(str(R.string.falha_na_biometria)))
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
@@ -67,7 +69,7 @@ object Biometric {
                 .setTitle(title)
                 .apply { if (subtitle != null) setSubtitle(subtitle) }
                 .setAllowedAuthenticators(allowed)
-                .apply { if (allowed and DEVICE_CREDENTIAL == 0) setNegativeButtonText("Cancelar") }
+                .apply { if (allowed and DEVICE_CREDENTIAL == 0) setNegativeButtonText(str(R.string.cancelar)) }
                 .setConfirmationRequired(false)
                 .build()
             prompt.authenticate(info, BiometricPrompt.CryptoObject(cipher))

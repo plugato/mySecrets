@@ -1,5 +1,7 @@
 package com.mysecrets.app.ui
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings as AndroidSettings
@@ -111,30 +113,30 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
     }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Configurações") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") } })
+        TopAppBar(title = { Text(str(R.string.configuracoes)) },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, str(R.string.voltar)) } })
     }) { pad ->
         Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (msg != null) Text(msg!!, color = MaterialTheme.colorScheme.primary)
             if (busy) CircularProgressIndicator()
 
-            Section("Preenchimento automático") {
-                Text(if (autofillOn) "✅ O MySecrets preenche logins nos apps e navegadores."
-                else "Ative o MySecrets como serviço de preenchimento para usar seus logins em qualquer app ou navegador.")
+            Section(str(R.string.preenchimento_automatico)) {
+                Text(if (autofillOn) str(R.string.o_mysecrets_preenche_logins_nos_apps)
+                else str(R.string.ative_o_mysecrets_como_servico_de))
                 if (!autofillOn) Button(onClick = {
                     try {
                         activity.startActivity(Intent(AndroidSettings.ACTION_REQUEST_SET_AUTOFILL_SERVICE, Uri.parse("package:${activity.packageName}")))
                     } catch (_: Exception) {
                         activity.startActivity(Intent(AndroidSettings.ACTION_SETTINGS))
                     }
-                }) { Text("Ativar preenchimento automático") }
-                Text("No Chrome: Configurações > Preenchimento automático > \"Preencher usando outro serviço\". Firefox, Brave, Edge e Samsung Internet usam o serviço do Android direto.",
+                }) { Text(str(R.string.ativar_preenchimento_automatico)) }
+                Text(str(R.string.no_chrome_configuracoes_preenchimento_automatico_preencher),
                     style = MaterialTheme.typography.bodySmall)
             }
 
-            Section("Desbloqueio") {
+            Section(str(R.string.desbloqueio)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Desbloquear com a digital", Modifier.weight(1f))
+                    Text(str(R.string.desbloquear_com_a_digital_2), Modifier.weight(1f))
                     Switch(checked = bio, onCheckedChange = { on ->
                         if (!on) {
                             Settings.bioUnlockBlob = null
@@ -147,71 +149,71 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
                         }
                     })
                 }
-                Text("Bloquear ao sair do app:", style = MaterialTheme.typography.bodyMedium)
+                Text(str(R.string.bloquear_ao_sair_do_app), style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(0 to "Na hora", 60 to "1 min", 300 to "5 min", 900 to "15 min").forEach { (s, l) ->
+                    listOf(0 to str(R.string.na_hora), 60 to str(R.string.n_1_min), 300 to str(R.string.n_5_min), 900 to str(R.string.n_15_min)).forEach { (s, l) ->
                         FilterChip(selected = lockSecs == s, onClick = { lockSecs = s; Settings.autoLockSeconds = s }, label = { Text(l) })
                     }
                 }
-                Text("Limpar área de transferência:", style = MaterialTheme.typography.bodyMedium)
+                Text(str(R.string.limpar_area_de_transferencia), style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(0 to "Nunca", 15 to "15 s", 30 to "30 s", 60 to "60 s").forEach { (s, l) ->
+                    listOf(0 to str(R.string.nunca), 15 to "15 s", 30 to "30 s", 60 to "60 s").forEach { (s, l) ->
                         FilterChip(selected = clipSecs == s, onClick = { clipSecs = s; Settings.clipboardClearSeconds = s }, label = { Text(l) })
                     }
                 }
-                Text("O cofre também bloqueia quando a tela do celular apaga.", style = MaterialTheme.typography.bodySmall)
+                Text(str(R.string.o_cofre_tambem_bloqueia_quando_a), style = MaterialTheme.typography.bodySmall)
             }
 
-            Section("Sincronização (Google Drive)") {
+            Section(str(R.string.sincronizacao_google_drive)) {
                 if (!GoogleAuth.configured()) {
-                    Text("Login com Google indisponível nesta versão do app.")
+                    Text(str(R.string.login_com_google_indisponivel_nesta_versao))
                 } else if (sync.connected) {
-                    Text("Conectado: ${sync.email.ifBlank { "conta Google" }}")
-                    Text(sync.lastError?.let { "⚠️ $it" } ?: sync.lastSyncAt?.let { "Última sincronização: ${it.take(19).replace('T', ' ')} (UTC)" } ?: "Ainda não sincronizado",
+                    Text(str(R.string.conectado_conta, sync.email.ifBlank { str(R.string.conta_google) }))
+                    Text(sync.lastError?.let { "⚠️ $it" } ?: sync.lastSyncAt?.let { str(R.string.ultima_sincronizacao_utc, it.take(19).replace('T', ' ')) } ?: str(R.string.ainda_nao_sincronizado),
                         style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(enabled = !sync.syncing, onClick = { scope.launch { DriveSync.syncNow() } }) { Text(if (sync.syncing) "Sincronizando…" else "Sincronizar agora") }
-                        OutlinedButton(onClick = { DriveSync.disconnect() }) { Text("Desconectar") }
+                        Button(enabled = !sync.syncing, onClick = { scope.launch { DriveSync.syncNow() } }) { Text(if (sync.syncing) str(R.string.sincronizando) else str(R.string.sincronizar_agora)) }
+                        OutlinedButton(onClick = { DriveSync.disconnect() }) { Text(str(R.string.desconectar)) }
                     }
                 } else {
-                    Text(sync.lastError ?: "Entre com a mesma conta Google do PC para manter os dois com o mesmo cofre.")
+                    Text(sync.lastError ?: str(R.string.entre_com_a_mesma_conta_google))
                     Button(enabled = !busy, onClick = {
                         scope.launch {
                             busy = true
                             try {
                                 DriveSync.saveAccount(GoogleAuth.authorize(activity))
                                 DriveSync.syncNow()
-                                msg = DriveSync.status.value.lastError?.let { "Conectado, mas: $it" } ?: "✅ Conta Google conectada e cofre sincronizado"
+                                msg = DriveSync.status.value.lastError?.let { str(R.string.conectado_mas, it) } ?: str(R.string.conta_google_conectada_e_cofre_sincronizado)
                             } catch (e: Exception) { msg = e.message } finally { busy = false }
                         }
-                    }) { Text("Entrar com Google") }
+                    }) { Text(str(R.string.entrar_com_google)) }
                 }
-                Text("O cofre vai sempre criptografado; o app só acessa a pasta MySecrets que ele mesmo criou.", style = MaterialTheme.typography.bodySmall)
+                Text(str(R.string.o_cofre_vai_sempre_criptografado_o), style = MaterialTheme.typography.bodySmall)
             }
 
-            Section("Aprovar login no PC") {
-                Text("Pareie com o MySecrets do computador. Depois, na tela de login do PC, clique em \"Aprovar pelo celular\" e confirme aqui com a digital.")
-                Text("Funciona na mesma rede Wi-Fi, com este app aberto.", style = MaterialTheme.typography.bodySmall)
+            Section(str(R.string.aprovar_login_no_pc)) {
+                Text(str(R.string.pareie_com_o_mysecrets_do_computador))
+                Text(str(R.string.funciona_na_mesma_rede_wi_fi), style = MaterialTheme.typography.bodySmall)
                 pcs.forEach { pc ->
                     ListItem(
                         leadingContent = { Icon(Icons.Default.Computer, null) },
                         headlineContent = { Text(pc.desktopName) },
-                        supportingContent = { Text(if (pc.confirmed) "Pareado" + (pc.lastUsedAt?.let { " · usado em ${it.take(10)}" } ?: "") else "Aguardando o PC confirmar") },
-                        trailingContent = { TextButton(onClick = { Pairings.remove(pc.pairId) }) { Text("Remover") } }
+                        supportingContent = { Text(if (pc.confirmed) str(R.string.pareado_2) + (pc.lastUsedAt?.let { str(R.string.usado_em, it.take(10)) } ?: "") else str(R.string.aguardando_o_pc_confirmar)) },
+                        trailingContent = { TextButton(onClick = { Pairings.remove(pc.pairId) }) { Text(str(R.string.remover)) } }
                     )
                     HorizontalDivider()
                 }
                 Button(onClick = {
                     val debugQr = MainActivity.debugPairQr?.also { MainActivity.debugPairQr = null }
                     if (debugQr != null) PairFlow.accept(debugQr) else PairFlow.scan(activity)
-                }) { Text("Parear com PC (ler QR code)") }
-                Text("No PC: Configurações > Celular Android > Parear celular.", style = MaterialTheme.typography.bodySmall)
+                }) { Text(str(R.string.parear_com_pc_ler_qr_code)) }
+                Text(str(R.string.no_pc_configuracoes_celular_android_parear), style = MaterialTheme.typography.bodySmall)
             }
 
-            Section("Cofre neste aparelho") {
-                Text("Entradas: ${entradas.count { !it.has("deletedAt") }}")
-                OutlinedButton(onClick = { confirmWipe = true }) { Text("Apagar o cofre deste celular") }
-                Text("Versão ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall)
+            Section(str(R.string.cofre_neste_aparelho)) {
+                Text(str(R.string.entradas_n, entradas.count { !it.has("deletedAt") }))
+                OutlinedButton(onClick = { confirmWipe = true }) { Text(str(R.string.apagar_o_cofre_deste_celular)) }
+                Text(str(R.string.versao, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -219,8 +221,8 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
     if (confirmWipe) {
         AlertDialog(
             onDismissRequest = { confirmWipe = false },
-            title = { Text("Apagar o cofre deste celular?") },
-            text = { Text("Remove o cofre, a digital, os PCs pareados e a conta Google só deste aparelho. O cofre no PC e no Google Drive continua intacto.") },
+            title = { Text(str(R.string.apagar_o_cofre_deste_celular_2)) },
+            text = { Text(str(R.string.remove_o_cofre_a_digital_os)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmWipe = false
@@ -232,9 +234,9 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
                     Keys.delete(Keys.BIO_LINK)
                     Vault.wipe()
                     onWiped()
-                }) { Text("Apagar") }
+                }) { Text(str(R.string.apagar)) }
             },
-            dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text("Cancelar") } }
+            dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text(str(R.string.cancelar)) } }
         )
     }
 }

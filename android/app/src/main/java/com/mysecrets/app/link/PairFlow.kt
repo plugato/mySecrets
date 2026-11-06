@@ -1,5 +1,7 @@
 package com.mysecrets.app.link
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.util.Log
 import androidx.fragment.app.FragmentActivity
 import com.mysecrets.app.crypto.Biometric
@@ -67,7 +69,7 @@ object PairFlow {
     suspend fun confirm(activity: FragmentActivity, s: State.Scanned) {
         try {
             val cipher = Keys.bioEncryptCipher(Keys.BIO_LINK)
-            val ok = Biometric.authenticate(activity, cipher, "Parear com ${s.qr.desktopName}", "Confirme com a digital ou o PIN")
+            val ok = Biometric.authenticate(activity, cipher, str(R.string.parear_com, s.qr.desktopName), str(R.string.confirme_com_a_digital_ou_o))
             LinkServer.clearConfirmed()
             Pairings.add(s.qr, ok)
             Log.i(TAG, "pareamento guardado: ${s.qr.pairId.take(6)}")
@@ -78,7 +80,7 @@ object PairFlow {
             _state.value = s.copy(attempt = s.attempt + 1)
         } catch (e: Biometric.Cancelled) {
             Log.i(TAG, "confirmação cancelada: ${e.message}")
-            _state.value = State.Error("Pareamento cancelado. Leia o QR de novo para tentar outra vez.")
+            _state.value = State.Error(str(R.string.pareamento_cancelado_leia_o_qr_de))
         } catch (e: kotlinx.coroutines.CancellationException) {
             // A tela foi recriada no meio: o estado continua Scanned e a próxima tela pede de novo
             Log.i(TAG, "tela recriada durante a confirmação; pedindo de novo")

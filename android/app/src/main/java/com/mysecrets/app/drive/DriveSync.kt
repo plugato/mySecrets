@@ -1,5 +1,7 @@
 package com.mysecrets.app.drive
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.content.Context
 import android.content.SharedPreferences
 import com.mysecrets.app.BuildConfig
@@ -62,7 +64,7 @@ class DriveClient(private val refreshToken: String) {
                 if (it.code == 403 && Regex("insufficient(Permissions| authentication scopes)", RegexOption.IGNORE_CASE).containsMatchIn(body)) {
                     throw GoogleAuth.AuthException(GoogleAuth.NO_DRIVE_PERMISSION, "insufficient_scope")
                 }
-                throw Exception("Google Drive respondeu HTTP ${it.code}: ${body.take(200)}")
+                throw Exception(str(R.string.google_drive_respondeu_http, it.code, body.take(200)))
             }
             return body
         }
@@ -127,7 +129,7 @@ class DriveClient(private val refreshToken: String) {
  * lápides, envia se a nuvem não tem o resultado.
  */
 /** A nuvem mudou entre a leitura e o envio: a rodada recomeça. */
-class RemoteChanged : Exception("O cofre no Google Drive mudou durante a sincronização.")
+class RemoteChanged : Exception(str(R.string.o_cofre_no_google_drive_mudou))
 
 object DriveSync {
     const val FOLDER = "MySecrets"
@@ -196,7 +198,7 @@ MySecrets e entre com a mesma conta Google e a mesma senha mestra.
 
     /** Primeiro uso: baixa o cofre da pasta MySecrets (null se ainda não existe). */
     suspend fun downloadExisting(): String? = withContext(Dispatchers.IO) {
-        val c = client() ?: error("Conta Google não conectada")
+        val c = client() ?: error(str(R.string.conta_google_nao_conectada))
         val folder = c.findFolder(FOLDER) ?: return@withContext null
         prefs.edit().putString("folderId", folder).apply()
         val meta = c.findFile(Vault.VAULT_FILE, folder) ?: return@withContext null
@@ -230,9 +232,9 @@ MySecrets e entre com a mesma conta Google e a mesma senha mestra.
                         break
                     } catch (e: RemoteChanged) {
                         // Outro aparelho enviou no meio da rodada: mescla de novo
-                        if (++mudouNaNuvem >= 3) throw Exception("O cofre no Google Drive mudou durante a sincronização. Tente de novo.")
+                        if (++mudouNaNuvem >= 3) throw Exception(str(R.string.o_cofre_no_google_drive_mudou_2))
                     } catch (e: java.io.IOException) {
-                        if (++tentativa >= 3) throw Exception("Sem conexão com o Google Drive (${e.message})")
+                        if (++tentativa >= 3) throw Exception(str(R.string.sem_conexao_com_o_google_drive, e.message))
                         delay(1500L * tentativa)
                     }
                 }
@@ -241,12 +243,12 @@ MySecrets e entre com a mesma conta Google e a mesma senha mestra.
                 if (e.code == "invalid_grant" || e.code == "insufficient_scope") {
                     client = null
                     prefs.edit().remove("token").putString("lastError",
-                        if (e.code == "invalid_grant") "O acesso ao Google foi revogado. Entre novamente." else e.message).apply()
+                        if (e.code == "invalid_grant") str(R.string.o_acesso_ao_google_foi_revogado) else e.message).apply()
                 } else {
                     prefs.edit().putString("lastError", e.message).apply()
                 }
             } catch (e: Exception) {
-                prefs.edit().putString("lastError", e.message ?: "Falha na sincronização").apply()
+                prefs.edit().putString("lastError", e.message ?: str(R.string.falha_na_sincronizacao)).apply()
             } finally {
                 publish(false)
             }
@@ -276,7 +278,7 @@ MySecrets e entre com a mesma conta Google e a mesma senha mestra.
             remote = try {
                 Vault.decryptOther(texto)
             } catch (_: Exception) {
-                throw Exception("O cofre no Google Drive usa outra senha mestra (ou está corrompido).")
+                throw Exception(str(R.string.o_cofre_no_google_drive_usa))
             }
         }
 
@@ -288,7 +290,7 @@ MySecrets e entre com a mesma conta Google e a mesma senha mestra.
                 val o = JSONObject(texto)
                 o.keys().asSequence().associateWith { k -> o.getString(k) }
             } catch (_: Exception) {
-                throw Exception("A lista de exclusões no Google Drive está ilegível. A sincronização foi interrompida para não perder exclusões.")
+                throw Exception(str(R.string.a_lista_de_exclusoes_no_google))
             }
         } ?: emptyMap()
 

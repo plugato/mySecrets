@@ -1,5 +1,7 @@
 package com.mysecrets.app.vault
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.content.Context
 import com.mysecrets.app.crypto.VaultCrypto
 import kotlinx.coroutines.Dispatchers
@@ -56,7 +58,7 @@ object Vault {
     val isUnlocked get() = _unlocked.value
     fun currentPassword(): String? = password
 
-    class WrongPassword : Exception("Senha mestra incorreta ou cofre corrompido")
+    class WrongPassword : Exception(str(R.string.senha_mestra_incorreta_ou_cofre_corrompido))
 
     suspend fun unlock(pass: String) = withContext(Dispatchers.Default) {
         mutex.withLock {
@@ -117,7 +119,7 @@ object Vault {
      */
     suspend fun update(change: (MutableList<JSONObject>) -> Unit) = withContext(Dispatchers.Default) {
         mutex.withLock {
-            check(_unlocked.value) { "Cofre bloqueado" }
+            check(_unlocked.value) { str(R.string.cofre_bloqueado) }
             val copy = _entries.value.map { JSONObject(it.toString()) }.toMutableList()
             change(copy)
             val removidos = Merge.removedIds(knownIds, copy)
@@ -160,7 +162,7 @@ object Vault {
      */
     internal suspend fun applySync(remote: List<JSONObject>?, remoteT: Map<String, String>): SyncMerge = withContext(Dispatchers.Default) {
         mutex.withLock {
-            check(_unlocked.value) { "Cofre bloqueado" }
+            check(_unlocked.value) { str(R.string.cofre_bloqueado) }
             val local = _entries.value
             val localT = readTombstones()
             val tombs = Merge.mergeTombstones(localT, remoteT)
@@ -178,15 +180,15 @@ object Vault {
     /** Abre um cofre vindo do Drive (reaproveita a chave se o salt for o mesmo). */
     internal fun decryptOther(content: String): List<JSONObject> {
         val data = JSONObject(content)
-        val k = key ?: error("Cofre bloqueado")
+        val k = key ?: error(str(R.string.cofre_bloqueado))
         val usar = if (!VaultCrypto.isLegacy(data) && VaultCrypto.saltOf(data) == VaultCrypto.hex(k.salt) &&
             data.optInt("iterations", VaultCrypto.V2_ITERATIONS) == k.iterations) k
-        else VaultCrypto.keyFor(data, password ?: error("Cofre bloqueado"))
+        else VaultCrypto.keyFor(data, password ?: error(str(R.string.cofre_bloqueado)))
         return parseEntries(VaultCrypto.decrypt(data, usar))
     }
 
     internal fun encryptForUpload(list: List<JSONObject>): String =
-        VaultCrypto.encrypt(JSONArray(list).toString(), key ?: error("Cofre bloqueado")).toString()
+        VaultCrypto.encrypt(JSONArray(list).toString(), key ?: error(str(R.string.cofre_bloqueado))).toString()
 
     internal fun readTombstones(): MutableMap<String, String> {
         if (!tombFile.exists()) return mutableMapOf()
@@ -215,7 +217,7 @@ object Vault {
     }
 
     private fun writeFile(list: List<JSONObject>) {
-        val content = VaultCrypto.encrypt(JSONArray(list).toString(), key ?: error("Cofre bloqueado")).toString()
+        val content = VaultCrypto.encrypt(JSONArray(list).toString(), key ?: error(str(R.string.cofre_bloqueado))).toString()
         val tmp = File(dir, "$VAULT_FILE.tmp")
         tmp.writeText(content)
         if (!tmp.renameTo(vaultFile)) {

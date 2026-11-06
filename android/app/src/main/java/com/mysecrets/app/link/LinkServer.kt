@@ -1,5 +1,7 @@
 package com.mysecrets.app.link
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.CompletableDeferred
@@ -72,7 +74,7 @@ object LinkServer {
             thread = Thread({ acceptLoop(s) }, "mysecrets-link").apply { isDaemon = true; start() }
             Log.i(TAG, "Escutando na porta ${LinkProtocol.PORT}")
         } catch (e: Exception) {
-            event("Não foi possível escutar na porta ${LinkProtocol.PORT}: ${e.message}")
+            event(str(R.string.nao_foi_possivel_escutar_na_porta, LinkProtocol.PORT, e.message))
         }
     }
 
@@ -146,23 +148,23 @@ object LinkServer {
                 val pairId = hello.optString("pair")
                 val pc = Pairings.find(pairId)
                 if (pc == null) {
-                    event("PC ${hello.optString("name").ifBlank { de }} ($de) chamou com um QR que este celular não leu " +
-                        "(código ${pairId.take(6)}; lidos: ${Pairings.list.value.joinToString { it.pairId.take(6) }.ifBlank { "nenhum" }})")
-                    send(sock, LinkProtocol.error("Este celular não leu o QR code que está na tela do PC agora. Leia o QR de novo."))
+                    event(str(R.string.diag_qr_nao_lido, hello.optString("name").ifBlank { de }, de, pairId.take(6),
+                        Pairings.list.value.joinToString { it.pairId.take(6) }.ifBlank { str(R.string.diag_nenhum) }))
+                    send(sock, LinkProtocol.error(str(R.string.este_celular_nao_leu_o_qr)))
                     return
                 }
                 val secret = pc.secret()
                 val nonce = hello.optString("nonce")
                 if (!LinkProtocol.verifyHello(secret, hello)) {
-                    event("Pedido de ${pc.desktopName} ($de) recusado: assinatura ou horário inválido")
-                    send(sock, LinkProtocol.error("Pedido inválido (confira se o relógio do PC e do celular estão certos)"))
+                    event(str(R.string.diag_pedido_recusado, pc.desktopName, de))
+                    send(sock, LinkProtocol.error(str(R.string.pedido_invalido_confira_se_o_relogio)))
                     return
                 }
                 if (!seenNonces.add(nonce)) {
-                    send(sock, LinkProtocol.error("Pedido repetido"))
+                    send(sock, LinkProtocol.error(str(R.string.pedido_repetido)))
                     return
                 }
-                event("Pedido \"${hello.optString("op")}\" de ${pc.desktopName} ($de)")
+                event(str(R.string.diag_pedido, hello.optString("op"), pc.desktopName, de))
                 if (seenNonces.size > 500) synchronized(seenNonces) { seenNonces.remove(seenNonces.first()) }
 
                 when (hello.optString("op")) {
@@ -181,7 +183,7 @@ object LinkServer {
 
     private fun handleUnlock(sock: Socket, reader: BufferedReader, pc: Pairings.Pc, secret: ByteArray, nonce: String, desktopName: String) {
         if (_request.value != null) {
-            send(sock, LinkProtocol.error("Já existe um pedido aguardando no celular"))
+            send(sock, LinkProtocol.error(str(R.string.ja_existe_um_pedido_aguardando_no)))
             return
         }
         send(sock, LinkProtocol.reply("pending", secret, nonce, phoneName))

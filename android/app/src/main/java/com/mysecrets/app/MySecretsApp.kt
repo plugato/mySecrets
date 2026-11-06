@@ -14,8 +14,37 @@ import com.mysecrets.app.link.LinkServer
 import com.mysecrets.app.link.Pairings
 import com.mysecrets.app.vault.Vault
 
+/**
+ * Texto de res/values/strings.xml (ou values-en) de qualquer lugar do app (telas, erros,
+ * serviços). Fora do app (testes JVM) devolve um marcador em vez de quebrar.
+ */
+fun str(@androidx.annotation.StringRes id: Int, vararg args: Any?): String =
+    MySecretsApp.instance?.let { app -> runCatching { app.getString(id, *args) }.getOrNull() } ?: "#$id"
+
 class MySecretsApp : Application() {
+    /**
+     * O app passou a ter inglês. Quem já tinha cofre (usava em português)
+     * continua em português mesmo com o celular em inglês; a troca fica em
+     * Configurações do Android > Apps > MySecrets > Idioma (Android 13+).
+     */
+    private fun manterPortuguesParaQuemJaUsava() {
+        if (android.os.Build.VERSION.SDK_INT < 33) return
+        val prefs = getSharedPreferences("idioma", MODE_PRIVATE)
+        if (prefs.getBoolean("migrado", false)) return
+        try {
+            val lm = getSystemService(android.app.LocaleManager::class.java)
+            if (Vault.exists() && lm.applicationLocales.isEmpty) {
+                lm.applicationLocales = android.os.LocaleList.forLanguageTags("pt-BR")
+            }
+        } catch (_: Exception) { /* sem LocaleManager: segue o sistema */ }
+        prefs.edit().putBoolean("migrado", true).apply()
+    }
+
     companion object {
+        /** O app em execução (para str()); null nos testes JVM. */
+        @Volatile var instance: MySecretsApp? = null
+            private set
+
         /**
          * Telas abertas pelo próprio app (leitor de QR, login do Google, salvar
          * arquivo) põem o app em segundo plano. Enquanto uma delas estiver aberta o
@@ -43,8 +72,10 @@ class MySecretsApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         Settings.init(this)
         Vault.init(this)
+        manterPortuguesParaQuemJaUsava()
         DriveSync.init(this)
         Pairings.init(this)
 

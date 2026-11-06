@@ -1,5 +1,7 @@
 package com.mysecrets.app.otp
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.net.Uri
 import org.json.JSONObject
 import javax.crypto.Mac
@@ -17,7 +19,7 @@ object Otp {
         var bits = 0
         for (ch in s) {
             val v = alphabet.indexOf(ch)
-            require(v >= 0) { "Segredo MFA inválido (base32)" }
+            require(v >= 0) { str(R.string.segredo_mfa_invalido_base32) }
             buffer = (buffer shl 5) or v
             bits += 5
             if (bits >= 8) {

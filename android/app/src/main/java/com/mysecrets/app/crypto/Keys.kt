@@ -1,5 +1,7 @@
 package com.mysecrets.app.crypto
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
@@ -72,7 +74,7 @@ object Keys {
 
     // ===== Com digital: o Cipher é liberado pelo BiometricPrompt =====
 
-    class InvalidatedException : Exception("A digital mudou neste aparelho. Configure de novo.")
+    class InvalidatedException : Exception(str(R.string.a_digital_mudou_neste_aparelho_configure))
 
     /** Cipher para cifrar (cadastro). Passe-o ao BiometricPrompt e depois chame [finishSeal]. */
     fun bioEncryptCipher(alias: String): Cipher {

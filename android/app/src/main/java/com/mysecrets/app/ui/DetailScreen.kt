@@ -1,5 +1,7 @@
 package com.mysecrets.app.ui
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -70,8 +72,8 @@ private fun Field(label: String, value: String, secret: Boolean = false, mono: B
                 }
             }
             extra?.invoke()
-            if (secret) IconButton(onClick = { show = !show }) { Icon(if (show) Icons.Default.VisibilityOff else Icons.Default.Visibility, "Mostrar") }
-            IconButton(onClick = { copySecret(ctx, label, value) }) { Icon(Icons.Default.ContentCopy, "Copiar") }
+            if (secret) IconButton(onClick = { show = !show }) { Icon(if (show) Icons.Default.VisibilityOff else Icons.Default.Visibility, str(R.string.mostrar)) }
+            IconButton(onClick = { copySecret(ctx, label, value) }) { Icon(Icons.Default.ContentCopy, str(R.string.copiar)) }
         }
     }
 }
@@ -87,10 +89,10 @@ private fun OtpCard(label: String, mfa: JSONObject) {
             Column(Modifier.weight(1f)) {
                 Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 if (code == null) {
-                    Text("Segredo MFA inválido", color = MaterialTheme.colorScheme.error)
+                    Text(str(R.string.segredo_mfa_invalido), color = MaterialTheme.colorScheme.error)
                 } else {
                     Text(code.code.chunked(3).joinToString(" "), fontSize = 28.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                    if (code.period > 0) Text("Expira em ${code.remaining}s", style = MaterialTheme.typography.labelSmall)
+                    if (code.period > 0) Text(str(R.string.expira_em_s, code.remaining), style = MaterialTheme.typography.labelSmall)
                 }
             }
             if (mfa.optString("mfaAlgorithm") == "hotp") {
@@ -100,9 +102,9 @@ private fun OtpCard(label: String, mfa: JSONObject) {
                         e.put("mfaCounter", e.optLong("mfaCounter", 0) + 1).put("updatedAt", Vault.now())
                         Vault.upsert(e)
                     }
-                }) { Icon(Icons.Default.Refresh, "Próximo código") }
+                }) { Icon(Icons.Default.Refresh, str(R.string.proximo_codigo)) }
             }
-            if (code != null) IconButton(onClick = { copySecret(ctx, "Código", code.code) }) { Icon(Icons.Default.ContentCopy, "Copiar") }
+            if (code != null) IconButton(onClick = { copySecret(ctx, str(R.string.codigo_2), code.code) }) { Icon(Icons.Default.ContentCopy, str(R.string.copiar)) }
         }
     }
 }
@@ -130,9 +132,9 @@ fun DetailScreen(id: String, onBack: () -> Unit, onEdit: () -> Unit) {
         if (uri != null && att != null) {
             try {
                 ctx.contentResolver.openOutputStream(uri)?.use { it.write(Base64.getDecoder().decode(att.optString("data"))) }
-                toast(ctx, "Arquivo salvo")
+                toast(ctx, str(R.string.arquivo_salvo))
             } catch (ex: Exception) {
-                toast(ctx, "Erro ao salvar: ${ex.message}")
+                toast(ctx, str(R.string.erro_ao_salvar, ex.message))
             }
         }
     }
@@ -140,7 +142,7 @@ fun DetailScreen(id: String, onBack: () -> Unit, onEdit: () -> Unit) {
     Scaffold(topBar = {
         TopAppBar(
             title = { Text(entryTitle(e), maxLines = 1) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") } },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, str(R.string.voltar)) } },
             actions = {
                 if (!trashed) {
                     IconButton(onClick = {
@@ -149,77 +151,77 @@ fun DetailScreen(id: String, onBack: () -> Unit, onEdit: () -> Unit) {
                             c.put("favorite", !e.optBoolean("favorite")).put("updatedAt", Vault.now())
                             Vault.upsert(c)
                         }
-                    }) { Icon(if (e.optBoolean("favorite")) Icons.Default.Star else Icons.Default.StarBorder, "Favorito") }
-                    IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, "Editar") }
-                    IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, "Mover para a lixeira") }
+                    }) { Icon(if (e.optBoolean("favorite")) Icons.Default.Star else Icons.Default.StarBorder, str(R.string.favorito)) }
+                    IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, str(R.string.editar)) }
+                    IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, str(R.string.mover_para_a_lixeira)) }
                 } else {
-                    IconButton(onClick = { scope.launch { Vault.restore(id) } }) { Icon(Icons.Default.RestoreFromTrash, "Restaurar") }
-                    IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.DeleteForever, "Excluir definitivamente") }
+                    IconButton(onClick = { scope.launch { Vault.restore(id) } }) { Icon(Icons.Default.RestoreFromTrash, str(R.string.restaurar)) }
+                    IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.DeleteForever, str(R.string.excluir_definitivamente)) }
                 }
             }
         )
     }) { pad ->
         Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(typeLabel(type), style = MaterialTheme.typography.labelLarge)
-            if (trashed) Text("Esta entrada está na lixeira.", color = MaterialTheme.colorScheme.error)
+            if (trashed) Text(str(R.string.esta_entrada_esta_na_lixeira), color = MaterialTheme.colorScheme.error)
             val url = e.optString("url")
-            Field("Site", url, extra = {
+            Field(str(R.string.site), url, extra = {
                 IconButton(onClick = {
                     try { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(if (url.contains("://")) url else "https://$url"))) } catch (_: Exception) {}
-                }) { Icon(Icons.AutoMirrored.Filled.OpenInNew, "Abrir") }
+                }) { Icon(Icons.AutoMirrored.Filled.OpenInNew, str(R.string.abrir)) }
             })
-            Field("Usuário", e.optString("username"))
-            Field("Senha", e.optString("password"), secret = true)
+            Field(str(R.string.usuario), e.optString("username"))
+            Field(str(R.string.senha), e.optString("password"), secret = true)
             val linked = e.optString("linkedMfaId").takeIf { it.isNotEmpty() }?.let { Vault.find(it) }
-            if (type == "login" && linked != null && linked.optString("mfaSecret").isNotBlank()) OtpCard("MFA (${entryTitle(linked)})", linked)
-            if (type == "mfa" && e.optString("mfaSecret").isNotBlank()) OtpCard("Código MFA", e)
-            if (type == "mfa") Field("Segredo MFA", e.optString("mfaSecret"), secret = true)
+            if (type == "login" && linked != null && linked.optString("mfaSecret").isNotBlank()) OtpCard(str(R.string.mfa, entryTitle(linked)), linked)
+            if (type == "mfa" && e.optString("mfaSecret").isNotBlank()) OtpCard(str(R.string.codigo_mfa), e)
+            if (type == "mfa") Field(str(R.string.segredo_mfa), e.optString("mfaSecret"), secret = true)
             Field("Token", e.optString("token"), secret = true)
-            Field("Tipo do token", e.optString("tokenType").takeIf { type == "token" } ?: "")
-            Field("Expira em", e.optString("tokenExpires"))
+            Field(str(R.string.tipo_do_token), e.optString("tokenType").takeIf { type == "token" } ?: "")
+            Field(str(R.string.expira_em), e.optString("tokenExpires"))
             e.optJSONArray("customFields")?.let { arr ->
                 for (i in 0 until arr.length()) {
                     val f = arr.optJSONObject(i) ?: continue
                     Field(f.optString("name"), f.optString("value"), secret = f.optString("type") == "password" || f.optString("type") == "hidden")
                 }
             }
-            Field("Notas", e.optString("notes"))
+            Field(str(R.string.notas), e.optString("notes"))
             e.optJSONArray("attachments")?.let { arr ->
                 for (i in 0 until arr.length()) {
                     val a = arr.optJSONObject(i) ?: continue
                     Card(Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("Anexo", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                Text(str(R.string.anexo), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                 Text(a.optString("name"))
                                 Text("${a.optLong("size") / 1024} KB", style = MaterialTheme.typography.labelSmall)
                             }
-                            IconButton(onClick = { saving = a; com.mysecrets.app.MySecretsApp.beginExternalFlow(); saveLauncher.launch(a.optString("name", "anexo")) }) { Icon(Icons.Default.Download, "Salvar arquivo") }
+                            IconButton(onClick = { saving = a; com.mysecrets.app.MySecretsApp.beginExternalFlow(); saveLauncher.launch(a.optString("name", "anexo")) }) { Icon(Icons.Default.Download, str(R.string.salvar_arquivo)) }
                         }
                     }
                 }
             }
             val tags = e.optJSONArray("tags")
-            if (tags != null && tags.length() > 0) Text("Tags: " + (0 until tags.length()).joinToString(", ") { tags.optString(it) }, style = MaterialTheme.typography.bodySmall)
+            if (tags != null && tags.length() > 0) Text(str(R.string.tags) + (0 until tags.length()).joinToString(", ") { tags.optString(it) }, style = MaterialTheme.typography.bodySmall)
             val hist = e.optJSONArray("passwordHistory")?.length() ?: 0
-            if (hist > 0) Text("$hist senha(s) anterior(es) no histórico", style = MaterialTheme.typography.bodySmall)
-            Text("Atualizado em ${e.optString("updatedAt").take(16).replace('T', ' ')}", style = MaterialTheme.typography.bodySmall)
+            if (hist > 0) Text(str(R.string.senha_s_anterior_es_no_historico, hist), style = MaterialTheme.typography.bodySmall)
+            Text(str(R.string.atualizado_em, e.optString("updatedAt").take(16).replace('T', ' ')), style = MaterialTheme.typography.bodySmall)
         }
     }
 
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text(if (trashed) "Excluir definitivamente?" else "Mover para a lixeira?") },
-            text = { Text(if (trashed) "Esta ação não pode ser desfeita e vale para todos os aparelhos." else "Você pode restaurar depois pela Lixeira.") },
+            title = { Text(if (trashed) str(R.string.excluir_definitivamente_2) else str(R.string.mover_para_a_lixeira_2)) },
+            text = { Text(if (trashed) str(R.string.esta_acao_nao_pode_ser_desfeita) else str(R.string.voce_pode_restaurar_depois_pela_lixeira)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
                     scope.launch { if (trashed) Vault.deleteForever(id) else Vault.moveToTrash(id) }
                     onBack()
-                }) { Text(if (trashed) "Excluir" else "Mover") }
+                }) { Text(if (trashed) str(R.string.excluir) else str(R.string.mover)) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancelar") } }
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(str(R.string.cancelar)) } }
         )
     }
 }

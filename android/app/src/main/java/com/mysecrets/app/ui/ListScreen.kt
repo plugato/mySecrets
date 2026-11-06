@@ -1,5 +1,7 @@
 package com.mysecrets.app.ui
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -77,7 +79,8 @@ fun typeIcon(type: String): ImageVector = when (type) {
     else -> Icons.Default.Key
 }
 
-private val FILTERS = listOf("all" to "Todos", "fav" to "Favoritos", "login" to "Logins", "mfa" to "MFA", "token" to "Tokens", "note" to "Notas", "trash" to "Lixeira")
+// Calculado a cada uso: acompanha o idioma do app
+private val FILTERS get() = listOf("all" to str(R.string.filtro_todos), "fav" to str(R.string.filtro_favoritos), "login" to str(R.string.filtro_logins), "mfa" to "MFA", "token" to str(R.string.filtro_tokens), "note" to str(R.string.notas), "trash" to str(R.string.filtro_lixeira))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,33 +112,33 @@ fun ListScreen(onOpen: (String) -> Unit, onNew: () -> Unit, onSettings: () -> Un
             TopAppBar(
                 title = { Text("MySecrets") },
                 actions = {
-                    if (sync.connected) IconButton(onClick = { scope.launch { DriveSync.syncNow() } }) { Icon(Icons.Default.Sync, "Sincronizar") }
-                    IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, "Configurações") }
-                    IconButton(onClick = { Vault.lock() }) { Icon(Icons.Default.Lock, "Bloquear") }
+                    if (sync.connected) IconButton(onClick = { scope.launch { DriveSync.syncNow() } }) { Icon(Icons.Default.Sync, str(R.string.sincronizar)) }
+                    IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, str(R.string.configuracoes)) }
+                    IconButton(onClick = { Vault.lock() }) { Icon(Icons.Default.Lock, str(R.string.bloquear)) }
                 }
             )
         },
         floatingActionButton = {
-            if (filter != "trash") FloatingActionButton(onClick = onNew) { Icon(Icons.Default.Add, "Nova entrada") }
+            if (filter != "trash") FloatingActionButton(onClick = onNew) { Icon(Icons.Default.Add, str(R.string.nova_entrada)) }
         }
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
             if (sync.syncing) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (sync.lastError != null) {
-                Text("Sincronização: ${sync.lastError}", color = MaterialTheme.colorScheme.error,
+                Text(str(R.string.sincronizacao, sync.lastError), color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             }
             OutlinedTextField(
                 value = q, onValueChange = { q = it }, singleLine = true,
                 leadingIcon = { Icon(Icons.Default.Search, null) },
-                placeholder = { Text("Pesquisar") },
+                placeholder = { Text(str(R.string.pesquisar)) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
             )
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FILTERS.forEach { (k, label) -> FilterChip(selected = filter == k, onClick = { filter = k }, label = { Text(label) }) }
             }
             if (list.isEmpty()) {
-                Text(if (entries.isEmpty()) "Cofre vazio. Toque em + para adicionar." else "Nada encontrado.",
+                Text(if (entries.isEmpty()) str(R.string.cofre_vazio_toque_em_para_adicionar) else str(R.string.nada_encontrado),
                     modifier = Modifier.padding(24.dp), style = MaterialTheme.typography.bodyMedium)
             }
             LazyColumn(Modifier.weight(1f)) {
@@ -160,7 +163,7 @@ fun ListScreen(onOpen: (String) -> Unit, onNew: () -> Unit, onSettings: () -> Un
                         },
                         trailingContent = {
                             if (code != null) {
-                                Column(Modifier.clickable { copySecret(ctx, "Código", code.code) }) {
+                                Column(Modifier.clickable { copySecret(ctx, str(R.string.codigo_2), code.code) }) {
                                     Text(code.code.chunked(3).joinToString(" "), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                                     if (code.period > 0) Text("${code.remaining}s", style = MaterialTheme.typography.labelSmall)
                                 }

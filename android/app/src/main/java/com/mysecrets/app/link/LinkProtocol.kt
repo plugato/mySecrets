@@ -1,5 +1,7 @@
 package com.mysecrets.app.link
 
+import com.mysecrets.app.R
+import com.mysecrets.app.str
 import org.json.JSONObject
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -23,12 +25,12 @@ object LinkProtocol {
     class QrPairing(val pairId: String, val desktopName: String, val secret: ByteArray, val unlockKey: ByteArray)
 
     fun parseQr(text: String): QrPairing {
-        require(text.startsWith(QR_PREFIX)) { "Este QR code não é de pareamento do MySecrets" }
+        require(text.startsWith(QR_PREFIX)) { str(R.string.este_qr_code_nao_e_de) }
         val json = String(Base64.getUrlDecoder().decode(text.removePrefix(QR_PREFIX)), Charsets.UTF_8)
         val o = JSONObject(json)
         val secret = Base64.getDecoder().decode(o.getString("s"))
         val key = Base64.getDecoder().decode(o.getString("k"))
-        require(secret.size == 32 && key.size == 32) { "QR code de pareamento inválido" }
+        require(secret.size == 32 && key.size == 32) { str(R.string.qr_code_de_pareamento_invalido) }
         return QrPairing(o.getString("p"), o.optString("n", "PC"), secret, key)
     }
 
