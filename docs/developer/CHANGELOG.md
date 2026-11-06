@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Browser extension now also runs on Firefox 140+ with the same code and manifest (`background.scripts` next to `service_worker`, Gecko id, no data collection declared). `make ext-firefox` builds the package to sign on addons.mozilla.org. End-to-end tests install the extension in real headless Firefox (WebDriver BiDi) and Chromium (Chrome for Testing) against a fake app and check pairing, the autofill button and filling.
 - Desktop: "Senhas vazadas" in Password Health checks your passwords against Have I Been Pwned when you click "Verificar vazamentos". Only the first 5 characters of each password's SHA-1 hash leave the computer (k-anonymity, with padding); the comparison happens in the app and results are kept only in memory until the vault locks.
 
 ### Removed

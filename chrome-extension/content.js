@@ -415,13 +415,19 @@ function showAutofillButton(count) {
   
   const button = document.createElement('button');
   button.id = 'mysecrets-autofill-button';
-  // eslint-disable-next-line no-unsanitized/property -- count é número
-  button.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-      <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
-    </svg>
-    <span>${count} ${count === 1 ? 'entrada' : 'entradas'}</span>
-  `;
+  // Montado com DOM (sem innerHTML): a página não tem como injetar nada aqui
+  const SVG = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.setAttribute('width', '16');
+  svg.setAttribute('height', '16');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'white');
+  const escudo = document.createElementNS(SVG, 'path');
+  escudo.setAttribute('d', 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z');
+  svg.appendChild(escudo);
+  const rotulo = document.createElement('span');
+  rotulo.textContent = `${count} ${count === 1 ? 'entrada' : 'entradas'}`;
+  button.append(svg, rotulo);
   
   button.style.cssText = `
     position: absolute;

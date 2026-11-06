@@ -4,7 +4,7 @@
 # Comandos simplificados para desenvolvimento
 # ============================================
 
-.PHONY: help install dev start run run-win build build-linux build-win pack pack-win clean test icons extension ext-install ext-dev ext-reload docs docs-open mcp mcp-test mcp-config
+.PHONY: help install dev start run run-win build build-linux build-win pack pack-win clean test icons extension ext-install ext-dev ext-reload docs docs-open ext-firefox mcp mcp-test mcp-config
 
 # Cores para output
 GREEN  := \033[0;32m
@@ -259,6 +259,12 @@ ext-pack:
 	else \
 		echo "$(RED)❌ Pasta chrome-extension não encontrada$(NC)"; \
 	fi
+
+# Pacote da extensão para o Firefox (o mesmo código; assinar em addons.mozilla.org)
+ext-firefox:
+	@echo "$(YELLOW)🦊 Empacotando extensão para o Firefox...$(NC)"
+	npx -y web-ext@8 lint -s chrome-extension --ignore-files "icons/*.sh" "**/README*.md"
+	npx -y web-ext@8 build -s chrome-extension -a dist --overwrite-dest --ignore-files "icons/*.sh" "**/README*.md" --filename "mysecrets-autofill-extensao-firefox.zip"
 
 # Instruções para instalar extensão
 ext-install:

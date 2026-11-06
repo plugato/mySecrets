@@ -35,7 +35,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Testes ponta a ponta (tela virtual)
+      - name: Chrome for Testing (aceita carregar a extensão; o Chrome oficial não)
+        run: |
+          SAIDA=$(npx -y @puppeteer/browsers install chrome@stable --path "$RUNNER_TEMP/cft" | tail -1)
+          echo "CHROME_BIN=$(echo "$SAIDA" | awk '{print $2}')" >> "$GITHUB_ENV"
+      - name: Testes ponta a ponta (app, extensão no Chrome e no Firefox)
         run: xvfb-run -a npm run test:e2e
 
   android:

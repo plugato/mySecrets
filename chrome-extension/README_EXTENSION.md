@@ -2,9 +2,10 @@
 
 # 🌐 MySecrets Autofill
 
-**Extensão Chrome que preenche login, senha e código 2FA com o cofre do app desktop.**
+**Extensão para Chrome e Firefox que preenche login, senha e código 2FA com o cofre do app desktop.**
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?style=flat-square&logo=googlechrome&logoColor=white)
+![Firefox 140+](https://img.shields.io/badge/Firefox-140%2B-FF7139?style=flat-square&logo=firefoxbrowser&logoColor=white)
 ![Sem cofre no navegador](https://img.shields.io/badge/cofre_no_navegador-nenhum-22c55e?style=flat-square)
 
 <img src="../docs/screenshots/extensao-popup.png" alt="Popup da extensão listando os logins do site atual" width="320">
@@ -25,7 +26,7 @@ só em loopback e exigindo um token bearer. O token chega à extensão por um
 código de pareamento que você copia no app. Fechou o app ou bloqueou o cofre, a
 extensão fica sem dados.
 
-## Instalação (uma vez)
+## Instalação no Chrome (uma vez)
 
 1. Chrome → `chrome://extensions/` → ative **Modo do desenvolvedor**
 2. **Carregar sem compactação** → selecione a pasta `chrome-extension/`
@@ -33,6 +34,22 @@ extensão fica sem dados.
    *"Iniciar o servidor ao desbloquear o cofre"*
 4. Copie o **Código de pareamento da extensão** (abaixo do token)
 5. Clique no ícone da extensão → cole o código → **Conectar**
+
+## Instalação no Firefox
+
+O mesmo código funciona no Firefox 140 ou mais novo.
+
+- **Para testar:** `about:debugging#/runtime/this-firefox` → **Carregar extensão
+  temporária…** → escolha `chrome-extension/manifest.json`. Extensões
+  temporárias somem ao fechar o Firefox.
+- **Para uso diário:** gere o pacote com `make ext-firefox`
+  (`dist/mysecrets-autofill-extensao-firefox.zip`) e envie em
+  [addons.mozilla.org](https://addons.mozilla.org/developers/) para ser
+  assinado, publicado na loja ou só para você (distribuição própria). O
+  Firefox comum só instala extensões assinadas.
+
+O pareamento é igual: na primeira vez o app pergunta se a extensão pode
+conectar.
 
 ## Uso
 
