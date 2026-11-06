@@ -91,8 +91,28 @@ async function postJsonRpc(method, params) {
   if (!res.ok) throw new Error(`Servidor respondeu ${res.status}`);
 
   const body = await res.json();
-  if (body.error) throw new Error(body.error.message);
+  if (body.error) {
+    const err = new Error(body.error.message);
+    // Passkeys: nome do DOMException que a página deve receber
+    if (body.error.data && typeof body.error.data.name === 'string') err.domName = body.error.data.name;
+    throw err;
+  }
   return body;
+}
+
+// ===== Passkeys =====
+//
+// A origem é a da aba que mandou a mensagem (frame principal), nunca um valor
+// vindo da página. O app confere de novo o rpId contra ela.
+
+function passkeyOrigin(sender) {
+  if (!sender || !sender.tab || sender.frameId !== 0) throw Object.assign(new Error('Só no frame principal'), { domName: 'NotAllowedError' });
+  const u = new URL(sender.url || sender.tab.url);
+  return u.origin;
+}
+
+async function passkeyCall(method, params) {
+  return (await postJsonRpc(method, params)).result;
 }
 
 async function rpc(tool, args = {}) {
@@ -325,6 +345,14 @@ const handlers = {
     await chrome.storage.local.set({ [NEVER_KEY]: (await neverList()).filter((h) => h !== msg.host) });
     return {};
   },
+  passkey_list: async (m, sender) => passkeyCall('mysecrets/passkey_list',
+    { origin: passkeyOrigin(sender), rpId: m.rpId, allowCredentials: m.allowCredentials }),
+  passkey_get: async (m, sender) => passkeyCall('mysecrets/passkey_get',
+    { origin: passkeyOrigin(sender), rpId: m.rpId, challenge: m.challenge, credentialId: m.credentialId }),
+  passkey_create: async (m, sender) => passkeyCall('mysecrets/passkey_create', {
+    origin: passkeyOrigin(sender), rpId: m.rp && m.rp.id, rpName: m.rp && m.rp.name,
+    user: m.user, challenge: m.challenge, excludeCredentials: m.excludeCredentials
+  }),
   autofill: async (msg, sender) => {
     const tab = msg.tabId ? { id: msg.tabId, url: msg.url } : (sender.tab || await activeTab());
     await fillTab(tab.id, msg.id, msg.url || tab.url || '');
@@ -340,7 +368,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   handler(message, sender)
     .then((result) => sendResponse({ success: true, ...result }))
-    .catch((err) => sendResponse({ success: false, error: err.message, locked: !!err.locked }));
+    .catch((err) => sendResponse({ success: false, error: err.message, locked: !!err.locked, name: err.domName }));
   return true; // resposta assíncrona
 });
 

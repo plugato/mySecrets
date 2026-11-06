@@ -55,6 +55,7 @@ Modules in `src/main/` receive what they need from `main.js` through
 | `phone-link.js` | Phone pairing/unlock protocol |
 | `vault-backup.js` | Checks a backup before importing |
 | `agent-queue.js` | Queue of agent write requests |
+| `passkey.js` | Passkeys (WebAuthn authenticator side): ES256 key, authenticator data, signature, `rpId` check |
 
 `vault-crypto.js`, `session-crypto.js` and `otp.js` are also loaded by the MCP
 server, so they are listed in `build.asarUnpack` (stdio clients run them with the
@@ -81,15 +82,18 @@ it reaches `innerHTML`. ESLint enforces this.
 ### MCP server (`mcp-server/`)
 
 `core.js` (tools and JSON-RPC), `vault.js` (reads the vault through the
-session), `files.js` (attachments), `http-server.js` (local HTTP, started by the
-app) and `index.js` (stdio, started by the AI client; writes are forwarded to the
-app for confirmation).
+session), `files.js` (attachments), `audit.js` (read activity log),
+`passkeys.js` (passkey methods, extension only), `http-server.js` (local HTTP,
+started by the app) and `index.js` (stdio, started by the AI client; writes are
+forwarded to the app for confirmation).
 
 ### Chrome extension (`chrome-extension/`)
 
 Manifest V3. `background.js` talks to the app's HTTP server; `match_url` decides
 which logins belong to the page; `content.js` fills forms and offers to save
-logins; `popup.js` is the toolbar popup.
+logins; `popup.js` is the toolbar popup. Passkeys: `passkey-page.js` runs in the
+page's world and wraps `navigator.credentials`; `passkey-content.js` shows the
+card and forwards to the background (see [PASSKEYS](PASSKEYS.md)).
 
 ### Android (`android/`)
 

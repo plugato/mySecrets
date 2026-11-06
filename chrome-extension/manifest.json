@@ -35,6 +35,31 @@
   "content_scripts": [
     {
       "matches": [
+        "https://*/*",
+        "http://localhost/*",
+        "http://*.localhost/*"
+      ],
+      "js": [
+        "passkey-page.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false,
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://*/*",
+        "http://localhost/*",
+        "http://*.localhost/*"
+      ],
+      "js": [
+        "passkey-content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
         "http://*/*",
         "https://*/*"
       ],

@@ -55,7 +55,7 @@ module.exports = [
     }
   },
   {
-    files: ['chrome-extension/content.js', 'chrome-extension/popup.js'],
+    files: ['chrome-extension/content.js', 'chrome-extension/popup.js', 'chrome-extension/passkey-content.js', 'chrome-extension/passkey-page.js'],
     languageOptions: { sourceType: 'script' }
   }
 ];

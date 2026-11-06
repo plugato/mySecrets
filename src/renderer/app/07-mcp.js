@@ -121,7 +121,8 @@ const MCP_AUDIT_ACAO = {
     search_secrets: tr('buscou no cofre'),
     get_credentials: tr('leu as credenciais de'),
     get_otp: tr('leu o código 2FA de'),
-    get_secret_file: tr('baixou um anexo de')
+    get_secret_file: tr('baixou um anexo de'),
+    passkey_get: tr('entrou com a passkey de')
 };
 const MCP_AUDIT_CLIENTE = { 'agente-stdio': tr('Agente (stdio)'), 'agente-http': tr('Agente (HTTP)'), extensao: tr('Extensão do navegador') };
 

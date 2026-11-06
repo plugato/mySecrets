@@ -4,44 +4,12 @@
 // Firefox. Nunca fala com o app real (porta 8765).
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { spawn, execFileSync } = require('node:child_process');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { listen, fakeApp, copyExtension, loginSite, TOKEN, USER, PASSWORD } = require('./extension-helpers');
+const { listen, fakeApp, copyExtension, loginSite, firefoxPath, Bidi, TOKEN, USER, PASSWORD } = require('./extension-helpers');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function firefoxPath() {
-  for (const bin of [process.env.FIREFOX_BIN, 'firefox', 'firefox-esr'].filter(Boolean)) {
-    try { execFileSync(bin, ['--version'], { stdio: 'ignore' }); return bin; } catch (_) { /* não tem */ }
-  }
-  return null;
-}
-
-class Bidi {
-  constructor(url) {
-    this.ws = new WebSocket(url);
-    this.id = 0;
-    this.pending = new Map();
-    this.events = [];
-    this.ws.onmessage = (m) => {
-      const d = JSON.parse(m.data);
-      if (d.id && this.pending.has(d.id)) {
-        const { resolve, reject } = this.pending.get(d.id);
-        this.pending.delete(d.id);
-        if (d.type === 'error') reject(new Error(`${d.error}: ${d.message}`)); else resolve(d.result);
-      } else if (d.type === 'event') this.events.push(d);
-    };
-  }
-  open() { return new Promise((r, j) => { this.ws.onopen = r; this.ws.onerror = j; }); }
-  send(method, params = {}) {
-    const id = ++this.id;
-    return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      this.ws.send(JSON.stringify({ id, method, params }));
-    });
-  }
-}
 
 test('extensão no Firefox: pareia, mostra o botão e preenche o login', { skip: !firefoxPath() && 'Firefox não encontrado' }, async () => {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'mysecrets-ff-'));

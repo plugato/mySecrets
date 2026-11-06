@@ -21,6 +21,10 @@ só responde com o cofre aberto e desbloqueado.
 Extensão  --(HTTP + token)-->  127.0.0.1:8765  --(sessão)-->  cofre do app
 ```
 
+**Passkeys:** quando um site cria uma passkey, a extensão oferece salvar no
+MySecrets (você confirma no app); depois, para entrar, mostra as passkeys do
+site. A chave fica no cofre; "Usar outro dispositivo" deixa com o navegador.
+
 O app sobe um servidor local (o mesmo usado pelos assistentes de IA), escutando
 só em loopback e exigindo um token bearer. O token chega à extensão por um
 código de pareamento que você copia no app. Fechou o app ou bloqueou o cofre, a

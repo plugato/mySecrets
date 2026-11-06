@@ -164,6 +164,27 @@
   "pairNotLocal": {
     "message": "Código aponta para fora do seu computador"
   },
+  "passkeyCancel": {
+    "message": "Cancelar"
+  },
+  "passkeyConfirmInApp": {
+    "message": "Confirme no app MySecrets…"
+  },
+  "passkeyCreateTitle": {
+    "message": "Salvar uma passkey no MySecrets?"
+  },
+  "passkeyGetTitle": {
+    "message": "Entrar com uma passkey do MySecrets"
+  },
+  "passkeyOtherDevice": {
+    "message": "Usar outro dispositivo"
+  },
+  "passkeySave": {
+    "message": "Salvar no MySecrets"
+  },
+  "passkeySigning": {
+    "message": "Entrando…"
+  },
   "popupSubtitle": {
     "message": "Extensão de Autofill"
   },

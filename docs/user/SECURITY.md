@@ -104,6 +104,27 @@ no MySecrets server and no account.
 - The extension can only call the tools autofill needs: it cannot list or
   search the whole vault or touch attachments.
 
+## Passkeys (browser)
+
+- The private key is generated in the desktop app and stays in the encrypted
+  vault; the extension and the page only receive the public response
+  (signature, public key). Attestation is `none` and the AAGUID is zero, so the
+  site cannot tell which manager you use.
+- The extension takes the page's origin from the browser tab (top frame only),
+  never from the page, and the app checks the `rpId` against it with the Public
+  Suffix List: only the site itself or a parent domain that is still a
+  registrable domain; never another site, a public suffix (`github.io`,
+  `com.br`), an IP address or plain `http` (except `localhost`).
+- Creating a passkey always asks you in the app (site, account and requesting
+  page; "Decline" is focused; locking the vault declines). Signing in requires
+  a real click on the MySecrets card on the page; the page cannot pick a
+  passkey by itself. Sign-ins appear in the app's MCP "Recent activity".
+- AI assistants (MCP tools) never see passkeys: not the keys, not that they
+  exist.
+- Whatever MySecrets can't handle (conditional/autofill requests, algorithms
+  other than ES256, hardware keys) and "Use another device" go to the
+  browser's own implementation.
+
 ## AI assistants (MCP server)
 
 - Local only (`127.0.0.1`), bearer token, timing-safe comparison; requests

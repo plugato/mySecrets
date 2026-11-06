@@ -24,7 +24,7 @@ function coletar() {
     if (k in msgs && msgs[k] !== pt) throw new Error(`Chave "${k}" com dois textos (${onde}): "${msgs[k]}" x "${pt}"`);
     msgs[k] = pt;
   };
-  for (const f of ['background.js', 'content.js', 'popup.js', 'lib.mjs']) {
+  for (const f of ['background.js', 'content.js', 'passkey-content.js', 'popup.js', 'lib.mjs']) {
     const src = fs.readFileSync(path.join(EXT, f), 'utf8');
     for (const m of src.matchAll(/\bmsg\('(\w+)', '((?:[^'\\]|\\.)*)'/g)) definir(m[1], m[2].replace(/\\'/g, "'"), f);
   }

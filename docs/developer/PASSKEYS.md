@@ -1,8 +1,24 @@
 # Passkeys: plano (última etapa)
 
-Status: **planejado, não iniciado.** Este documento é o ponto de partida para
-implementar passkeys (WebAuthn) no MySecrets. Ele fica por último porque é o
-item maior e o mais sensível de segurança do roadmap.
+Status: **fase 1 (navegador) pronta; fase 2 (Android) planejada.**
+
+Fase 1, como ficou:
+
+- `src/lib/passkey.js`: chave ES256, `authenticatorData`/`attestationObject`
+  (CBOR, `none`), assinatura e conferência do `rpId` (PSL).
+- `mcp-server/passkeys.js`: `mysecrets/passkey_list`, `passkey_get`,
+  `passkey_create`, só para Origin de extensão. `vault.loadEntries()` não
+  devolve passkeys (agentes); `loadPasskeys()` serve só a estes métodos.
+- App: `src/main/mcp.js` confirma num **modal do app** (não num diálogo nativo:
+  assim tem o visual do app e é testável de ponta a ponta), gera a chave e o
+  renderer grava a entrada `type: "passkey"`.
+- Extensão: `passkey-page.js` (world MAIN) + `passkey-content.js` (cartão em
+  shadow DOM fechado, só clique `isTrusted`) + handlers no `background.js`
+  (origem do `sender`, frame 0).
+- Diferenças do plano: pedidos `mediation: "conditional"` ficam com o
+  navegador nesta versão; não há `linkedPasskeyId` (a passkey é uma entrada
+  sozinha). O e2e do Firefox cobre o caminho sem clique (o BiDi não alcança o
+  shadow DOM fechado); criar e entrar com clique são testados no Chromium.
 
 ## Objetivo
 

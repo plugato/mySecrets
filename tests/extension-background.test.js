@@ -129,3 +129,51 @@ test('preencher: recusa se a aba navega durante a busca da senha', async () => {
   assert.match(res.error, /página mudou/);
   assert.strictEqual(env.sent.length, 0);
 });
+
+// ===== Passkeys =====
+
+function comPasskeys(env, resposta) {
+  const anterior = globalThis.fetch;
+  env.passkeyCalls = [];
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    if (!String(body.method).startsWith('mysecrets/passkey')) return anterior(url, init);
+    env.passkeyCalls.push(body);
+    const r = resposta(body);
+    return { ok: true, status: 200, json: async () => ({ jsonrpc: '2.0', id: body.id, ...r }) };
+  };
+}
+
+test('passkeys: a origem vem da aba (sender), nunca da mensagem; só o frame principal', async () => {
+  const env = setup();
+  await loadBackground();
+  comPasskeys(env, () => ({ result: { rpId: 'github.com', passkeys: [] } }));
+  const sender = { tab: { id: 1, url: 'https://github.com/login' }, frameId: 0, url: 'https://github.com/login?next=/x' };
+  const r = await ask(env.listeners, { type: 'passkey_list', rpId: 'github.com', origin: 'https://evil.com' }, sender);
+  assert.strictEqual(r.success, true, r.error);
+  assert.strictEqual(env.passkeyCalls[0].params.origin, 'https://github.com');
+
+  const iframe = await ask(env.listeners, { type: 'passkey_get', rpId: 'github.com', challenge: 'x', credentialId: 'y' }, { ...sender, frameId: 3 });
+  assert.strictEqual(iframe.success, false);
+  assert.strictEqual(iframe.name, 'NotAllowedError');
+  const semAba = await ask(env.listeners, { type: 'passkey_create', rp: { id: 'github.com' } }, { frameId: 0, url: 'https://github.com' });
+  assert.strictEqual(semAba.success, false);
+  assert.strictEqual(env.passkeyCalls.length, 1, 'nada foi ao app');
+});
+
+test('passkeys: o nome do erro do app chega à página; criar repassa só os campos esperados', async () => {
+  const env = setup();
+  await loadBackground();
+  comPasskeys(env, (b) => (b.method === 'mysecrets/passkey_create'
+    ? { result: { credential: { id: 'novo' } } }
+    : { error: { code: -32000, message: 'rpId é um sufixo público', data: { name: 'SecurityError' } } }));
+  const sender = { tab: { id: 1, url: 'https://login.exemplo.com.br/' }, frameId: 0, url: 'https://login.exemplo.com.br/' };
+  const erro = await ask(env.listeners, { type: 'passkey_list', rpId: 'com.br' }, sender);
+  assert.deepStrictEqual({ success: erro.success, name: erro.name }, { success: false, name: 'SecurityError' });
+
+  const ok = await ask(env.listeners, { type: 'passkey_create', rp: { id: 'exemplo.com.br', name: 'Ex' }, user: { id: 'dQ', name: 'eu' }, challenge: 'Y2g', excludeCredentials: [], extra: 'x' }, sender);
+  assert.deepStrictEqual(ok.credential, { id: 'novo' });
+  const p = env.passkeyCalls.find((c) => c.method === 'mysecrets/passkey_create').params;
+  assert.deepStrictEqual(Object.keys(p).sort(), ['challenge', 'excludeCredentials', 'origin', 'rpId', 'rpName', 'user']);
+  assert.strictEqual(p.origin, 'https://login.exemplo.com.br');
+});

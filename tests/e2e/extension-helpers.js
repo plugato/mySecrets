@@ -3,6 +3,8 @@
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const pk = require('../../src/lib/passkey');
 
 const ROOT = path.join(__dirname, '..', '..');
 
@@ -60,4 +62,77 @@ function loginSite() {
   return http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(PAGINA); });
 }
 
-module.exports = { listen, fakeApp, copyExtension, loginSite, TOKEN: 'tk-ext', USER: 'eu@exemplo.com', PASSWORD: 's3nh4-da-extensao' };
+// App falso com os métodos de passkey (criação aprovada direto)
+function passkeyApp(log) {
+  const cofre = [];
+  return http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      const origin = req.headers.origin || '';
+      const cors = { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Content-Type': 'application/json' };
+      if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
+      if (req.url === '/pair') { res.writeHead(200, cors); return res.end(JSON.stringify({ url: `http://127.0.0.1:${req.socket.localPort}/mcp`, token: 'tk' })); }
+      const m = JSON.parse(body || '{}');
+      const p = m.params || {};
+      log.push({ method: m.method, origin: p.origin });
+      const ok = (result) => { res.writeHead(200, cors); res.end(JSON.stringify({ jsonrpc: '2.0', id: m.id, result })); };
+      const falha = (name, message) => { res.writeHead(200, cors); res.end(JSON.stringify({ jsonrpc: '2.0', id: m.id, error: { code: -32000, message, data: { name } } })); };
+      try {
+        if (m.method === 'mysecrets/passkey_list') {
+          const rp = pk.checkRpId(p.origin, p.rpId);
+          return ok({ rpId: rp, passkeys: pk.matching(cofre, rp, p.allowCredentials).map((e) => ({ credentialId: e.passkey.credentialId, userName: e.passkey.userName, title: rp })) });
+        }
+        if (m.method === 'mysecrets/passkey_create') {
+          const { passkey, response } = pk.create({ origin: p.origin, rpId: p.rpId, rpName: p.rpName, user: p.user, challenge: p.challenge });
+          cofre.push({ type: 'passkey', passkey });
+          return ok({ credential: response });
+        }
+        if (m.method === 'mysecrets/passkey_get') {
+          const rp = pk.checkRpId(p.origin, p.rpId);
+          const e = pk.matching(cofre, rp, [{ id: p.credentialId }])[0];
+          if (!e) return falha('NotAllowedError', 'não encontrada');
+          return ok({ credential: pk.get({ origin: p.origin, rpId: rp, challenge: p.challenge, passkey: e.passkey }) });
+        }
+        return ok({ content: [{ type: 'text', text: '{"count":0,"results":[]}' }] });
+      } catch (e) {
+        return falha('SecurityError', e.message);
+      }
+    });
+  });
+}
+
+// Firefox: binário e cliente mínimo do WebDriver BiDi
+function firefoxPath() {
+  for (const bin of [process.env.FIREFOX_BIN, 'firefox', 'firefox-esr'].filter(Boolean)) {
+    try { execFileSync(bin, ['--version'], { stdio: 'ignore' }); return bin; } catch (_) { /* não tem */ }
+  }
+  return null;
+}
+
+class Bidi {
+  constructor(url) {
+    this.ws = new WebSocket(url);
+    this.id = 0;
+    this.pending = new Map();
+    this.events = [];
+    this.ws.onmessage = (m) => {
+      const d = JSON.parse(m.data);
+      if (d.id && this.pending.has(d.id)) {
+        const { resolve, reject } = this.pending.get(d.id);
+        this.pending.delete(d.id);
+        if (d.type === 'error') reject(new Error(`${d.error}: ${d.message}`)); else resolve(d.result);
+      } else if (d.type === 'event') this.events.push(d);
+    };
+  }
+  open() { return new Promise((r, j) => { this.ws.onopen = r; this.ws.onerror = j; }); }
+  send(method, params = {}) {
+    const id = ++this.id;
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+      this.ws.send(JSON.stringify({ id, method, params }));
+    });
+  }
+}
+
+module.exports = { listen, fakeApp, passkeyApp, copyExtension, loginSite, firefoxPath, Bidi, TOKEN: 'tk-ext', USER: 'eu@exemplo.com', PASSWORD: 's3nh4-da-extensao' };
