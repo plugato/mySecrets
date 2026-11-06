@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Dependencies (replaces the open Dependabot PRs, which failed CI): otplib 12 → 13, ESLint 10, GitHub Actions to their current majors, and on Android AGP 9.5.1, Gradle 9.8.2, compileSdk 37, core-ktx 1.19.1, Compose BOM 2026.09.00, Kotlin Compose plugin 2.4.21 and coroutines 1.11.0.
+- 2FA secrets pasted the way sites show them (lowercase, spaces, hyphens, trailing `=`) are now accepted.
+
+### Fixed
+- Upgrading otplib alone would have broken 2FA codes for 80-bit secrets (16 base32 characters, common on real services): otplib 13 rejects secrets under 128 bits by default. The minimum is relaxed in `src/lib/otp.js`, and the OTP tests now check against an independent RFC 4226/6238 implementation instead of otplib itself.
+- ESLint 10's new rules found errors re-thrown without their original cause (now passed as `cause`) and assignments that were never read.
+
 ## [2.1.1] - 2026-11-06
 
 ### Fixed

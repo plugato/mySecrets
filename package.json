@@ -36,7 +36,7 @@
   },
   "dependencies": {
     "electron-updater": "^6.8.11",
-    "otplib": "^12.0.1",
+    "otplib": "^13.6.0",
     "qrcode": "^1.5.4",
     "tldts": "^7.4.19"
   },
@@ -65,7 +65,8 @@
       "src/lib/otp.js",
       "node_modules/otplib/**/*",
       "node_modules/@otplib/**/*",
-      "node_modules/thirty-two/**/*",
+      "node_modules/@scure/**/*",
+      "node_modules/@noble/**/*",
       "node_modules/tldts/**/*",
       "node_modules/tldts-core/**/*"
     ],
