@@ -18,7 +18,7 @@ const comum = {
 module.exports = [
   { ignores: ['node_modules/**', 'dist/**', 'android/**', 'graphify-out/**', 'docs/**', 'src/renderer/jsQR.js', '.venv/**'] },
   {
-    files: ['src/main.js', 'src/lib/**/*.js', 'mcp-server/**/*.js', 'scripts/**/*.js', 'tests/**/*.js', 'eslint.config.js'],
+    files: ['src/main.js', 'src/main/**/*.js', 'src/lib/**/*.js', 'mcp-server/**/*.js', 'scripts/**/*.js', 'tests/**/*.js', 'eslint.config.js'],
     languageOptions: { ecmaVersion: 2023, sourceType: 'commonjs', globals: { ...globals.node } },
     rules: comum
   },
