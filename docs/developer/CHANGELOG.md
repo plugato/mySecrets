@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-09
+
 ### Added
 - MCP read activity log: the MCP window shows "Recent activity", i.e. which client (agent over stdio or HTTP, or the browser extension) listed, searched or read which entry, with the time. Only the entry ids are stored (`mcp-audit.jsonl`, mode 600, last 500 reads); passwords, codes and file contents are never logged. The extension's per-page `match_url` lookups are not logged. A button clears the log.
 - The MCP window's port field now uses the app's input style.
@@ -22,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 2FA secrets pasted the way sites show them (lowercase, spaces, hyphens, trailing `=`) are now accepted.
 
 ### Fixed
+- Chrome Web Store: the extension changes since 2.0.1 (site matching with `match_url`, saving logins, passkeys) never reached the store, because the manifest stayed at 1.5.0 and the upload is skipped when that version is already there. Store users kept the old 1.5.0, which the app rejects ("search_secrets não é permitido para a extensão do navegador"). The extension is now 1.6.0, the refusal tells the user to update the extension, and CI fails a release whose `chrome-extension/` changed without a new manifest version.
 - Upgrading otplib alone would have broken 2FA codes for 80-bit secrets (16 base32 characters, common on real services): otplib 13 rejects secrets under 128 bits by default. The minimum is relaxed in `src/lib/otp.js`, and the OTP tests now check against an independent RFC 4226/6238 implementation instead of otplib itself.
 - ESLint 10's new rules found errors re-thrown without their original cause (now passed as `cause`) and assignments that were never read.
 

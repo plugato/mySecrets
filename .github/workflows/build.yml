@@ -42,6 +42,24 @@ jobs:
             exit 1
           fi
 
+      # A loja só aceita versão nova: extensão alterada sem subir a versão do
+      # manifest nunca chega aos usuários (o envio é pulado em silêncio).
+      - name: Conferir versão da extensão
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'linux'
+        shell: bash
+        run: |
+          git fetch --quiet --tags --unshallow 2>/dev/null || git fetch --quiet --tags
+          PREV=$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)
+          if [ -z "$PREV" ] || git diff --quiet "$PREV" HEAD -- chrome-extension ':!chrome-extension/*.md'; then
+            exit 0
+          fi
+          ANTES=$(git show "$PREV:chrome-extension/manifest.json" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).version')
+          AGORA=$(node -p 'require("./chrome-extension/manifest.json").version')
+          if [ "$ANTES" = "$AGORA" ]; then
+            echo "::error::chrome-extension/ mudou desde $PREV mas o manifest continua em $AGORA: suba a versão da extensão"
+            exit 1
+          fi
+
       - run: npm ci
 
       - name: Configurar login com Google

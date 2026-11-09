@@ -625,7 +625,7 @@ async function dispatch(msg, ctx = {}) {
       const toolArgs = (params && params.arguments) || {};
       try {
         if (ctx.allowWrite === false && !WRITE_TOOLS.has(toolName) && !BROWSER_TOOLS.has(toolName)) {
-          throw new Error(`${toolName} não é permitido para a extensão do navegador.`);
+          throw new Error(`${toolName} não é permitido para a extensão do navegador. Atualize a extensão MySecrets.`);
         }
         const data = WRITE_TOOLS.has(toolName)
           ? await callWriteTool(toolName, toolArgs, ctx)
