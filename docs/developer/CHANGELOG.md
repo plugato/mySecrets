@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-11-09
+
+### Fixed
+- CI: the Android release step called `testReleaseUnitTest`, which AGP 9 no longer creates (unit tests run only for the tested build type, debug). It now runs `testDebugUnitTest`, like the PR CI. Because of this, 2.2.0 was tagged but never published (its extension 1.6.0 did reach the Chrome Web Store review); 2.2.1 is the first release with the changes below.
+
 ## [2.2.0] - 2026-11-09
 
 ### Added

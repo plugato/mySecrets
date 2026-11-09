@@ -151,7 +151,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           [ -z "$GOOGLE_CLIENT_ID" ] && echo "::warning::Secrets GOOGLE_CLIENT_* ausentes: APK sem login com Google"
-          ./gradlew --no-daemon testReleaseUnitTest assembleRelease
+          ./gradlew --no-daemon testDebugUnitTest assembleRelease
           mkdir -p ../dist
           VERSION="$(node -p "require('../package.json').version")"
           cp app/build/outputs/apk/release/MySecrets-*-release.apk "../dist/MySecrets-$VERSION-android.apk"
