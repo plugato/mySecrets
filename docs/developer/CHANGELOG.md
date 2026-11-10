@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-11-10
+
+### Fixed
+- Linux (.deb): installing an update failed with "Command pkexec exited with code 127" on COSMIC (Pop!_OS 24.04) and other systemd desktops, where apps launched from the menu run outside the login session and the session's polkit agent does not answer (`No authentication agent found`). The app now installs the .deb itself: it tries `pkexec` and, when there is no agent, opens a terminal with `sudo apt install` ready to run, which reopens MySecrets at the end; with no known terminal it shows the command to copy. The automatic install on quit is off for .deb, since it would fail silently.
+- E2E: a leftover Chromium profile folder no longer fails the passkey and autofill tests.
+
 ## [2.3.0] - 2026-11-10
 
 ### Added

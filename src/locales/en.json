@@ -572,5 +572,15 @@
   "Pedido por": "Requested by",
   "A passkey fica no cofre e sincroniza com os seus aparelhos. Recuse se você não pediu para criar uma passkey agora.": "The passkey is stored in the vault and syncs to your devices. Decline if you did not just ask to create a passkey.",
   "entrou com a passkey de": "signed in with the passkey for",
-  "Notificação enviada ao celular. Procurando na rede…": "Notification sent to the phone. Looking for it on the network…"
+  "Notificação enviada ao celular. Procurando na rede…": "Notification sent to the phone. Looking for it on the network…",
+  "Instale agora para aplicar (o app fecha e reabre na versão nova).": "Install now to apply it (the app closes and reopens on the new version).",
+  "Instalar agora": "Install now",
+  "Instalação cancelada.": "Installation cancelled.",
+  "Atualizando o MySecrets. Digite a sua senha do sistema:": "Updating MySecrets. Type your system password:",
+  "MySecrets atualizado. Reabrindo…": "MySecrets updated. Reopening…",
+  "A instalação não terminou. O MySecrets vai abrir na versão de antes.": "The installation did not finish. MySecrets will open on the previous version.",
+  "Tecle Enter para fechar.": "Press Enter to close.",
+  "Instalar a atualização": "Install the update",
+  "Não foi possível pedir a senha do sistema. Para instalar, rode no terminal:": "Could not ask for the system password. To install, run in a terminal:",
+  "Copiar comando": "Copy command"
 }

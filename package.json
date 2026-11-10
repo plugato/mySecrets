@@ -1,6 +1,6 @@
 {
   "name": "mysecrets",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Secure password and MFA manager built with Electron",
   "main": "src/main.js",
   "scripts": {

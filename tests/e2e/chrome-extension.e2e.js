@@ -85,6 +85,8 @@ test('extensão no Chromium: pareia, mostra o botão e preenche o login', { skip
     chrome.kill();
     await new Promise((r) => { chrome.once('exit', r); setTimeout(r, 3000); });
     app.close(); site.close();
-    fs.rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    // Processos auxiliares do Chrome ainda podem estar escrevendo no perfil:
+    // pasta temporária que sobrar não é falha do teste
+    try { fs.rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch (e) { console.warn('limpeza:', e.message); }
   }
 });
