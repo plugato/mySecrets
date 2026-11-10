@@ -260,3 +260,26 @@ test('sendWake: token velho (410) avisa para esquecer', async () => {
   assert.strictEqual(ok, false);
   assert.ok(esqueceu);
 });
+
+test('app fechado: acha o celular no último IP logo que ele acorda, sem esperar a varredura', async () => {
+  const { pairing, qr } = link.createPairing('rapido');
+  const port = await portaLivre();
+  let phone = null;
+  let acordou = 0;
+  try {
+    const t0 = Date.now();
+    const r = await link.requestUnlock(pairing, {
+      lastIp: '127.0.0.1', port, pushToken: 'tok', wakeWaitMs: 5000,
+      // "Rede inteira" de teste: ninguém responde e cada volta é lenta
+      sweepHosts: ['127.0.0.2'], retryDelayMs: 3000,
+      sendWake: async () => {
+        setTimeout(async () => { phone = await fakePhone(qr, { port }); acordou = Date.now(); }, 300);
+        return true;
+      }
+    });
+    assert.strictEqual(r.password, 'rapido');
+    // Achou poucos centésimos depois de o "app" subir (não no próximo ciclo de 3 s)
+    assert.ok(Date.now() - t0 < 2000, `demorou ${Date.now() - t0} ms`);
+    assert.ok(acordou > 0);
+  } finally { if (phone) phone.close(); }
+});

@@ -378,19 +378,46 @@ async function confirmPairing(pairing, opts = {}) {
  */
 async function findPhoneForUnlock(pairing, opts, onStatus) {
   if (!opts.pushToken) return findPhone(pairing, 'unlock', opts);
-  // Em paralelo com a primeira varredura: se o app já estiver aberto, nada muda
+  // Push já na largada: se o app estiver aberto, nada muda
   const avisou = (opts.sendWake || sendWake)(pairing, opts.pushToken, { ...opts.wakeOpts, onGone: opts.onPushGone })
     .then((ok) => { if (ok) onStatus({ stage: 'woke' }); return ok; });
   const limite = Date.now() + (opts.wakeWaitMs || 30 * 1000);
-  for (;;) {
-    try {
-      return await findPhone(pairing, 'unlock', opts);
-    } catch (e) {
-      if (e.code !== 'not_found' || e.phoneReplied) throw e;
-      if (!(await avisou) || Date.now() >= limite) throw e;
-      await new Promise((r) => setTimeout(r, opts.retryDelayMs || 1000));
-      if (opts.signal && opts.signal.aborted) throw Object.assign(new Error('Cancelado'), { code: 'cancelled' });
+  const cancelado = () => Object.assign(new Error('Cancelado'), { code: 'cancelled' });
+
+  // Duas buscas em paralelo enquanto o app acorda; a primeira que achar vence:
+  //  - só o último IP, a cada 250 ms (o celular costuma manter o IP);
+  //  - a rede inteira (~3 s por volta), caso o IP tenha mudado.
+  const ctl = new AbortController();
+  const repassar = () => ctl.abort();
+  if (opts.signal) opts.signal.addEventListener('abort', repassar, { once: true });
+  const insistir = async (extra, pausaMs) => {
+    for (;;) {
+      try {
+        return await findPhone(pairing, 'unlock', { ...opts, ...extra, signal: ctl.signal });
+      } catch (e) {
+        if (e.code !== 'not_found' || e.phoneReplied) throw e;
+        if (!(await avisou) || Date.now() >= limite) throw e;
+        await new Promise((r) => setTimeout(r, pausaMs));
+        if (ctl.signal.aborted) throw cancelado();
+      }
     }
+  };
+  const buscas = [insistir(opts.sweepHosts ? { hosts: opts.sweepHosts } : {}, opts.retryDelayMs || 1000)];
+  if (opts.lastIp && !opts.hosts) buscas.push(insistir({ hosts: [opts.lastIp] }, opts.fastRetryMs || 250));
+
+  let vencedor = null;
+  try {
+    vencedor = await Promise.any(buscas);
+    return vencedor;
+  } catch (agg) {
+    if (opts.signal && opts.signal.aborted) throw cancelado();
+    const erros = agg.errors || [];
+    throw erros.find((e) => e.phoneReplied) || erros.find((e) => e.code !== 'cancelled') || erros[0];
+  } finally {
+    if (opts.signal) opts.signal.removeEventListener('abort', repassar);
+    ctl.abort();
+    // A busca que perdeu, se também achou, fecha a conexão dela
+    buscas.forEach((b) => b.then((r) => { if (r !== vencedor) r.conn.close(); }, () => {}));
   }
 }
 
