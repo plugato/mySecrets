@@ -571,5 +571,6 @@
   "Conta": "Account",
   "Pedido por": "Requested by",
   "A passkey fica no cofre e sincroniza com os seus aparelhos. Recuse se você não pediu para criar uma passkey agora.": "The passkey is stored in the vault and syncs to your devices. Decline if you did not just ask to create a passkey.",
-  "entrou com a passkey de": "signed in with the passkey for"
+  "entrou com a passkey de": "signed in with the passkey for",
+  "Notificação enviada ao celular. Procurando na rede…": "Notification sent to the phone. Looking for it on the network…"
 }

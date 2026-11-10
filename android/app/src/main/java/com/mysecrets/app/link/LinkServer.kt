@@ -22,7 +22,8 @@ import java.util.Collections
 import java.util.concurrent.Semaphore
 
 /**
- * Escuta pedidos do PC na rede local enquanto o app está aberto.
+ * Escuta pedidos do PC na rede local enquanto o app está aberto, ou por alguns
+ * minutos depois de um push do PC ([LinkListenService]).
  *  - op "pair": o PC confirma o pareamento recém-lido do QR.
  *  - op "unlock": o PC pede para desbloquear; a tela mostra Aprovar/Negar e a
  *    aprovação exige a digital (ver [ApprovalRequest]).
@@ -63,8 +64,29 @@ object LinkServer {
 
     val phoneName: String get() = (Build.MANUFACTURER.replaceFirstChar { it.uppercase() } + " " + Build.MODEL).trim()
 
+    /** Quem precisa do servidor ligado: "ui" (app na tela) e "push" (pedido com o app fechado). */
+    private val owners = mutableSetOf<String>()
+
     @Synchronized
-    fun start() {
+    fun acquire(owner: String) {
+        owners.add(owner)
+        start()
+    }
+
+    /** Desliga quando ninguém mais precisa (o pedido pendente é negado). */
+    @Synchronized
+    fun release(owner: String) {
+        owners.remove(owner)
+        if (owners.isEmpty()) stop()
+    }
+
+    /** "Negar" da notificação. */
+    fun denyCurrent() {
+        _request.value?.answer?.complete(null)
+    }
+
+    @Synchronized
+    private fun start() {
         if (server != null) return
         try {
             val s = ServerSocket()
@@ -79,7 +101,7 @@ object LinkServer {
     }
 
     @Synchronized
-    fun stop() {
+    private fun stop() {
         try { server?.close() } catch (_: Exception) {}
         server = null
         thread = null
@@ -169,7 +191,7 @@ object LinkServer {
 
                 when (hello.optString("op")) {
                     "pair" -> {
-                        send(sock, LinkProtocol.reply("paired", secret, nonce, phoneName))
+                        send(sock, LinkProtocol.withPush(LinkProtocol.reply("paired", secret, nonce, phoneName), secret, nonce, Push.tokenForPc()))
                         Pairings.markConfirmed(pc.pairId)
                         _confirmed.value = pc.pairId
                     }
@@ -186,7 +208,7 @@ object LinkServer {
             send(sock, LinkProtocol.error(str(R.string.ja_existe_um_pedido_aguardando_no)))
             return
         }
-        send(sock, LinkProtocol.reply("pending", secret, nonce, phoneName))
+        send(sock, LinkProtocol.withPush(LinkProtocol.reply("pending", secret, nonce, phoneName), secret, nonce, Push.tokenForPc()))
         val req = ApprovalRequest(pc.pairId, desktopName, LinkProtocol.verificationCode(secret, nonce))
         _request.value = req
 

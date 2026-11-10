@@ -60,6 +60,7 @@ import com.mysecrets.app.link.LinkProtocol
 import com.mysecrets.app.link.LinkServer
 import com.mysecrets.app.link.PairFlow
 import com.mysecrets.app.link.Pairings
+import com.mysecrets.app.link.Push
 import com.mysecrets.app.vault.Vault
 import kotlinx.coroutines.launch
 
@@ -99,6 +100,10 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
     var lockSecs by remember { mutableIntStateOf(Settings.autoLockSeconds) }
     var clipSecs by remember { mutableIntStateOf(Settings.clipboardClearSeconds) }
     var confirmWipe by remember { mutableStateOf(false) }
+    val pushAvailable = remember { Push.available(activity) }
+    var pushOn by remember { mutableStateOf(Settings.pushEnabled) }
+    var notifOk by remember { mutableStateOf(Push.notificationsAllowed(activity)) }
+    var fullScreenOk by remember { mutableStateOf(Push.fullScreenAllowed(activity)) }
 
     // O status do autofill muda fora do app (tela do sistema)
     val owner = LocalLifecycleOwner.current
@@ -106,6 +111,8 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
         val obs = LifecycleEventObserver { _, ev ->
             if (ev == Lifecycle.Event.ON_RESUME) {
                 autofillOn = activity.getSystemService(AutofillManager::class.java)?.hasEnabledAutofillServices() == true
+                notifOk = Push.notificationsAllowed(activity)
+                fullScreenOk = Push.fullScreenAllowed(activity)
             }
         }
         owner.lifecycle.addObserver(obs)
@@ -194,6 +201,26 @@ fun SettingsScreen(activity: FragmentActivity, onBack: () -> Unit, onWiped: () -
             Section(str(R.string.aprovar_login_no_pc)) {
                 Text(str(R.string.pareie_com_o_mysecrets_do_computador))
                 Text(str(R.string.funciona_na_mesma_rede_wi_fi), style = MaterialTheme.typography.bodySmall)
+                if (pushAvailable) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(str(R.string.aprovar_com_o_app_fechado), Modifier.weight(1f))
+                        Switch(checked = pushOn, onCheckedChange = { on ->
+                            pushOn = on
+                            Settings.pushEnabled = on
+                            if (on) Push.requestNotifications(activity)
+                        })
+                    }
+                    Text(str(R.string.o_pc_avisa_este_celular_por), style = MaterialTheme.typography.bodySmall)
+                    if (pushOn && !notifOk) {
+                        OutlinedButton(onClick = {
+                            Push.requestNotifications(activity)
+                            Push.openNotificationSettings(activity)
+                        }) { Text(str(R.string.permitir_notificacoes)) }
+                    } else if (pushOn && !fullScreenOk) {
+                        Text(str(R.string.para_acender_a_tela_com_o), style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(onClick = { Push.openFullScreenSettings(activity) }) { Text(str(R.string.permitir_tela_cheia)) }
+                    }
+                }
                 pcs.forEach { pc ->
                     ListItem(
                         leadingContent = { Icon(Icons.Default.Computer, null) },

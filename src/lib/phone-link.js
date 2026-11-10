@@ -153,6 +153,59 @@ function openApproval(pairing, nonce, msg) {
   return gcmOpen(responseKey(pairing.secret, nonce), Buffer.from(String(msg.data || ''), 'base64'), `${pairing.pairId}|${nonce}`);
 }
 
+/**
+ * Token de push que veio junto da resposta do celular (campos à parte do mac da
+ * resposta, para não quebrar celulares antigos).
+ * Devolve o token, '' (o celular pediu para esquecer) ou undefined (não veio/inválido).
+ */
+function pushTokenFromReply(pairing, hello, msg) {
+  if (!msg || typeof msg.push !== 'string' || msg.push.length > 4096) return undefined;
+  return macOk(pairing.secret, msg.pushMac, 'push', hello.nonce, msg.push) ? msg.push : undefined;
+}
+
+/** Push que acorda o app do celular: só diz "procure o PC"; assinado com S. */
+function buildWake(pairing, now = Date.now()) {
+  const nonce = b64url(crypto.randomBytes(16));
+  const ts = String(now);
+  return { type: 'wake', pairId: pairing.pairId, ts, nonce, sig: mac(pairing.secret, 'wake', pairing.pairId, ts, nonce) };
+}
+
+/** Lado do celular (referência + testes): confere o push. */
+function verifyWake(secret, data, now = Date.now()) {
+  if (!data || data.type !== 'wake') return false;
+  const ts = Number(data.ts);
+  if (!Number.isFinite(ts) || Math.abs(now - ts) > CLOCK_SKEW_MS || !data.nonce) return false;
+  return macOk(secret, data.sig, 'wake', data.pairId, String(data.ts), data.nonce);
+}
+
+const PUSH_URL = process.env.MYSECRETS_PUSH_URL || 'https://mysecrets.ancalagon.com.br/push';
+
+/**
+ * Pede ao site (Worker) que mande o push. Melhor esforço: devolve true/false,
+ * nunca lança — a busca na rede segue de qualquer jeito.
+ */
+async function sendWake(pairing, token, opts = {}) {
+  const fetchFn = opts.fetch || globalThis.fetch;
+  if (!token || !fetchFn) return false;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), opts.timeoutMs || 5000);
+  try {
+    const r = await fetchFn(opts.url || PUSH_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token, data: buildWake(pairing) }),
+      signal: ctl.signal
+    });
+    // 410: token velho (app reinstalado); quem chamou deve esquecer
+    if (r && r.status === 410 && opts.onGone) opts.onGone();
+    return !!(r && r.ok);
+  } catch (_) {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Primeira resposta válida do celular a um hello (pending/paired). */
 function validFirstReply(pairing, hello, msg) {
   if (!msg) return false;
@@ -304,7 +357,7 @@ async function findPhone(pairing, op, opts = {}) {
   if (!achado) {
     throw Object.assign(new Error(ultimoErro
       ? `O celular respondeu: ${ultimoErro}`
-      : 'Celular não encontrado. Abra o MySecrets no Android, na mesma rede Wi-Fi do PC.'), { code: 'not_found' });
+      : 'Celular não encontrado. Abra o MySecrets no Android, na mesma rede Wi-Fi do PC.'), { code: 'not_found', phoneReplied: !!ultimoErro });
   }
   return achado;
 }
@@ -314,20 +367,44 @@ async function findPhone(pairing, op, opts = {}) {
  * Devolve { phoneName, host }.
  */
 async function confirmPairing(pairing, opts = {}) {
-  const { conn, host, reply } = await findPhone(pairing, 'pair', opts);
+  const { conn, host, hello, reply } = await findPhone(pairing, 'pair', opts);
   conn.close();
-  return { phoneName: String(reply.phone || 'Android').slice(0, 80), host };
+  return { phoneName: String(reply.phone || 'Android').slice(0, 80), host, pushToken: pushTokenFromReply(pairing, hello, reply) };
+}
+
+/**
+ * Procura o celular; com push (opts.pushToken), acorda o app e continua
+ * procurando por até opts.wakeWaitMs enquanto ele sobe.
+ */
+async function findPhoneForUnlock(pairing, opts, onStatus) {
+  if (!opts.pushToken) return findPhone(pairing, 'unlock', opts);
+  // Em paralelo com a primeira varredura: se o app já estiver aberto, nada muda
+  const avisou = (opts.sendWake || sendWake)(pairing, opts.pushToken, { ...opts.wakeOpts, onGone: opts.onPushGone })
+    .then((ok) => { if (ok) onStatus({ stage: 'woke' }); return ok; });
+  const limite = Date.now() + (opts.wakeWaitMs || 30 * 1000);
+  for (;;) {
+    try {
+      return await findPhone(pairing, 'unlock', opts);
+    } catch (e) {
+      if (e.code !== 'not_found' || e.phoneReplied) throw e;
+      if (!(await avisou) || Date.now() >= limite) throw e;
+      await new Promise((r) => setTimeout(r, opts.retryDelayMs || 1000));
+      if (opts.signal && opts.signal.aborted) throw Object.assign(new Error('Cancelado'), { code: 'cancelled' });
+    }
+  }
 }
 
 /**
  * Pede o desbloqueio ao celular. onStatus recebe
- *   { stage: 'searching' } e { stage: 'waiting', code, phoneName }.
- * Devolve { password, host }.
+ *   { stage: 'searching' }, { stage: 'woke' } (push enviado) e
+ *   { stage: 'waiting', code, phoneName }.
+ * Devolve { password, host, pushToken }.
  */
 async function requestUnlock(pairing, opts = {}) {
   const onStatus = opts.onStatus || (() => {});
   onStatus({ stage: 'searching' });
-  const { conn, host, hello, reply } = await findPhone(pairing, 'unlock', opts);
+  const { conn, host, hello, reply } = await findPhoneForUnlock(pairing, opts, onStatus);
+  const pushToken = pushTokenFromReply(pairing, hello, reply);
   const cancelar = () => conn.close();
   if (opts.signal) opts.signal.addEventListener('abort', cancelar, { once: true });
 
@@ -350,7 +427,7 @@ async function requestUnlock(pairing, opts = {}) {
     const password = openPassword(pairing, unlockKey);
     unlockKey.fill(0);
     conn.send({ type: 'done' });
-    return { password, host };
+    return { password, host, pushToken };
   } finally {
     if (opts.signal) opts.signal.removeEventListener('abort', cancelar);
     conn.close();
@@ -373,5 +450,9 @@ module.exports = {
   candidateHosts,
   findPhone,
   confirmPairing,
-  requestUnlock
+  requestUnlock,
+  pushTokenFromReply,
+  buildWake,
+  verifyWake,
+  sendWake
 };

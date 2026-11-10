@@ -4,7 +4,8 @@
  *
  * Protocolo e criptografia em src/lib/phone-link.js. Aqui fica só o que o PC
  * guarda (phone-link.json): por celular, o segredo do pareamento (protegido
- * pelo safeStorage) e a senha mestra cifrada com a chave que só o celular tem.
+ * pelo safeStorage), a senha mestra cifrada com a chave que só o celular tem e,
+ * se o celular mandou, o token de push que acorda o app quando está fechado.
  *
  * register({ getWindow, userDataPath, protectToken, unprotectToken })
  */
@@ -104,7 +105,8 @@ ipcMain.handle('phone-pair-wait', async () => {
           lastIp: r.host,
           pairedAt: new Date().toISOString(),
           secret: deps.protectToken(pairing.secret.toString('base64')),
-          unlock: pairing.unlock
+          unlock: pairing.unlock,
+          ...(r.pushToken ? { pushToken: r.pushToken } : {})
         });
         writePhoneLinks(phones);
         phone.pending = null;
@@ -157,10 +159,25 @@ ipcMain.handle('phone-unlock', async () => {
         const r = await phoneLink.requestUnlock(pairing, {
           lastIp: p.lastIp,
           hosts: phoneTestHosts,
+          // Com o token, o PC acorda o app por push (app fechado) e espera ele subir
+          pushToken: p.pushToken || undefined,
+          onPushGone: () => writePhoneLinks(readPhoneLinks().map(x => {
+            if (x.pairId !== p.pairId) return x;
+            const resto = { ...x };
+            delete resto.pushToken;
+            return resto;
+          })),
           signal: controller.signal,
           onStatus: (s) => sendPhoneStatus({ ...s, phoneName: s.phoneName || p.phoneName })
         });
-        writePhoneLinks(readPhoneLinks().map(x => x.pairId === p.pairId ? { ...x, lastIp: r.host, lastUsedAt: new Date().toISOString() } : x));
+        writePhoneLinks(readPhoneLinks().map(x => {
+          if (x.pairId !== p.pairId) return x;
+          const novo = { ...x, lastIp: r.host, lastUsedAt: new Date().toISOString() };
+          // '' = o celular desligou o aviso com o app fechado
+          if (r.pushToken === '') delete novo.pushToken;
+          else if (r.pushToken) novo.pushToken = r.pushToken;
+          return novo;
+        }));
         return { success: true, password: r.password };
       } catch (e) {
         if (e.code === 'cancelled' || e.code === 'denied') return { success: false, cancelled: e.code === 'cancelled', error: e.message };

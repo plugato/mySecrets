@@ -141,6 +141,17 @@ jobs:
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
           echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
+      # Firebase (push que acorda o app quando o PC pede aprovação com o app fechado)
+      - name: Configuração do Firebase
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "::warning::Secret GOOGLE_SERVICES_JSON ausente: APK sem aprovação com o app fechado"
+            exit 0
+          fi
+          echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+
       - name: Testes e build
         working-directory: android
         env:

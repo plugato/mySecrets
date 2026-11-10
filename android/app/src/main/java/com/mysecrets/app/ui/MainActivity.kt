@@ -181,7 +181,13 @@ fun PairFlowHost(activity: FragmentActivity) {
                         }
                     }
                 },
-                confirmButton = { TextButton(onClick = { PairFlow.dismiss() }) { Text(if (done) str(R.string.ok) else str(R.string.fechar)) } }
+                confirmButton = { TextButton(onClick = {
+                    // Pareado: já pede a notificação (aviso do PC com o app fechado)
+                    if (done && com.mysecrets.app.Settings.pushEnabled && com.mysecrets.app.link.Push.available(activity)) {
+                        com.mysecrets.app.link.Push.requestNotifications(activity)
+                    }
+                    PairFlow.dismiss()
+                }) { Text(if (done) str(R.string.ok) else str(R.string.fechar)) } }
             )
         }
         is PairFlow.State.Error -> AlertDialog(
@@ -192,51 +198,6 @@ fun PairFlowHost(activity: FragmentActivity) {
         )
         PairFlow.State.Idle -> {}
     }
-}
-
-@Composable
-fun ApprovalDialog(activity: FragmentActivity) {
-    val req by LinkServer.request.collectAsState()
-    val r = req ?: return
-    val scope = rememberCoroutineScope()
-    var error by remember(r) { mutableStateOf<String?>(null) }
-    var busy by remember(r) { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = {},
-        title = { Text(str(R.string.desbloquear_o_pc)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(str(R.string.quer_abrir_o_mysecrets, r.desktopName))
-                Text(str(R.string.confira_se_o_codigo_e_o))
-                Text(r.code, fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-                if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
-            }
-        },
-        confirmButton = {
-            Button(enabled = !busy, onClick = {
-                scope.launch {
-                    busy = true
-                    error = null
-                    try {
-                        val pc = Pairings.find(r.pairId) ?: error(str(R.string.pareamento_nao_encontrado))
-                        val cipher = Keys.bioDecryptCipher(Keys.BIO_LINK, pc.unlockSealed)
-                        val ok = Biometric.authenticate(activity, cipher, str(R.string.aprovar_login_no, r.desktopName), str(R.string.codigo, r.code))
-                        r.answer.complete(Keys.finishOpen(ok, pc.unlockSealed))
-                        toast(activity, str(R.string.login_aprovado))
-                    } catch (e: Biometric.Cancelled) {
-                    } catch (e: Keys.InvalidatedException) {
-                        error = str(R.string.as_digitais_do_aparelho_mudaram_remova)
-                    } catch (e: Exception) {
-                        error = e.message
-                    } finally {
-                        busy = false
-                    }
-                }
-            }) { Text(str(R.string.aprovar_com_digital)) }
-        },
-        dismissButton = { TextButton(onClick = { r.answer.complete(null) }) { Text(str(R.string.negar)) } }
-    )
 }
 
 /** Primeiro uso: baixar o cofre do Google Drive ou criar um novo. */

@@ -223,4 +223,15 @@
     <string name="copiado">%1$s copied</string>
     <string name="login_com_google">Google sign-in</string>
     <string name="aguardando_o_login_no_navegador">Waiting for sign-in in the browser…</string>
+    <string name="aguardando_o_pc">Waiting for the PC…</string>
+    <string name="o_pc_pediu_para_abrir_o_mysecrets">The PC asked to open MySecrets</string>
+    <string name="desbloquear_pc_nome">Unlock %1$s?</string>
+    <string name="codigo_toque_para_aprovar">Code %1$s. Tap to approve with your fingerprint.</string>
+    <string name="canal_aguardando_o_pc">Waiting for the PC</string>
+    <string name="canal_pedidos_do_pc">Sign-in requests from the PC</string>
+    <string name="aprovar_com_o_app_fechado">Approve with the app closed</string>
+    <string name="o_pc_avisa_este_celular_por">The PC alerts this phone with a notification (Firebase) and the fingerprint prompt shows up right away, even on the lock screen. The password still travels only over Wi-Fi.</string>
+    <string name="permitir_notificacoes">Allow notifications</string>
+    <string name="para_acender_a_tela_com_o">To wake the screen with the request, allow full-screen notifications.</string>
+    <string name="permitir_tela_cheia">Allow full screen</string>
 </resources>

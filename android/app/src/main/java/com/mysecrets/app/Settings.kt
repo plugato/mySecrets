@@ -28,4 +28,14 @@ object Settings {
     var bioOfferDeclined: Boolean
         get() = prefs.getBoolean("bioOfferDeclined", false)
         set(v) = prefs.edit().putBoolean("bioOfferDeclined", v).apply()
+
+    /** O PC pode acordar o app por push (Firebase) para pedir aprovação com o app fechado. */
+    var pushEnabled: Boolean
+        get() = prefs.getBoolean("pushEnabled", true)
+        set(v) = prefs.edit().putBoolean("pushEnabled", v).apply()
+
+    /** Token do Firebase Cloud Messaging deste aparelho (o PC recebe pela rede local). */
+    var pushToken: String?
+        get() = prefs.getString("pushToken", null)
+        set(v) = prefs.edit().putString("pushToken", v).apply()
 }

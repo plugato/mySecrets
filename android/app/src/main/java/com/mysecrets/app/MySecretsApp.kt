@@ -12,6 +12,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.mysecrets.app.drive.DriveSync
 import com.mysecrets.app.link.LinkServer
 import com.mysecrets.app.link.Pairings
+import com.mysecrets.app.link.Push
 import com.mysecrets.app.vault.Vault
 
 /**
@@ -65,6 +66,10 @@ class MySecretsApp : Application() {
         fun beginExternalFlow() = synchronized(this) { externalFlows++ }
         fun endExternalFlow() = synchronized(this) { if (externalFlows > 0) externalFlows-- }
         val inExternalFlow: Boolean get() = externalFlows > 0
+
+        /** Alguma tela do app está visível (senão o pedido do PC vira notificação). */
+        @Volatile var inForeground = false
+            private set
     }
 
     private var backgroundSince = 0L
@@ -78,11 +83,13 @@ class MySecretsApp : Application() {
         manterPortuguesParaQuemJaUsava()
         DriveSync.init(this)
         Pairings.init(this)
+        Push.init(this)
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 // App visível: escuta pedidos do PC na rede local
-                LinkServer.start()
+                inForeground = true
+                LinkServer.acquire("ui")
                 if (backgroundSince > 0 && Vault.isUnlocked && !inExternalFlow) {
                     val fora = (SystemClock.elapsedRealtime() - backgroundSince) / 1000
                     if (fora >= Settings.autoLockSeconds) Vault.lock()
@@ -95,7 +102,8 @@ class MySecretsApp : Application() {
             }
 
             override fun onStop(owner: LifecycleOwner) {
-                LinkServer.stop()
+                inForeground = false
+                LinkServer.release("ui")
                 backgroundSince = if (inExternalFlow) 0 else SystemClock.elapsedRealtime()
             }
         })

@@ -77,6 +77,23 @@ object LinkProtocol {
     fun reply(type: String, secret: ByteArray, nonce: String, phoneName: String): JSONObject =
         JSONObject().put("type", type).put("phone", phoneName).put("mac", mac(secret, type, nonce, phoneName))
 
+    /**
+     * Token de push junto da resposta (campos à parte: PC antigo ignora). "" = o PC
+     * deve esquecer o token (aviso com o app fechado desligado).
+     */
+    fun withPush(o: JSONObject, secret: ByteArray, nonce: String, token: String): JSONObject =
+        o.put("push", token).put("pushMac", mac(secret, "push", nonce, token))
+
+    /** Push de "acordar" vindo do PC: assinado com o segredo do pareamento e recente. */
+    fun verifyWake(secret: ByteArray, pairId: String, ts: String, nonce: String, sig: String?,
+                   now: Long = System.currentTimeMillis()): Boolean {
+        val t = ts.toLongOrNull() ?: return false
+        if (kotlin.math.abs(now - t) > WAKE_SKEW_MS || nonce.isBlank()) return false
+        return macOk(secret, sig, "wake", pairId, ts, nonce)
+    }
+
+    private const val WAKE_SKEW_MS = 5 * 60 * 1000L
+
     fun deny(secret: ByteArray, nonce: String): JSONObject =
         JSONObject().put("type", "deny").put("mac", mac(secret, "deny", nonce))
 

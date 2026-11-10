@@ -6,6 +6,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Firebase (push que acorda o app quando o PC pede aprovação). O google-services.json
+// não vai para o git: no CI vem do secret GOOGLE_SERVICES_JSON; sem ele o app compila
+// e funciona igual, só sem o aviso com o app fechado.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+
 // Mesma versão do app desktop (package.json na raiz do repositório)
 @Suppress("UNCHECKED_CAST")
 val pkg = JsonSlurper().parse(rootProject.file("../package.json")) as Map<String, Any>
@@ -125,6 +130,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+    implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
+    implementation("com.google.firebase:firebase-messaging")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")

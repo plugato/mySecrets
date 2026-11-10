@@ -16,5 +16,14 @@
   ],
   "mac": "+7+/+VIDbB+KWjJ3fosOs8fwzAzBnRry2dQQSznvyoQ=",
   "code": "306 624",
-  "approval": "U6Q+by3WWcGNJmT5+Mirndv4ePhdL3KNbHLPJjfIpEgmCRCKmWXpXYyh8IuWNfRMNWDHXvvAdytcnike"
+  "approval": "U6Q+by3WWcGNJmT5+Mirndv4ePhdL3KNbHLPJjfIpEgmCRCKmWXpXYyh8IuWNfRMNWDHXvvAdytcnike",
+  "wake": {
+    "type": "wake",
+    "pairId": "1095b1d46362b55f",
+    "ts": "1767225600000",
+    "nonce": "bm9uY2UtZml4by0xMjM0",
+    "sig": "gE9iGVQWKcvhgMqz0Vy2ld3PiBrSFRjK3+eP/Egg1XM="
+  },
+  "pushToken": "token-de-teste:APA91b",
+  "pushMac": "ak3ANyc0w3wpfmHjkZTMa9/h3qsuY52xFw6Btkg8gEg="
 }

@@ -55,6 +55,22 @@ class CompatTest {
         assertEquals("[2]", VaultCrypto.decrypt(b, "abc"))
     }
 
+    @Test fun pushBateComONode() {
+        val v = fixture("phone-link-vectors.json")
+        val secret = Base64.getDecoder().decode(v.getString("secret"))
+        val w = v.getJSONObject("wake")
+        val ts = w.getString("ts")
+        val now = ts.toLong()
+        assertTrue(LinkProtocol.verifyWake(secret, w.getString("pairId"), ts, w.getString("nonce"), w.getString("sig"), now))
+        assertFalse(LinkProtocol.verifyWake(secret, "outro", ts, w.getString("nonce"), w.getString("sig"), now))
+        assertFalse(LinkProtocol.verifyWake(secret, w.getString("pairId"), ts, w.getString("nonce"), w.getString("sig"), now + 10 * 60 * 1000))
+        assertFalse(LinkProtocol.verifyWake(ByteArray(32), w.getString("pairId"), ts, w.getString("nonce"), w.getString("sig"), now))
+
+        val o = LinkProtocol.withPush(JSONObject(), secret, v.getString("nonce"), v.getString("pushToken"))
+        assertEquals(v.getString("pushToken"), o.getString("push"))
+        assertEquals(v.getString("pushMac"), o.getString("pushMac"))
+    }
+
     @Test fun protocoloBateComONode() {
         val v = fixture("phone-link-vectors.json")
         val secret = Base64.getDecoder().decode(v.getString("secret"))

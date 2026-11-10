@@ -9,6 +9,9 @@
     <!-- Mantém o app acordado enquanto o login com Google está no navegador -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Pedido do PC com o app fechado: notificação que acende a tela e pede a digital -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
         android:localeConfig="@xml/locales_config"
@@ -48,6 +51,36 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:theme="@style/Theme.MySecrets" />
+
+        <!-- Aprovar o login do PC com o app fechado (aberta pela notificação, até na tela bloqueada) -->
+        <activity
+            android:name=".link.ApprovalActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.MySecrets" />
+
+        <!-- Push do PC (via Firebase): só acorda o app; a senha continua na rede local -->
+        <service
+            android:name=".link.PushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Escuta o PC por alguns minutos depois do push -->
+        <service
+            android:name=".link.LinkListenService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <receiver
+            android:name=".link.ApprovalActionReceiver"
+            android:exported="false" />
 
         <service
             android:name=".drive.AuthKeepAliveService"

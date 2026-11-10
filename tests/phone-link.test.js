@@ -8,7 +8,7 @@ const net = require('node:net');
 const link = require('../src/lib/phone-link');
 
 /** Celular simulado: guarda o que leu do QR e responde como o app Android. */
-function fakePhone(qr, { approve = true, phoneName = 'Pixel de Teste', delayMs = 20 } = {}) {
+function fakePhone(qr, { approve = true, phoneName = 'Pixel de Teste', delayMs = 20, pushToken, port = 0 } = {}) {
   const p = link.parsePairingQr(qr);
   const vistos = new Set();
   const server = net.createServer((socket) => {
@@ -21,6 +21,8 @@ function fakePhone(qr, { approve = true, phoneName = 'Pixel de Teste', delayMs =
       const msg = JSON.parse(buf.slice(0, i));
       buf = buf.slice(i + 1);
       if (msg.type === 'done') return;
+      const comPush = (o) => pushToken === undefined ? o
+        : { ...o, push: pushToken, pushMac: link.mac(p.secret, 'push', msg.nonce, pushToken) };
       const enviar = (o) => socket.write(JSON.stringify(o) + '\n');
       if (msg.pair !== p.pairId || !link.verifyHello(p.secret, msg) || vistos.has(msg.nonce)) {
         enviar({ type: 'error', message: 'Pareamento desconhecido' });
@@ -28,10 +30,10 @@ function fakePhone(qr, { approve = true, phoneName = 'Pixel de Teste', delayMs =
       }
       vistos.add(msg.nonce);
       if (msg.op === 'pair') {
-        enviar({ type: 'paired', phone: phoneName, mac: link.mac(p.secret, 'paired', msg.nonce, phoneName) });
+        enviar(comPush({ type: 'paired', phone: phoneName, mac: link.mac(p.secret, 'paired', msg.nonce, phoneName) }));
         return;
       }
-      enviar({ type: 'pending', phone: phoneName, mac: link.mac(p.secret, 'pending', msg.nonce, phoneName) });
+      enviar(comPush({ type: 'pending', phone: phoneName, mac: link.mac(p.secret, 'pending', msg.nonce, phoneName) }));
       server.lastCode = link.verificationCode(p.secret, msg.nonce);
       setTimeout(() => {
         if (approve) enviar(link.sealApproval(p.secret, p.pairId, msg.nonce, p.unlockKey));
@@ -39,7 +41,7 @@ function fakePhone(qr, { approve = true, phoneName = 'Pixel de Teste', delayMs =
       }, delayMs);
     });
   });
-  return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
+  return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve(server)));
 }
 
 const opts = (server, extra = {}) => ({ hosts: ['127.0.0.1'], port: server.address().port, ...extra });
@@ -140,4 +142,121 @@ test('vetores fixos usados pelos testes do Android continuam válidos', () => {
   const unlockKey = link.openApproval(pairing, v.nonce, { data: v.approval });
   assert.strictEqual(unlockKey.toString('base64'), v.unlockKey);
   assert.strictEqual(link.openPassword(pairing, unlockKey), v.password);
+});
+
+// ===== Push: acordar o app fechado =====
+
+/** Uma porta livre que ninguém escuta (o "app fechado"). */
+async function portaLivre() {
+  const s = net.createServer();
+  await new Promise(r => s.listen(0, '127.0.0.1', r));
+  const port = s.address().port;
+  await new Promise(r => s.close(r));
+  return port;
+}
+
+test('vetores do push (wake e token) batem com o Android', () => {
+  const v = require('./fixtures/phone-link-vectors.json');
+  const secret = Buffer.from(v.secret, 'base64');
+  assert.ok(link.verifyWake(secret, v.wake, Number(v.wake.ts)));
+  assert.strictEqual(link.mac(secret, 'push', v.nonce, v.pushToken), v.pushMac);
+});
+
+test('wake: assinado, recente e preso ao pareamento', () => {
+  const { pairing } = link.createPairing('x');
+  const w = link.buildWake(pairing);
+  assert.ok(link.verifyWake(pairing.secret, w));
+  assert.ok(!link.verifyWake(pairing.secret, { ...w, pairId: 'outro' }));
+  assert.ok(!link.verifyWake(Buffer.alloc(32, 1), w));
+  assert.ok(!link.verifyWake(pairing.secret, w, Date.now() + 10 * 60 * 1000));
+  // Não carrega nada do cofre
+  assert.deepStrictEqual(Object.keys(w).sort(), ['nonce', 'pairId', 'sig', 'ts', 'type']);
+});
+
+test('token de push vem com o pareamento e com o desbloqueio; forjado é ignorado', async () => {
+  const { pairing, qr } = link.createPairing('senha');
+  const phone = await fakePhone(qr, { pushToken: 'tok-123' });
+  try {
+    assert.strictEqual((await link.confirmPairing(pairing, opts(phone))).pushToken, 'tok-123');
+    assert.strictEqual((await link.requestUnlock(pairing, opts(phone))).pushToken, 'tok-123');
+  } finally { phone.close(); }
+  const hello = link.buildHello(pairing, 'unlock');
+  assert.strictEqual(link.pushTokenFromReply(pairing, hello, { push: 'x', pushMac: link.mac(Buffer.alloc(32), 'push', hello.nonce, 'x') }), undefined);
+  assert.strictEqual(link.pushTokenFromReply(pairing, hello, { push: '', pushMac: link.mac(pairing.secret, 'push', hello.nonce, '') }), '');
+  assert.strictEqual(link.pushTokenFromReply(pairing, hello, {}), undefined);
+});
+
+test('celular antigo (sem push) continua funcionando', async () => {
+  const { pairing, qr } = link.createPairing('senha');
+  const phone = await fakePhone(qr);
+  try {
+    const r = await link.requestUnlock(pairing, opts(phone));
+    assert.strictEqual(r.password, 'senha');
+    assert.strictEqual(r.pushToken, undefined);
+  } finally { phone.close(); }
+});
+
+test('app fechado: o PC manda o push e espera o celular aparecer na rede', async () => {
+  const { pairing, qr } = link.createPairing('senha fechada');
+  const port = await portaLivre();
+  let phone = null;
+  const pushes = [];
+  const estados = [];
+  try {
+    const r = await link.requestUnlock(pairing, {
+      hosts: ['127.0.0.1'], port, pushToken: 'tok-abc', retryDelayMs: 50, wakeWaitMs: 5000,
+      onStatus: (st) => estados.push(st.stage),
+      sendWake: async (p, token) => {
+        pushes.push(token);
+        // O push "acorda" o app: ele passa a escutar um pouco depois
+        setTimeout(async () => { phone = await fakePhone(qr, { pushToken: 'tok-novo', port }); }, 150);
+        return true;
+      }
+    });
+    assert.strictEqual(r.password, 'senha fechada');
+    assert.strictEqual(r.pushToken, 'tok-novo');
+    assert.deepStrictEqual(pushes, ['tok-abc']);
+    assert.ok(estados.includes('woke'));
+  } finally { if (phone) phone.close(); }
+});
+
+test('sem resposta ao push: desiste no prazo com erro amigável', async () => {
+  const { pairing } = link.createPairing('x');
+  const port = await portaLivre();
+  const t0 = Date.now();
+  await assert.rejects(link.requestUnlock(pairing, {
+    hosts: ['127.0.0.1'], port, pushToken: 't', retryDelayMs: 50, wakeWaitMs: 400,
+    sendWake: async () => true
+  }), (e) => e.code === 'not_found');
+  assert.ok(Date.now() - t0 >= 400);
+});
+
+test('push que não saiu (offline): não fica esperando', async () => {
+  const { pairing } = link.createPairing('x');
+  const port = await portaLivre();
+  const t0 = Date.now();
+  await assert.rejects(link.requestUnlock(pairing, {
+    hosts: ['127.0.0.1'], port, pushToken: 't', retryDelayMs: 50, wakeWaitMs: 5000,
+    sendWake: async () => false
+  }), (e) => e.code === 'not_found');
+  assert.ok(Date.now() - t0 < 3000);
+});
+
+test('sendWake: manda só token e wake assinado; falha de rede não lança', async () => {
+  const { pairing } = link.createPairing('x');
+  let corpo = null;
+  const ok = await link.sendWake(pairing, 'tok', { url: 'https://exemplo/push', fetch: async (url, init) => { corpo = JSON.parse(init.body); return { ok: true }; } });
+  assert.strictEqual(ok, true);
+  assert.strictEqual(corpo.token, 'tok');
+  assert.ok(link.verifyWake(pairing.secret, corpo.data));
+  assert.strictEqual(await link.sendWake(pairing, 'tok', { fetch: async () => { throw new Error('offline'); } }), false);
+  assert.strictEqual(await link.sendWake(pairing, '', { fetch: async () => ({ ok: true }) }), false);
+});
+
+test('sendWake: token velho (410) avisa para esquecer', async () => {
+  const { pairing } = link.createPairing('x');
+  let esqueceu = false;
+  const ok = await link.sendWake(pairing, 'tok', { fetch: async () => ({ ok: false, status: 410 }), onGone: () => { esqueceu = true; } });
+  assert.strictEqual(ok, false);
+  assert.ok(esqueceu);
 });

@@ -208,3 +208,6 @@ android/keystore.properties
 *.jks
 # Código-fonte do app Android (o padrão vault/ acima é para dados do cofre)
 !android/app/src/main/java/com/mysecrets/app/vault/
+
+# Firebase (push do Android): vem do secret GOOGLE_SERVICES_JSON no CI
+android/app/google-services.json
