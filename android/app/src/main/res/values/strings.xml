@@ -226,7 +226,7 @@
     <string name="aguardando_o_pc">Aguardando o PC…</string>
     <string name="o_pc_pediu_para_abrir_o_mysecrets">O PC pediu para abrir o MySecrets</string>
     <string name="desbloquear_pc_nome">Desbloquear %1$s?</string>
-    <string name="codigo_toque_para_aprovar">Código %1$s. Toque para aprovar com a digital.</string>
+    <string name="codigo_toque_para_aprovar">Código %1$s. Toque em Aprovar e encoste o dedo.</string>
     <string name="canal_aguardando_o_pc">Aguardando o PC</string>
     <string name="canal_pedidos_do_pc">Pedidos de login do PC</string>
     <string name="aprovar_com_o_app_fechado">Aprovar com o app fechado</string>
@@ -234,4 +234,5 @@
     <string name="permitir_notificacoes">Permitir notificações</string>
     <string name="para_acender_a_tela_com_o">Para acender a tela com o pedido, permita a notificação em tela cheia.</string>
     <string name="permitir_tela_cheia">Permitir tela cheia</string>
+    <string name="aprovar">Aprovar</string>
 </resources>

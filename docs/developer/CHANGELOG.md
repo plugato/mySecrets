@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.3.2] - 2026-11-10
 
 ### Changed
+- Android: the PC request notification has an "Approve" button. It (and the notification itself, and the full-screen alert on the lock screen) opens only the fingerprint prompt, over whatever is on screen, through a transparent screen; the app itself is not shown. If the prompt is cancelled, a small dialog with the code offers to try again or deny. The notification stays until the request ends, so cancelling the fingerprint does not lose it. (The fingerprint is still required: the key that releases the PC password only works after it, and Android shows the prompt only over a screen, not from a notification button.)
 - Approve from the phone with the app closed is faster: while the app wakes up after the push, the PC polls the phone's last known IP every 250 ms, in parallel with the full network sweep (~3 s per round, for when the IP changed). Before, it only swept the whole /24 and waited 1 s between rounds, so the phone was found 4–5 s after it was already listening.
 
 ## [2.3.1] - 2026-11-10

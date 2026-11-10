@@ -61,7 +61,7 @@
             android:launchMode="singleTask"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
-            android:theme="@style/Theme.MySecrets" />
+            android:theme="@style/Theme.MySecrets.Transparent" />
 
         <!-- Push do PC (via Firebase): só acorda o app; a senha continua na rede local -->
         <service

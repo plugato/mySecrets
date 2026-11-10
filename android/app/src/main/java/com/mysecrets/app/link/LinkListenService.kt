@@ -77,6 +77,7 @@ class LinkListenService : Service() {
 
     private fun requestNotification(r: LinkServer.ApprovalRequest): Notification {
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        // Toque, botão "Aprovar" e tela cheia: todos abrem só o prompt da digital
         val open = PendingIntent.getActivity(this, 0,
             Intent(this, ApprovalActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), flags)
         val deny = PendingIntent.getBroadcast(this, 1,
@@ -85,13 +86,16 @@ class LinkListenService : Service() {
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setContentTitle(str(R.string.desbloquear_pc_nome, r.desktopName))
             .setContentText(str(R.string.codigo_toque_para_aprovar, r.code))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(str(R.string.codigo_toque_para_aprovar, r.code)))
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(open)
             .setFullScreenIntent(open, true)
+            .addAction(0, str(R.string.aprovar), open)
             .addAction(0, str(R.string.negar), deny)
-            .setAutoCancel(true)
+            // Fica até o pedido terminar (o serviço tira): cancelar a digital não perde o pedido
+            .setOngoing(true)
             .setTimeoutAfter(90_000)
             .build()
     }
