@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MySecrets — Política de Privacidade</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 720px; margin: 0 auto; padding: 32px 16px; line-height: 1.6; color: #222; background: #fff; }
+  h1 { font-size: 1.6rem; } h2 { font-size: 1.15rem; margin-top: 2rem; }
+  @media (prefers-color-scheme: dark) { body { color: #e6e6e6; background: #121212; } a { color: #8ab4f8; } }
+</style>
+</head>
+<body>
+<h1>Política de Privacidade — MySecrets</h1>
+<p><em>Última atualização: 1º de novembro de 2026</em></p>
+
+<p>Esta política vale para o app desktop MySecrets e para a extensão MySecrets Autofill. O MySecrets é um gerenciador de senhas e códigos 2FA que guarda os dados num cofre criptografado no computador do próprio usuário. O desenvolvedor não guarda nenhum dado dos usuários. O único serviço operado pelo desenvolvedor é o repasse do aviso ao celular, descrito abaixo, que não armazena nada.</p>
+
+<h2>Cofre e senha mestra</h2>
+<ul>
+  <li>Senhas, códigos 2FA e notas ficam num arquivo criptografado com AES-256-GCM, com chave derivada da senha mestra (PBKDF2-SHA256).</li>
+  <li>A senha mestra nunca é enviada a lugar nenhum e não pode ser recuperada pelo desenvolvedor.</li>
+</ul>
+
+<h2>Sincronização com o Google Drive (opcional)</h2>
+<p>Se o usuário clicar em "Entrar com Google", o app usa a API do Google Drive para guardar uma cópia do cofre no Drive do próprio usuário:</p>
+<ul>
+  <li><strong>Permissões pedidas:</strong> <code>drive.file</code> (acesso apenas aos arquivos criados pelo próprio app, na pasta MySecrets), <code>openid</code> e <code>email</code> (para mostrar qual conta está conectada).</li>
+  <li><strong>O que é enviado:</strong> somente o arquivo do cofre, já criptografado no computador antes do envio, e uma lista de identificadores aleatórios de itens apagados. O Google não consegue ler o conteúdo do cofre.</li>
+  <li><strong>O que o app não faz:</strong> não lê, lista nem altera outros arquivos do Drive do usuário.</li>
+  <li><strong>Onde ficam as credenciais:</strong> o token de acesso do Google fica apenas no computador do usuário, protegido pelo cofre de senhas do sistema operacional. Ele não é enviado ao desenvolvedor nem a terceiros.</li>
+  <li><strong>Desconectar:</strong> o botão "Desconectar" revoga o acesso do app na conta Google e apaga o token do computador. O acesso também pode ser revogado em <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>. Os arquivos na pasta MySecrets do Drive podem ser apagados pelo próprio usuário a qualquer momento.</li>
+</ul>
+<p>O uso e a transferência, para qualquer outro app, de informações recebidas das APIs do Google seguem a <a href="https://developers.google.com/terms/api-services-user-data-policy">Política de Dados do Usuário dos Serviços de API do Google</a>, incluindo os requisitos de Uso Limitado. Os dados obtidos do Google são usados exclusivamente para sincronizar o cofre do próprio usuário e não são usados para publicidade, vendidos ou transferidos a terceiros.</p>
+
+<h2>Aprovar o login do PC pelo celular (opcional)</h2>
+<p>Com o celular Android pareado, o PC pode pedir que o login seja aprovado com a digital no celular. A senha mestra vai e volta apenas pela rede Wi-Fi local, criptografada.</p>
+<p>Para o pedido chegar mesmo com o app do celular fechado, o PC envia um aviso pelo Firebase Cloud Messaging (Google), através do site <code>mysecrets.ancalagon.com.br</code>:</p>
+<ul>
+  <li><strong>O que é enviado:</strong> o identificador de notificação do celular (token do Firebase), o identificador aleatório do pareamento e uma assinatura. Nenhuma senha, item do cofre ou dado pessoal.</li>
+  <li><strong>O que é guardado:</strong> nada. O site apenas repassa o aviso ao Firebase e não registra o conteúdo.</li>
+  <li><strong>Desligar:</strong> em Configurações do app Android, desligue "Aprovar com o app fechado". O PC esquece o token na próxima conexão.</li>
+</ul>
+
+<h2>Extensão MySecrets Autofill</h2>
+<ul>
+  <li><strong>Credenciais (usuário, senha e código 2FA):</strong> obtidas do app MySecrets local somente no momento em que o usuário pede o preenchimento, e inseridas nos campos da página.</li>
+  <li><strong>Endereço da aba atual:</strong> usado para encontrar os logins cadastrados para aquele site.</li>
+  <li><strong>Token de pareamento:</strong> guardado no armazenamento local da extensão para autenticar a comunicação com o app.</li>
+</ul>
+<p>A extensão se comunica <strong>apenas</strong> com o app MySecrets rodando no próprio computador do usuário, pelo endereço local <code>127.0.0.1</code>. Clicar em "Desconectar" no popup (ou <kbd>Ctrl+Shift+L</kbd>) apaga o token de pareamento. Desinstalar a extensão remove todos os seus dados locais.</p>
+
+<h2>O que o MySecrets não faz</h2>
+<ul>
+  <li>Não coleta histórico de navegação, conteúdo de páginas ou dados de uso.</li>
+  <li>Não usa rastreamento, anúncios ou análises.</li>
+  <li>Não vende nem transfere dados a terceiros.</li>
+</ul>
+
+<h2>Atualizações automáticas</h2>
+<p>O app consulta as releases públicas no GitHub para saber se há versão nova. Essa consulta não envia dados do cofre.</p>
+
+<h2>Contato</h2>
+<p>Dúvidas: abra uma issue em <a href="https://github.com/plugato/mySecrets/issues">github.com/plugato/mySecrets</a>.</p>
+</body>
+</html>

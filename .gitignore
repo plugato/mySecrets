@@ -211,3 +211,6 @@ android/keystore.properties
 
 # Firebase (push do Android): vem do secret GOOGLE_SERVICES_JSON no CI
 android/app/google-services.json
+
+# Cache local do wrangler (site)
+.wrangler/

@@ -1,0 +1,20 @@
+// Site do MySecrets (página inicial, privacidade, termos) e links de download.
+// Os arquivos ficam nas releases do GitHub; o Worker só redireciona para o da última versão.
+//   npx wrangler deploy        (de dentro desta pasta)
+{
+  "name": "mysecrets-site",
+  "main": "src/index.js",
+  "compatibility_date": "2025-10-01",
+  // O que existe em public/ é servido direto; o resto (/apk, /download/*, /versao) cai no Worker.
+  "assets": { "directory": "./public", "binding": "ASSETS", "not_found_handling": "404-page" },
+  // A zona ancalagon.com.br já está nesta conta Cloudflare (é a mesma do tcgscanner).
+  "routes": [{ "pattern": "mysecrets.ancalagon.com.br", "custom_domain": true }],
+  // POST /push: limite por IP e por token do celular (10 por minuto cada)
+  "ratelimits": [
+    { "name": "PUSH_LIMIT", "namespace_id": "4301", "simple": { "limit": 10, "period": 60 } }
+  ],
+  // Segredo FCM_SERVICE_ACCOUNT (wrangler secret put): conta de serviço do Firebase para o push
+  "vars": {
+    "REPO": "plugato/mySecrets"
+  }
+}

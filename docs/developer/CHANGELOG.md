@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-10
+
+### Added
+- Approve the PC sign-in with the Android app closed: the PC sends a push (Firebase Cloud Messaging, relayed by the site's Worker at `POST /push`) that only wakes the app. The phone checks the push signature (HMAC with the pairing secret), listens on the local network for 2 minutes and shows a notification that turns the screen on and opens the fingerprint prompt, even over the lock screen, with a "Deny" action. The master password still travels only over the local network; the push carries no vault data. The phone sends its push token to the PC over the local network (separate signed fields, so older versions keep working); the PC forgets it when the Worker reports it as expired. Turn it off in Android Settings → "Approve with the app closed". A phone already paired starts sending its token after the next approval with the app open.
+
+### Changed
+- Android: a sign-in request from the PC opens the fingerprint prompt right away (the code is shown in the prompt). The dialog with the code, "Approve" and "Deny" only appears if the prompt is cancelled or fails.
+
 ## [2.2.1] - 2026-11-09
 
 ### Fixed

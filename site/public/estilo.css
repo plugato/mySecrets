@@ -1,0 +1,36 @@
+:root {
+  --texto: #1d1d2b; --fundo: #ffffff; --elemento: #f2f2f8; --secundario: #5f6070; --borda: #dcdce8; --acento: #5b5bd6; --sobre-acento: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --texto: #ececf4; --fundo: #121218; --elemento: #1d1d27; --secundario: #a2a3b3; --borda: #2e2e3d; --acento: #8b8bff; --sobre-acento: #0d0d18; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fundo); color: var(--texto); font: 16px/1.6 system-ui, sans-serif; }
+main { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+h1 { font-size: 30px; line-height: 1.2; margin: 0 0 8px; }
+h2 { font-size: 20px; margin: 40px 0 8px; }
+h3 { font-size: 16px; margin: 0 0 4px; }
+a { color: var(--acento); }
+img { max-width: 100%; height: auto; }
+.muted { color: var(--secundario); }
+nav { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-bottom: 32px; font-weight: 600; }
+nav a { text-decoration: none; }
+nav .marca { display: flex; align-items: center; gap: 8px; color: var(--texto); margin-right: auto; }
+nav .marca img { width: 28px; height: 28px; border-radius: 7px; }
+.topo { display: flex; gap: 20px; align-items: center; margin-bottom: 8px; }
+.topo img { width: 72px; height: 72px; border-radius: 16px; flex-shrink: 0; }
+.card { background: var(--elemento); border-radius: 12px; padding: 16px 20px; margin: 20px 0; }
+.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 20px 0; }
+.grade .card { margin: 0; }
+.grade p { margin: 0; color: var(--secundario); font-size: 15px; }
+ul, ol { padding-left: 20px; }
+.botao { display: inline-block; background: var(--acento); color: var(--sobre-acento); text-decoration: none; font-weight: 600; border-radius: 10px; padding: 10px 20px; margin: 4px 8px 4px 0; }
+.botao.secundario { background: transparent; color: var(--acento); border: 1.5px solid var(--acento); padding: 8.5px 18.5px; }
+.downloads { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 16px 0; }
+.downloads .card { margin: 0; }
+.downloads .botao { display: block; text-align: center; margin: 12px 0 0; }
+.downloads .links { font-size: 14px; margin: 8px 0 0; }
+.print { border-radius: 12px; border: 1px solid var(--borda); display: block; margin: 16px 0; }
+.prints { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.prints .print { margin: 0; }
+footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--borda); font-size: 14px; }

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MySecrets</title>
+  <meta name="description" content="Gerenciador de senhas e códigos 2FA para Windows, Linux e Android, com cofre criptografado e preenchimento automático.">
+  <link rel="icon" href="/img/icon.png">
+  <link rel="stylesheet" href="/estilo.css">
+</head>
+<body>
+<main>
+  <nav>
+    <a class="marca" href="/"><img src="/img/icon.png" alt="">MySecrets</a>
+    <a href="#baixar">Baixar</a>
+    <a href="/privacidade/">Privacidade</a>
+    <a href="/termos/">Termos de uso</a>
+  </nav>
+
+  <div class="topo">
+    <img src="/img/icon.png" alt="Ícone do MySecrets">
+    <div>
+      <h1>MySecrets</h1>
+      <p class="muted" style="margin:0">Senhas e códigos 2FA num cofre criptografado que fica com você, no PC e no celular.</p>
+    </div>
+  </div>
+  <p><a class="botao" href="#baixar">Baixar</a> <span id="versao" class="muted"></span></p>
+
+  <div class="grade">
+    <div class="card"><h3>🔐 Cofre criptografado</h3><p>AES-256-GCM com chave derivada da sua senha mestra. Sem ela, ninguém lê o cofre.</p></div>
+    <div class="card"><h3>🔢 Códigos 2FA</h3><p>Gere códigos TOTP e HOTP, importe por QR code ou de outros gerenciadores.</p></div>
+    <div class="card"><h3>🧩 Preenchimento automático</h3><p>No Chrome, pela extensão, e no Android inteiro: usuário, senha e o código 2FA.</p></div>
+    <div class="card"><h3>📱 O mesmo cofre em todo lugar</h3><p>PC e Android abrem o mesmo arquivo, sincronizado pelo <strong>seu</strong> Google Drive.</p></div>
+    <div class="card"><h3>👆 Desbloqueio por digital</h3><p>Windows Hello no PC, biometria no Android, ou aprove o login do PC pelo celular.</p></div>
+    <div class="card"><h3>🙈 Sem servidor no meio</h3><p>Não existe conta MySecrets. Seus dados nunca passam por um servidor nosso.</p></div>
+  </div>
+
+  <img class="print" src="/img/cofre.png" alt="Cofre do MySecrets no desktop" loading="lazy">
+
+  <h2 id="baixar">Baixar</h2>
+  <div class="downloads">
+    <div class="card">
+      <h3>🤖 Android</h3>
+      <p class="muted" style="margin:0">Android 9 ou mais novo.</p>
+      <a class="botao" href="/apk" data-plataforma="android">Baixar o APK</a>
+    </div>
+    <div class="card">
+      <h3>🪟 Windows</h3>
+      <p class="muted" style="margin:0">64 bits.</p>
+      <a class="botao" href="/download/windows" data-plataforma="windows">Baixar o instalador</a>
+      <p class="links"><a href="/download/windows-portatil" data-plataforma="windows-portatil">Versão portátil (.exe)</a></p>
+    </div>
+    <div class="card">
+      <h3>🐧 Linux</h3>
+      <p class="muted" style="margin:0">x64 e arm64.</p>
+      <a class="botao" href="/download/linux-appimage" data-plataforma="linux-appimage">Baixar o AppImage</a>
+      <p class="links">
+        <a href="/download/linux-deb" data-plataforma="linux-deb">.deb</a> ·
+        <a href="/download/linux-arm64-appimage" data-plataforma="linux-arm64-appimage">AppImage arm64</a> ·
+        <a href="/download/linux-arm64-deb" data-plataforma="linux-arm64-deb">.deb arm64</a>
+      </p>
+    </div>
+  </div>
+  <p class="muted">Todas as versões e notas de mudança: <a href="https://github.com/plugato/mySecrets/releases">releases no GitHub</a>.</p>
+
+  <h3>Instalar no Android</h3>
+  <ol>
+    <li>Abra o arquivo baixado. Se o Android pedir, permita que o navegador instale apps desconhecidos.</li>
+    <li>Abra o MySecrets e crie a sua senha mestra, ou entre com o Google para abrir o mesmo cofre do PC.</li>
+    <li>Para preencher senhas em outros apps, ative o MySecrets em Ajustes › Senhas e preenchimento automático.</li>
+  </ol>
+
+  <h3>Extensão para o Chrome</h3>
+  <p>A extensão preenche logins direto do app instalado no seu computador. <a href="/download/extensao" data-plataforma="extensao">Baixar a extensão (.zip)</a></p>
+
+  <h2>Android</h2>
+  <p>O mesmo cofre do PC, com códigos 2FA, preenchimento automático em apps e navegadores e desbloqueio por digital.</p>
+  <img class="print" src="/img/android.png" alt="App Android: cofre, login com 2FA, códigos MFA e configurações" loading="lazy">
+
+  <div class="prints">
+    <img class="print" src="/img/codigos-mfa.png" alt="Códigos 2FA no desktop" loading="lazy">
+    <img class="print" src="/img/extensao-popup.png" alt="Extensão do Chrome" loading="lazy">
+  </div>
+
+  <h2>Código aberto</h2>
+  <p>O código do MySecrets está no <a href="https://github.com/plugato/mySecrets">GitHub</a>. Encontrou um problema? <a href="https://github.com/plugato/mySecrets/issues">Abra uma issue</a>.</p>
+
+  <footer class="muted">
+    MySecrets é um projeto independente.
+    <br><a href="/privacidade/">Política de privacidade</a> · <a href="/termos/">Termos de uso</a> · <a href="https://github.com/plugato/mySecrets">Código-fonte</a>
+  </footer>
+</main>
+<script>
+  // Versão e tamanho de cada arquivo (GET /versao); sem resposta, os links continuam funcionando
+  fetch('/versao')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((rel) => {
+      if (!rel) return;
+      document.getElementById('versao').textContent = 'Versão ' + rel.versao;
+      const mb = (b) => (b / 1048576).toLocaleString('pt-BR', { maximumFractionDigits: b < 10485760 ? 1 : 0 }) + ' MB';
+      document.querySelectorAll('[data-plataforma]').forEach((a) => {
+        const arq = rel.arquivos[a.dataset.plataforma];
+        if (!arq) return;
+        a.href = arq.url;
+        a.title = arq.nome;
+        if (a.classList.contains('botao')) a.textContent += ' · ' + mb(arq.tamanho);
+      });
+    })
+    .catch(() => {});
+</script>
+</body>
+</html>
