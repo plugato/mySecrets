@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.3] - 2026-11-11
+
+### Fixed
+- Windows Hello: cancelling the prompt, signing in with the master password while it was open, or leaving it unanswered for 60 s could leave the Hello window orphaned on screen, the app window disabled behind it and Hello busy for the next attempt. The app used to kill the helper process (or let it time out) without cancelling the Hello operation. Now the cancel is a request to the helper, which cancels the operation (closing the prompt), closes the prompt window itself if that does not work within 3 s, and only then exits; killing the process is a last resort. After any outcome the app window is re-enabled and focused.
+- Autofill (extension and `match_url`): a page whose exact host has saved entries now gets only those. Before, every entry of the same registrable domain was listed, so a company with many systems under one domain (`pam.company.com`, `vpn.company.com`, ...) showed all of them on each page. Entries from other subdomains still appear when the page's host has none of its own.
+
 ## [2.3.2] - 2026-11-10
 
 ### Changed

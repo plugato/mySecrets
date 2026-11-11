@@ -50,6 +50,19 @@ test('matchUrl: só entradas do mesmo site (host ou domínio registrável)', () 
 
   assert.deepStrictEqual(ids('chrome://extensions'), []);
   assert.deepStrictEqual(ids('nao-e-url'), []);
+
+  // Host com entrada própria: os outros subdomínios do domínio ficam de fora
+  const S = [
+    { id: 'vpn', type: 'login', url: 'https://vpn.empresa.com.br/' },
+    { id: 'pam', type: 'login', url: 'https://pam.empresa.com.br/' },
+    { id: 'pam-mfa', type: 'mfa', url: 'https://pam.empresa.com.br' },
+    { id: 'kafka', type: 'login', url: 'https://kafka.empresa.com.br/login.html' }
+  ];
+  const sub = (url, opts) => matchUrl(S, url, opts).map((e) => e.id);
+  assert.deepStrictEqual(sub('https://pam.empresa.com.br/'), ['pam', 'pam-mfa']);
+  assert.deepStrictEqual(sub('https://kafka.empresa.com.br/'), ['kafka']);
+  assert.deepStrictEqual(sub('https://novo.empresa.com.br/'), ['vpn', 'pam', 'pam-mfa', 'kafka'], 'host sem entrada: mesmo domínio');
+  assert.deepStrictEqual(sub('https://vpn.empresa.com.br/', { types: ['mfa'] }), ['pam-mfa'], 'sem MFA no host: MFA do domínio');
 });
 
 // ===== Pareamento =====

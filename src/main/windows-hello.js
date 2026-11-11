@@ -10,6 +10,7 @@
 
 const os = require('os');
 const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 const { ipcMain, safeStorage } = require('electron');
@@ -127,12 +128,33 @@ try {
 const HELLO_ASYNC_OP_IID = 'fd596ffd-2318-558f-9dbe-d21df43764a5';
 
 // Prompt em andamento: um só por vez, e cancelável (login com senha)
-let helloPending = null; // { promise, child }
+let helloPending = null; // { promise, child, cancelFile }
+
+// Matar o PowerShell com o prompt aberto deixa a janela do Hello órfã: ela
+// continua na tela, a janela do app fica desabilitada atrás dela e o próximo
+// pedido encontra o Hello ocupado. Por isso o cancelamento é um pedido ao
+// script (arquivo de sinal), que cancela a operação e fecha o prompt direito.
+// Matar o processo fica só como último recurso.
+const HELLO_CANCEL_GRACE_MS = 6000;
 
 function cancelHelloVerification() {
-  if (helloPending && helloPending.child) {
-    try { helloPending.child.kill(); } catch (_) { /* já encerrou */ }
+  const pending = helloPending;
+  if (!pending || !pending.child) return;
+  const kill = () => {
+    try { pending.child.kill(); } catch (_) { /* já encerrou */ }
+  };
+  if (!pending.cancelFile) {
+    kill();
+    return;
   }
+  try {
+    fs.writeFileSync(pending.cancelFile, '');
+  } catch (_) {
+    kill();
+    return;
+  }
+  const timer = setTimeout(kill, HELLO_CANCEL_GRACE_MS);
+  pending.child.once('exit', () => clearTimeout(timer));
 }
 
 /**
@@ -141,16 +163,24 @@ function cancelHelloVerification() {
  */
 function requestHelloVerification(message) {
   if (helloPending) return helloPending.promise;
-  const pending = { child: null };
-  pending.promise = runHelloPrompt(message, (child) => { pending.child = child; })
-    .finally(() => { if (helloPending === pending) helloPending = null; });
+  // No WSL o PowerShell não enxerga o tmpdir do Linux: lá o cancelamento mata o processo
+  const cancelFile = process.platform === 'win32'
+    ? path.join(os.tmpdir(), `mysecrets-hello-cancel-${crypto.randomBytes(8).toString('hex')}`)
+    : null;
+  const pending = { child: null, cancelFile };
+  pending.promise = runHelloPrompt(message, cancelFile, (child) => { pending.child = child; })
+    .finally(() => {
+      if (helloPending === pending) helloPending = null;
+      if (cancelFile) fs.rm(cancelFile, { force: true }, () => {});
+    });
   helloPending = pending;
   return pending.promise;
 }
 
-async function runHelloPrompt(message, onSpawn) {
+async function runHelloPrompt(message, cancelFile, onSpawn) {
   // A mensagem é fixa (definida abaixo neste arquivo); escape defensivo de aspas simples
   const safeMessage = String(message).replace(/'/g, "''");
+  const safeCancelFile = String(cancelFile || '').replace(/'/g, "''");
   // HWND da janela do app: o prompt nasce preso a ela
   let appHwnd = '0';
   if (process.platform === 'win32' && getWindow() && !getWindow().isDestroyed()) {
@@ -197,6 +227,10 @@ public static class Win32Focus {
     public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")]
     public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+    [DllImport("user32.dll")]
+    public static extern bool EnableWindow(IntPtr hWnd, bool bEnable);
+    [DllImport("user32.dll")]
+    public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 }
 "@
 function Focus-Window($hwnd) {
@@ -206,8 +240,22 @@ function Focus-Window($hwnd) {
   [Win32Focus]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)
 }
 
+# AsTask com CancellationToken: cancelar o token cancela a operação do WinRT,
+# e é isso que fecha o prompt do Hello
+$asTaskCancelable = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+  $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 2 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation\`1' -and $_.GetParameters()[1].ParameterType.Name -eq 'CancellationToken'
+})[0]
+$cts = New-Object System.Threading.CancellationTokenSource
+
+# Espera sem estourar: Wait() lança exceção se a tarefa foi cancelada ou falhou
+function Wait-Hello($task, $ms) {
+  try { $null = $task.Wait($ms) } catch { }
+}
+
 $resultType = [Windows.Security.Credentials.UI.UserConsentVerificationResult]
 $app = [IntPtr]::new([Int64]${appHwnd})
+$cancelFile = '${safeCancelFile}'
+$mode = 'INTEROP'
 try {
   # Só cai na reserva se o prompt preso à janela nem chegou a abrir
   $op = $null
@@ -215,52 +263,83 @@ try {
     if ($app -ne [IntPtr]::Zero) { $op = [HelloInterop]::Request($app, '${safeMessage}') }
   } catch { }
 
-  if ($op -ne $null) {
-    $mode = 'INTEROP'
-    $task = $asTask.MakeGenericMethod($resultType).Invoke($null, @($op))
-    $null = $task.Wait(60000)
-  } else {
+  if ($op -eq $null) {
     $mode = 'LEGACY'
-    $task = $asTask.MakeGenericMethod($resultType).Invoke($null, @([Windows.Security.Credentials.UI.UserConsentVerifier]::RequestVerificationAsync('${safeMessage}')))
-    # Espera até 60 s e, enquanto isso, traz o prompt para a frente assim
-    # que ele aparecer (pode demorar alguns segundos)
-    $shown = $false
-    for ($i = 0; $i -lt 300 -and -not $task.IsCompleted; $i++) {
-      if (-not $shown) {
-        $hwnd = [Win32Focus]::FindWindow('Credential Dialog Xaml Host', $null)
-        if ($hwnd -ne [IntPtr]::Zero) {
-          [Win32Focus]::ShowWindow($hwnd, 5) | Out-Null
-          Focus-Window $hwnd
-          $shown = $true
-        }
+    $op = [Windows.Security.Credentials.UI.UserConsentVerifier]::RequestVerificationAsync('${safeMessage}')
+  }
+  $task = $asTaskCancelable.MakeGenericMethod($resultType).Invoke($null, @($op, $cts.Token))
+
+  # Espera até 60 s. O prompt nunca fica para trás: se o tempo acabar ou o app
+  # pedir o cancelamento, a operação é cancelada antes de este processo sair.
+  $shown = $false
+  $stop = $null
+  for ($i = 0; $i -lt 300 -and -not $task.IsCompleted; $i++) {
+    if ($cancelFile -and (Test-Path -LiteralPath $cancelFile)) { $stop = 'CANCELLED'; break }
+    if ($mode -eq 'LEGACY' -and -not $shown) {
+      # Na reserva, traz o prompt para a frente assim que ele aparecer
+      $hwnd = [Win32Focus]::FindWindow('Credential Dialog Xaml Host', $null)
+      if ($hwnd -ne [IntPtr]::Zero) {
+        [Win32Focus]::ShowWindow($hwnd, 5) | Out-Null
+        Focus-Window $hwnd
+        $shown = $true
       }
-      Start-Sleep -Milliseconds 200
+    }
+    Wait-Hello $task 200
+  }
+  if (-not $task.IsCompleted) {
+    if (-not $stop) { $stop = 'TIMEOUT' }
+    $cts.Cancel()
+    for ($i = 0; $i -lt 15 -and -not $task.IsCompleted; $i++) { Wait-Hello $task 200 }
+    if (-not $task.IsCompleted) {
+      # O cancelamento não fechou o prompt: fecha a janela dele (WM_CLOSE)
+      $hwnd = [Win32Focus]::FindWindow('Credential Dialog Xaml Host', $null)
+      if ($hwnd -ne [IntPtr]::Zero) { [Win32Focus]::PostMessage($hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null }
+      for ($i = 0; $i -lt 10 -and -not $task.IsCompleted; $i++) { Wait-Hello $task 200 }
     }
   }
 
-  # No modo reserva o foco fica com este processo sem janela e o teclado
-  # para de responder até um Alt+Tab: devolve o foco ao app.
-  if ($mode -eq 'LEGACY' -and $app -ne [IntPtr]::Zero) {
-    Start-Sleep -Milliseconds 150
-    Focus-Window $app
-  }
-
-  if ($task.IsCompleted) { Write-Output "$mode $([int]$task.Result)" } else { Write-Output "$mode TIMEOUT" }
+  if ($stop) { Write-Output "$mode $stop" }
+  elseif ($task.Status -eq [System.Threading.Tasks.TaskStatus]::RanToCompletion) { Write-Output "$mode $([int]$task.Result)" }
+  else { Write-Output "$mode FAILED" }
 } catch {
   Write-Output "ERR $($_.Exception.Message)"
+} finally {
+  if ($app -ne [IntPtr]::Zero) {
+    # O prompt desabilita a janela do app enquanto está aberto. Se ele fechou
+    # de um jeito anormal, ela ficaria travada: garante que volta a responder.
+    [Win32Focus]::EnableWindow($app, $true) | Out-Null
+    # No modo reserva o foco fica com este processo sem janela e o teclado
+    # para de responder até um Alt+Tab: devolve o foco ao app.
+    if ($mode -eq 'LEGACY') {
+      Start-Sleep -Milliseconds 150
+      Focus-Window $app
+    }
+  }
 }`;
 
   try {
     const output = await runPowerShell(script, 75000, onSpawn);
     console.log('Windows Hello:', output);
-    if (getWindow() && !getWindow().isDestroyed()) getWindow().webContents.focus();
     // UserConsentVerificationResult: 0 = Verified
     return /^(INTEROP|LEGACY) 0$/.test(output);
   } catch (error) {
-    // Inclui o cancelamento (processo morto pelo login com senha)
+    // Processo morto (último recurso do cancelamento) ou tempo esgotado
     console.error('Erro na verificação Windows Hello:', error.message);
     return false;
+  } finally {
+    restoreAppWindow();
   }
+}
+
+// Depois do prompt, por qualquer caminho (inclusive processo morto): a janela
+// do app tem que estar habilitada e com o foco
+function restoreAppWindow() {
+  const win = getWindow();
+  if (!win || win.isDestroyed()) return;
+  try {
+    if (process.platform === 'win32') win.setEnabled(true);
+    win.webContents.focus();
+  } catch (_) { /* janela fechando */ }
 }
 
 /**

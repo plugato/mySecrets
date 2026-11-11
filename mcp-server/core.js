@@ -103,12 +103,15 @@ function urlMatchScore(entryUrl, page) {
 function matchUrl(entries, pageUrl, { types } = {}) {
   const page = parseSiteUrl(pageUrl);
   if (!page) return [];
-  return entries
+  const scored = entries
     .filter((e) => !types || types.includes(e.type))
     .map((e) => ({ e, score: urlMatchScore(e.url, page) }))
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map((x) => x.e);
+    .filter((x) => x.score > 0);
+  // Há entrada salva para este host exato: só elas. Os outros subdomínios do
+  // mesmo domínio (dezenas de sistemas em *.empresa.com.br) só aparecem quando
+  // o host da página não tem entrada própria.
+  const exact = scored.filter((x) => x.score === 100);
+  return (exact.length ? exact : scored).map((x) => x.e);
 }
 
 function publicView(e) {
@@ -291,6 +294,7 @@ const TOOLS = [
     description:
       'Entradas do MESMO site de uma URL (usado pelo preenchimento automático). Diferente ' +
       'de search_secrets, não faz busca textual: compara host e domínio registrável. ' +
+      'Se há entradas do host exato, devolve só elas; senão, as do mesmo domínio. ' +
       'Retorna metadados SEM senhas.',
     inputSchema: {
       type: 'object',
