@@ -8,7 +8,9 @@ const link = require('../src/lib/phone-link');
 const relay = require('../src/lib/phone-relay');
 const vectors = require('./fixtures/relay-vectors.json');
 
-const loadCore = () => import(path.join(__dirname, '..', 'site', 'src', 'relay-core.js'));
+const { pathToFileURL } = require('node:url');
+// import() de caminho absoluto: no Windows precisa ser file:// (D:\... não serve)
+const loadCore = () => import(pathToFileURL(path.join(__dirname, '..', 'site', 'src', 'relay-core.js')).href);
 
 /** Storage em memória com a mesma interface do Durable Object. */
 function memStorage() {
