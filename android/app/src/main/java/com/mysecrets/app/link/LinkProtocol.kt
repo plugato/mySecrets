@@ -101,12 +101,25 @@ object LinkProtocol {
 
     /** Resposta de aprovação: K_d cifrada com a chave de uso único do pedido. */
     fun approval(secret: ByteArray, pairId: String, nonce: String, unlockKey: ByteArray): JSONObject {
-        val key = hmac(secret, "unlock-key", nonce)
+        val sealed = gcmSeal(hmac(secret, "unlock-key", nonce), unlockKey, "$pairId|$nonce")
+        return JSONObject().put("type", "approve").put("data", Base64.getEncoder().encodeToString(sealed))
+    }
+
+    /** AES-256-GCM no formato do PC (gcmSeal de phone-link.js): iv(12) || ciphertext || tag(16). */
+    fun gcmSeal(key: ByteArray, plain: ByteArray, aad: String): ByteArray {
         val iv = ByteArray(12).also(random::nextBytes)
         val c = Cipher.getInstance("AES/GCM/NoPadding")
         c.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, iv))
-        c.updateAAD("$pairId|$nonce".toByteArray(Charsets.UTF_8))
-        val sealed = iv + c.doFinal(unlockKey)
-        return JSONObject().put("type", "approve").put("data", Base64.getEncoder().encodeToString(sealed))
+        c.updateAAD(aad.toByteArray(Charsets.UTF_8))
+        return iv + c.doFinal(plain)
+    }
+
+    /** Inverso de [gcmSeal]; lança exceção se a chave, o AAD ou o conteúdo não baterem. */
+    fun gcmOpen(key: ByteArray, sealed: ByteArray, aad: String): ByteArray {
+        require(sealed.size >= 12 + 16)
+        val c = Cipher.getInstance("AES/GCM/NoPadding")
+        c.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, sealed, 0, 12))
+        c.updateAAD(aad.toByteArray(Charsets.UTF_8))
+        return c.doFinal(sealed, 12, sealed.size - 12)
     }
 }

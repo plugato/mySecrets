@@ -166,6 +166,69 @@ test('servidor MCP sobe pelo app e responde get_otp e match_url', async () => {
   }
 });
 
+test('leitura com aprovação "sempre": modal no app, "Liberar só esta" e "Negar"', async () => {
+  const port = 30000 + Math.floor(Math.random() * 20000);
+  await api(`window.electronAPI.saveData([{id:'g1',type:'login',title:'GitHub',username:'eu',password:'p4ss',url:'https://github.com',updatedAt:new Date().toISOString()}], '${PW}', {autoBackup:false})`);
+  await app.evaluate(`(async () => {
+    const r = await window.electronAPI.loadData('${PW}');
+    currentMasterPassword = '${PW}'; currentData = r.data;
+  })()`);
+  await api(`window.electronAPI.agentApprovalSet({ readPolicy: 'always' })`);
+  const st = await api(`window.electronAPI.mcpStart({ port: ${port} })`);
+  try {
+    assert.strictEqual(st.success, true, st.error);
+    const tok = st.status.info.token;
+    const call = (name, args) => fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } })
+    }).then(async (res) => {
+      const r = (await res.json()).result;
+      return { isError: !!r.isError, data: JSON.parse(r.content[0].text) };
+    });
+    const modal = async (acao) => {
+      for (let i = 0; i < 50; i++) {
+        const visivel = await app.evaluate(`document.getElementById('agent-read-modal').style.display === 'flex'`);
+        if (visivel) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return app.evaluate(`(() => {
+        const texto = document.getElementById('agent-read-body').textContent + '|' + document.getElementById('agent-read-window').textContent;
+        document.getElementById('${acao}').click();
+        return texto;
+      })()`);
+    };
+
+    let p = call('get_credentials', { query: 'github' });
+    const texto = await modal('agent-read-once');
+    assert.match(texto, /Credenciais/);
+    assert.match(texto, /github/);
+    assert.match(texto, /Liberar por 5 min/);
+    let r = await p;
+    assert.strictEqual(r.isError, false, JSON.stringify(r.data));
+    assert.strictEqual(r.data.password, 'p4ss');
+
+    p = call('get_credentials', { query: 'github' });
+    await modal('agent-read-decline');
+    r = await p;
+    assert.strictEqual(r.isError, true);
+    assert.strictEqual(r.data.declined, true);
+
+    // Registro: a leitura liberada aparece com o modo
+    const atividade = await app.evaluate(`(async () => {
+      await openMcpModal();
+      const t = document.getElementById('mcp-audit-list').textContent;
+      document.getElementById('mcp-modal').style.display = 'none';
+      return t;
+    })()`);
+    assert.match(atividade, /leu as credenciais de GitHub \(liberada só esta\)/);
+  } finally {
+    await api(`window.electronAPI.agentApprovalSet({ readPolicy: 'locked' })`);
+    await api('window.electronAPI.mcpStop()');
+    await app.evaluate('lockApp()');
+  }
+});
+
 test('painel de códigos MFA e detalhes da mesma entrada não compartilham ids', async () => {
   const r = await app.evaluate(`(async () => {
     const e = [{id:'mx',type:'mfa',title:'2FA X',mfaSecret:'JBSWY3DPEHPK3PXP',mfaAlgorithm:'totp',updatedAt:new Date().toISOString()}];

@@ -29,10 +29,17 @@ function idsFrom(tool, data) {
   return [];
 }
 
-function record(dir, { tool, client, data, now = Date.now() }) {
+// Como a leitura foi liberada: once (só esta, no celular/PC), window (liberação
+// por tempo), unlocked (cofre aberto no PC)
+const APROVACOES = new Set(['once', 'window', 'unlocked']);
+
+function record(dir, { tool, client, data, approval, now = Date.now() }) {
   if (!AUDITADAS.has(tool) || !dir) return;
   const f = arquivo(dir);
-  const linha = JSON.stringify({ at: new Date(now).toISOString(), tool, client: client || 'agente', ids: idsFrom(tool, data) }) + '\n';
+  const linha = JSON.stringify({
+    at: new Date(now).toISOString(), tool, client: client || 'agente', ids: idsFrom(tool, data),
+    ...(APROVACOES.has(approval) ? { approval } : {})
+  }) + '\n';
   fs.appendFileSync(f, linha, { mode: 0o600 });
   try {
     if (fs.statSync(f).size > MAX_BYTES) {
@@ -51,7 +58,12 @@ function read(dir, limit = 50) {
     if (out.length >= limit) break;
     try {
       const r = JSON.parse(l);
-      if (r && AUDITADAS.has(r.tool)) out.push({ at: r.at, tool: r.tool, client: r.client, ids: Array.isArray(r.ids) ? r.ids : [] });
+      if (r && AUDITADAS.has(r.tool)) {
+        out.push({
+          at: r.at, tool: r.tool, client: r.client, ids: Array.isArray(r.ids) ? r.ids : [],
+          ...(APROVACOES.has(r.approval) ? { approval: r.approval } : {})
+        });
+      }
     } catch (_) { /* linha quebrada */ }
   }
   return out;

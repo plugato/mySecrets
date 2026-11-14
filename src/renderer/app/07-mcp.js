@@ -125,6 +125,8 @@ const MCP_AUDIT_ACAO = {
     passkey_get: tr('entrou com a passkey de')
 };
 const MCP_AUDIT_CLIENTE = { 'agente-stdio': tr('Agente (stdio)'), 'agente-http': tr('Agente (HTTP)'), extensao: tr('Extensão do navegador') };
+// Como a leitura foi liberada (cofre bloqueado ou aprovação "sempre")
+const MCP_AUDIT_APROVACAO = { once: tr('liberada só esta'), window: tr('liberação por tempo'), unlocked: tr('cofre aberto') };
 
 async function renderMcpAudit() {
     const lista = document.getElementById('mcp-audit-list');
@@ -148,13 +150,14 @@ async function renderMcpAudit() {
         quando.dateTime = r.at;
         quando.textContent = new Date(r.at).toLocaleString(I18N.locale);
         const texto = document.createElement('span');
-        const cliente = MCP_AUDIT_CLIENTE[r.client] || tr('Agente');
+        const cliente = MCP_AUDIT_CLIENTE[r.client] || (r.client && r.client !== 'agente' ? r.client : tr('Agente'));
         const acao = MCP_AUDIT_ACAO[r.tool] || r.tool;
         const alvo = ['list_secrets', 'search_secrets'].includes(r.tool)
             ? tr('{0} resultado(s)', { 0: r.ids.length })
             : r.ids.map(tituloDe).join(', ');
         const ehBusca = ['list_secrets', 'search_secrets'].includes(r.tool);
-        texto.textContent = ehBusca ? `${cliente} ${acao}: ${alvo}` : `${cliente} ${acao} ${alvo}`;
+        const via = MCP_AUDIT_APROVACAO[r.approval];
+        texto.textContent = (ehBusca ? `${cliente} ${acao}: ${alvo}` : `${cliente} ${acao} ${alvo}`) + (via ? ` (${via})` : '');
         li.append(quando, texto);
         lista.appendChild(li);
     }

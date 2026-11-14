@@ -22,6 +22,10 @@ const WRITE_TOOLS = new Set(['store_secret', 'store_secret_file']);
 // necessário para preencher. Se ela for comprometida, não lista nem busca o
 // cofre inteiro e não mexe em anexos.
 const BROWSER_TOOLS = new Set(['vault_status', 'match_url', 'get_credentials', 'get_otp']);
+
+// Leituras que, com o cofre bloqueado (ou sempre, se configurado), pedem
+// aprovação ao app: na janela do PC ou no celular, de qualquer lugar.
+const APPROVABLE_READS = new Set(['list_secrets', 'search_secrets', 'match_url', 'get_credentials', 'get_otp', 'get_secret_file']);
 const PROTOCOL_VERSION = '2024-11-05';
 
 // ===== Utilidades de busca =====
@@ -257,7 +261,9 @@ const TOOLS = [
     name: 'vault_status',
     description:
       'Verifica se o cofre MySecrets está acessível (app aberto e desbloqueado). ' +
-      'Chame isto primeiro se outras ferramentas indicarem bloqueio.',
+      'Chame isto primeiro se outras ferramentas indicarem bloqueio. Com o cofre bloqueado, ' +
+      'as leituras e gravações podem ficar esperando o usuário aprovar no app ou no celular ' +
+      '(até 4 minutos); não repita o pedido enquanto ele espera.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false }
   },
   {
@@ -442,12 +448,28 @@ const TOOLS = [
 
 // ===== Execução das ferramentas =====
 
+// Liberação de leitura para agentes (scope agent-read): a extensão do
+// navegador continua sem acesso.
+const browserBlocked = (ctx, s) => ctx.allowWrite === false && s.valid && s.scope === 'agent-read';
+
 function callTool(name, args = {}, ctx = {}) {
+  if (name !== 'vault_status' && ctx.allowWrite === false && browserBlocked(ctx, vault.checkSession())) {
+    throw new vault.VaultLockedError('LOCKED');
+  }
   switch (name) {
     case 'vault_status': {
       const s = vault.checkSession();
+      if (browserBlocked(ctx, s)) {
+        return { accessible: false, valid: false, unlocked: false, reason: 'LOCKED', message: vault.reasonMessage('LOCKED'), dataDir: vault.USER_DATA_PATH };
+      }
+      const policy = ctx.requestRead ? vault.readPolicy() : null;
       return {
         accessible: !!(s.valid && s.unlocked),
+        // Bloqueado, mas o app pode pedir aprovação (janela do PC ou celular)
+        approvalAvailable: !!ctx.requestRead || undefined,
+        readApproval: policy || undefined,
+        readWindowUntil: s.valid && s.scope === 'agent-read' && s.sessionData.expiresAt
+          ? new Date(s.sessionData.expiresAt).toISOString() : undefined,
         valid: s.valid,
         unlocked: !!s.unlocked,
         reason: s.reason || null,
@@ -573,22 +595,25 @@ function callTool(name, args = {}, ctx = {}) {
  * chamada inteira ao servidor HTTP do app (transporte stdio). Sem nenhum dos
  * dois, a gravação é recusada.
  */
+/** Erro com as marcas que o agente recebe (locked, declined, expired, cancelled). */
+function appError(result, fallback) {
+  const r = result || {};
+  const e = r.locked ? new vault.VaultLockedError(r.reason || 'LOCKED') : new Error(r.error || fallback);
+  if (r.locked && r.error) e.message = r.error;
+  ['declined', 'expired', 'cancelled'].forEach((k) => { if (r[k]) e[k] = true; });
+  return e;
+}
+
 async function callWriteTool(name, args, ctx) {
   if (ctx.forward) return ctx.forward(name, args);
   if (!ctx.submitWrite) throw new Error('Gravação indisponível neste transporte.');
   if (ctx.allowWrite === false) throw new Error('Gravação não é permitida para este cliente.');
 
-  const s = vault.checkSession();
-  if (!s.valid) throw new vault.VaultLockedError(s.reason);
-  if (!s.unlocked) throw new vault.VaultLockedError('LOCKED');
-
+  // Cofre bloqueado: o app ainda pode pedir a aprovação ao celular (ele
+  // responde "bloqueado" na hora se isso estiver desligado)
   const req = buildWriteRequest(name, args);
   const result = await ctx.submitWrite(req);
-  if (!result || !result.success) {
-    const e = new Error((result && result.error) || 'O app não gravou.');
-    ['declined', 'expired', 'cancelled'].forEach((k) => { if (result && result[k]) e[k] = true; });
-    throw e;
-  }
+  if (!result || !result.success) throw appError(result, 'O app não gravou.');
   return {
     saved: true,
     mode: result.mode,
@@ -596,6 +621,24 @@ async function callWriteTool(name, args, ctx) {
     title: result.title,
     ...describeRequest(req)
   };
+}
+
+/**
+ * Leitura. Com o cofre aberto (e aprovação "só com o cofre bloqueado") lê
+ * direto, como sempre. Bloqueado, ou com aprovação "sempre", pede ao app
+ * (ctx.requestRead), que pergunta na janela do PC e/ou no celular e devolve
+ * { data, approval }. Sem ctx.requestRead (extensão), o bloqueio é erro.
+ */
+async function callReadTool(name, args, ctx) {
+  if (!ctx.requestRead || !APPROVABLE_READS.has(name)) return { data: callTool(name, args, ctx) };
+  if (vault.readPolicy() !== 'always') {
+    try {
+      return { data: callTool(name, args, ctx) };
+    } catch (e) {
+      if (!(e instanceof vault.VaultLockedError)) throw e;
+    }
+  }
+  return ctx.requestRead(name, args);
 }
 
 // ===== Dispatcher JSON-RPC (independente de transporte) =====
@@ -631,11 +674,15 @@ async function dispatch(msg, ctx = {}) {
         if (ctx.allowWrite === false && !WRITE_TOOLS.has(toolName) && !BROWSER_TOOLS.has(toolName)) {
           throw new Error(`${toolName} não é permitido para a extensão do navegador. Atualize a extensão MySecrets.`);
         }
-        const data = WRITE_TOOLS.has(toolName)
-          ? await callWriteTool(toolName, toolArgs, ctx)
-          : callTool(toolName, toolArgs, ctx);
+        let data;
+        let approval;
+        let audited = false;
+        if (WRITE_TOOLS.has(toolName)) data = await callWriteTool(toolName, toolArgs, ctx);
+        else ({ data, approval, audited } = await callReadTool(toolName, toolArgs, ctx));
         // Registro das leituras (ids, sem conteúdo); nunca impede a resposta
-        try { audit.record(vault.USER_DATA_PATH, { tool: toolName, client: ctx.client, data }); } catch (_) { /* sem disco */ }
+        if (!audited) {
+          try { audit.record(vault.USER_DATA_PATH, { tool: toolName, client: ctx.client, data, approval }); } catch (_) { /* sem disco */ }
+        }
         return ok({ content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] });
       } catch (e) {
         const locked = e instanceof vault.VaultLockedError;
@@ -665,11 +712,14 @@ module.exports = {
   TOOLS,
   WRITE_TOOLS,
   BROWSER_TOOLS,
+  APPROVABLE_READS,
+  appError,
   matchUrl,
   urlMatchScore,
   parseSiteUrl,
   callTool,
   callWriteTool,
+  callReadTool,
   buildWriteRequest,
   describeRequest,
   dispatch,

@@ -29,8 +29,18 @@ modelo de segurança da extensão Chrome (native host):
 3. O servidor MCP lê essa sessão, descriptografa `secrets.enc` em memória e
    responde às ferramentas.
 
-Se o app estiver **fechado, bloqueado ou a sessão expirou**, nenhuma ferramenta
-devolve segredos — retorna um erro pedindo para desbloquear o app.
+Se o app estiver **fechado ou a sessão expirou**, nenhuma ferramenta devolve
+segredos — retorna um erro pedindo para abrir o app.
+
+Com o app **aberto, mas bloqueado**, o pedido pode esperar a sua aprovação (até
+4 minutos): desbloquear o app libera, e com **Aprovar pelo celular de qualquer
+lugar** ligado (Configurações > Celular) o pedido chega como notificação no
+celular, mesmo fora de casa. Na leitura você escolhe **Liberar só esta**
+(padrão) ou **Liberar por N min** (5, 15 ou 30); gravações pedem aprovação uma a
+uma. Detalhes do protocolo em [docs/developer/RELAY.md](../docs/developer/RELAY.md).
+Em Configurações > Celular também dá para pedir aprovação de **toda** leitura de
+agente, mesmo com o cofre aberto ("Pedir aprovação para leituras de agentes:
+Sempre"). O registro de leituras mostra como cada uma foi liberada.
 
 ## Ferramentas disponíveis
 
@@ -84,6 +94,11 @@ O agente sempre recebe o resultado verdadeiro:
   ou o modal fecha, nada é gravado (`cancelled: true` no app).
 - **Cofre bloqueado** com o pedido aberto: o pedido é recusado com erro, nada é
   gravado. Desbloqueie e peça de novo.
+- **Cofre bloqueado quando o pedido chega:** com "Aprovar pelo celular de
+  qualquer lugar" ligado, o pedido vai ao celular (e o modal aparece no PC
+  assim que o app for desbloqueado); a primeira resposta vale. Aprovado no
+  celular com a digital, o app grava sem desbloquear a tela. Desligado, o erro
+  volta na hora com `locked: true`.
 - Os limites da cadeia são coerentes: confirmação 240 s + gravação até 10 s no
   app < 260 s no servidor HTTP < 275 s no processo stdio. Se um limite externo
   estourar mesmo assim, o pedido é cancelado no app antes de responder.

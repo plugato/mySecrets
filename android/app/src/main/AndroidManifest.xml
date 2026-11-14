@@ -63,7 +63,18 @@
             android:turnScreenOn="true"
             android:theme="@style/Theme.MySecrets.Transparent" />
 
-        <!-- Push do PC (via Firebase): só acorda o app; a senha continua na rede local -->
+        <!-- Aprovar pedido do PC pela internet (relay): gravação, leitura ou login de qualquer lugar -->
+        <activity
+            android:name=".link.RelayApprovalActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.MySecrets.Transparent" />
+
+        <!-- Push do PC (via Firebase): só acorda o app; nenhum segredo vem no push -->
         <service
             android:name=".link.PushService"
             android:exported="false">

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-14
+
+### Added
+- Approve from your phone, anywhere (Settings → Phone, off by default): agent requests (`store_secret`, `store_secret_file` and reads) and the PC sign-in reach the Android app as a notification even away from home, through an encrypted mailbox on the site's Worker (`/relay/{channel}`, one Durable Object per pairing). Approving needs the fingerprint; the PC checks the answer opens the stored master password. The Worker sees no titles, field names or values. Protocol and keys in `docs/developer/RELAY.md`.
+- Agent reads with the vault locked: instead of failing, the request waits (up to 4 min) for approval on the phone or for the app to be unlocked on the PC. Choose **Allow once** (default; the vault is decrypted in memory for that call only, no session is created) or **Allow for 5/15/30 min** (read-only agent session; the browser extension cannot use it; it ends at the deadline, when the app is locked, from the tray menu or from "End now" on the phone). Saves always ask one by one.
+- Optional approval for every agent read, even with the vault open ("Ask for approval when agents read: Always"): a modal with Allow once / Allow for N min / Deny, raced with the phone.
+- Agent saves with the vault locked: approved on the phone, the app saves without unlocking its window.
+- The approval shows the agent's name (MCP `clientInfo`), and the reads log shows how each read was allowed.
+- Sign-in: with "Approve from your phone, anywhere" on, the PC first looks for the phone on the local network and, if it is not there, sends the request over the internet (same code on both screens).
+
+### Changed
+- With "Approve from your phone, anywhere" on, the local MCP server starts with the app (also while it is locked), so requests can arrive.
+
 ## [2.3.3] - 2026-11-11
 
 ### Fixed

@@ -235,4 +235,32 @@
     <string name="para_acender_a_tela_com_o">To wake the screen with the request, allow full-screen notifications.</string>
     <string name="permitir_tela_cheia">Allow full screen</string>
     <string name="aprovar">Approve</string>
+    <!-- Relay: pedidos do PC pela internet -->
+    <string name="canal_relay">PC requests over the internet</string>
+    <string name="canal_relay_liberacao">Reading allowed on the PC</string>
+    <string name="relay_titulo_gravar">Save on %1$s?</string>
+    <string name="relay_titulo_ler">Read on %1$s?</string>
+    <string name="relay_quer_gravar">%1$s wants to save \"%2$s\" on %3$s</string>
+    <string name="relay_quer_ler">%1$s wants to read \"%2$s\" (%3$s) on %4$s</string>
+    <string name="relay_quer_ler_sem_alvo">%1$s wants to use %2$s on %3$s</string>
+    <string name="relay_campos">Fields: %1$s</string>
+    <string name="relay_um_arquivo">1 file</string>
+    <string name="relay_n_arquivos">%1$d files</string>
+    <string name="relay_mais_um_pedido">1 more request waiting</string>
+    <string name="relay_mais_n_pedidos">%1$d more requests waiting</string>
+    <string name="relay_ler_explica">Allow just this read, or for %1$d min.</string>
+    <string name="relay_ler_explica_so_esta">Allow just this read.</string>
+    <string name="relay_liberar_so_esta">Allow just this one</string>
+    <string name="relay_liberar_por">Allow for %1$d min</string>
+    <string name="relay_aprovar_gravacao_no">Approve saving on %1$s</string>
+    <string name="relay_liberar_leitura_no">Allow reading on %1$s</string>
+    <string name="relay_gravacao_aprovada">Save approved</string>
+    <string name="relay_leitura_liberada">Reading allowed</string>
+    <string name="relay_negado">Request denied</string>
+    <string name="relay_pedido_encerrado">This request has already ended on the PC</string>
+    <string name="relay_falha_envio">Couldn\'t reach the PC over the internet. Try again.</string>
+    <string name="relay_liberada_ate">Reading allowed on %1$s until %2$s</string>
+    <string name="relay_liberada_texto">Agents can read without asking until then. Saves still ask for approval.</string>
+    <string name="relay_encerrar_agora">End now</string>
+    <string name="relay_liberacao_encerrada">Read access ended</string>
 </resources>

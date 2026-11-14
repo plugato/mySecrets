@@ -16,6 +16,8 @@ const path = require('path');
 const { ipcMain } = require('electron');
 const QRCode = require('qrcode');
 const phoneLink = require('../lib/phone-link');
+const phoneRelay = require('../lib/phone-relay');
+const agentAccessLib = require('../lib/agent-access');
 const { t } = require('./i18n');
 
 let deps = null;
@@ -51,6 +53,44 @@ function pairingFromStored(p) {
   const secret = deps.unprotectToken(p.secret);
   if (!secret) throw new Error(t('Não foi possível ler o pareamento deste celular. Pareie de novo.'));
   return { pairId: p.pairId, name: p.desktopName || os.hostname(), secret: Buffer.from(secret, 'base64'), unlock: p.unlock };
+}
+
+/** Esquece o token de push de um celular (app reinstalado: o Worker respondeu 410). */
+function forgetPushToken(pairId) {
+  writePhoneLinks(readPhoneLinks().map(x => {
+    if (x.pairId !== pairId) return x;
+    const resto = { ...x };
+    delete resto.pushToken;
+    return resto;
+  }));
+}
+
+/** Celulares pareados para o relay (aprovar de qualquer lugar). */
+function relayPhones() {
+  return readPhoneLinks().map((p) => {
+    try {
+      return { pairing: pairingFromStored(p), pushToken: p.pushToken || undefined, phoneName: p.phoneName, onPushGone: () => forgetPushToken(p.pairId) };
+    } catch (_) {
+      return null; // pareamento ilegível (safeStorage mudou): fica de fora
+    }
+  }).filter(Boolean);
+}
+
+/**
+ * Pede aprovação a todos os celulares pela internet (src/lib/phone-relay.js).
+ * opts: { kind, summary, client, deadline, windowMinutes, allowWindow, pending, signal, onPosted }
+ */
+function requestRemoteApproval(opts) {
+  const phones = relayPhones();
+  if (!phones.length) return Promise.reject(Object.assign(new Error(t('Nenhum celular pareado')), { code: 'offline' }));
+  return phoneRelay.requestApproval(phones, opts).then((r) => {
+    markUsed(r.pairId);
+    return r;
+  });
+}
+
+function markUsed(pairId) {
+  writePhoneLinks(readPhoneLinks().map(x => (x.pairId === pairId ? { ...x, lastUsedAt: new Date().toISOString() } : x)));
 }
 
 function phoneSummary() {
@@ -151,6 +191,7 @@ ipcMain.handle('phone-unlock', async () => {
 
   // Mais recente primeiro; se houver mais de um celular, o primeiro que responder vence
   const ordenados = phones.slice().sort((a, b) => String(b.lastUsedAt || b.pairedAt).localeCompare(String(a.lastUsedAt || a.pairedAt)));
+  const remote = agentAccessLib.readSettings(deps.userDataPath).remote;
   let ultimoErro = null;
   try {
     for (const p of ordenados) {
@@ -160,13 +201,10 @@ ipcMain.handle('phone-unlock', async () => {
           lastIp: p.lastIp,
           hosts: phoneTestHosts,
           // Com o token, o PC acorda o app por push (app fechado) e espera ele subir
-          pushToken: p.pushToken || undefined,
-          onPushGone: () => writePhoneLinks(readPhoneLinks().map(x => {
-            if (x.pairId !== p.pairId) return x;
-            const resto = { ...x };
-            delete resto.pushToken;
-            return resto;
-          })),
+          // Relay ligado: aqui só a busca rápida na rede (app aberto); se não
+          // achar, o pedido vai pela internet logo abaixo
+          pushToken: remote ? undefined : (p.pushToken || undefined),
+          onPushGone: () => forgetPushToken(p.pairId),
           signal: controller.signal,
           onStatus: (s) => sendPhoneStatus({ ...s, phoneName: s.phoneName || p.phoneName })
         });
@@ -184,10 +222,28 @@ ipcMain.handle('phone-unlock', async () => {
         ultimoErro = e;
       }
     }
+    // Fora da rede local: pede pela internet (o celular recebe a notificação)
+    if (remote && !controller.signal.aborted) {
+      try {
+        const r = await requestRemoteApproval({
+          kind: 'unlock',
+          summary: {},
+          client: 'login',
+          deadline: Date.now() + 2 * 60 * 1000,
+          signal: controller.signal,
+          onPosted: (info) => sendPhoneStatus({ stage: 'remote', code: info.code, phoneName: info.phones.filter(Boolean).join(', ') })
+        });
+        if (r.decision !== 'approve') return { success: false, error: t('Pedido negado no celular') };
+        return { success: true, password: r.password };
+      } catch (e) {
+        if (e.code === 'cancelled') return { success: false, cancelled: true, error: e.message };
+        ultimoErro = e;
+      }
+    }
     return { success: false, error: ultimoErro ? ultimoErro.message : t('Celular não encontrado') };
   } finally {
     if (phone.abort === controller) phone.abort = null;
   }
 });
 
-module.exports = { register, removePhoneLinks };
+module.exports = { register, removePhoneLinks, relayPhones, requestRemoteApproval, hasPhones: () => readPhoneLinks().length > 0 };

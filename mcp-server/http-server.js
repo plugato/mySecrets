@@ -14,7 +14,10 @@
  *   - POST /pair entrega o token à extensão só depois que o app aprova o id dela.
  *   - Só devolve segredos com o cofre aberto e desbloqueado (via .session).
  *   - Gravações de agente (store_secret, store_secret_file) sobem ao app por IPC
- *     e só são aplicadas depois que o usuário confirma no diálogo do app.
+ *     e só são aplicadas depois que o usuário confirma no diálogo do app (ou no
+ *     celular, de qualquer lugar: docs/developer/RELAY.md).
+ *   - Leituras com o cofre bloqueado (ou sempre, se configurado) também sobem
+ *     ao app, que pede a aprovação e devolve o resultado daquela chamada.
  *     Pedidos com Origin (extensão do navegador) não podem gravar por aí.
  *
  * Configuração por ambiente:
@@ -25,7 +28,7 @@
 
 const http = require('http');
 const crypto = require('crypto');
-const { dispatch, matchUrl } = require('./core');
+const { dispatch, matchUrl, appError } = require('./core');
 const vault = require('./vault');
 const passkeys = require('./passkeys');
 
@@ -100,7 +103,9 @@ const PAIR_TIMEOUT = 60000; // o usuário pode precisar responder a pergunta no 
 // ele estourar, o pedido é cancelado no app (não grava depois). O transporte
 // stdio (index.js) espera um pouco mais que isto.
 const AGENT_WRITE_TIMEOUT = parseInt(process.env.MYSECRETS_AGENT_WRITE_TIMEOUT || '260000', 10); // env: só para testes
-const RESULT_TYPES = new Set(['save_login_result', 'pair_result', 'agent_write_result', 'passkey_create_result']);
+// Leitura com o cofre bloqueado (ou aprovação "sempre"): mesmos prazos da gravação
+const AGENT_READ_TIMEOUT = AGENT_WRITE_TIMEOUT;
+const RESULT_TYPES = new Set(['save_login_result', 'pair_result', 'agent_write_result', 'agent_read_result', 'passkey_create_result']);
 const pendingAsks = new Map();
 
 if (process.send) {
@@ -171,10 +176,20 @@ async function handlePair(req, res, reply) {
   return reply(200, { url: `http://${HOST}:${req.socket.localPort}/mcp`, token: TOKEN });
 }
 
-// Gravação de agente: como askApp, mas avisa o app para cancelar o pedido se o
-// cliente desconectar ou o prazo estourar, para nada ser gravado depois de o
-// agente já ter recebido um erro.
+// Gravação (e leitura que pede aprovação) de agente: como askApp, mas avisa o
+// app para cancelar o pedido se o cliente desconectar ou o prazo estourar,
+// para nada ser gravado (ou liberado) depois de o agente já ter recebido um erro.
 function submitAgentWrite(pedido, res) {
+  return submitToApp('agent_write', pedido, res, AGENT_WRITE_TIMEOUT,
+    'O app não respondeu a tempo; o pedido foi cancelado e nada foi gravado.');
+}
+
+function submitAgentRead(pedido, res) {
+  return submitToApp('agent_read', pedido, res, AGENT_READ_TIMEOUT,
+    'O app não respondeu a tempo; o pedido de leitura foi cancelado.');
+}
+
+function submitToApp(type, pedido, res, timeout, timeoutError) {
   return new Promise((resolve) => {
     if (!process.send) {
       resolve({ success: false, error: 'Servidor não foi iniciado pelo app MySecrets' });
@@ -183,7 +198,7 @@ function submitAgentWrite(pedido, res) {
     const reqId = crypto.randomUUID();
     let done = false;
     const cancelInApp = () => {
-      try { process.send({ type: 'agent_write_cancel', reqId }); } catch (_) { /* app encerrado */ }
+      try { process.send({ type: `${type}_cancel`, reqId }); } catch (_) { /* app encerrado */ }
     };
     const finish = (result) => {
       if (done) return;
@@ -195,8 +210,8 @@ function submitAgentWrite(pedido, res) {
     };
     const timer = setTimeout(() => {
       cancelInApp();
-      finish({ success: false, expired: true, error: 'O app não respondeu a tempo; o pedido foi cancelado e nada foi gravado.' });
-    }, AGENT_WRITE_TIMEOUT);
+      finish({ success: false, expired: true, error: timeoutError });
+    }, timeout);
     const onClose = () => {
       if (res.writableEnded) return;
       cancelInApp();
@@ -204,17 +219,55 @@ function submitAgentWrite(pedido, res) {
     };
     if (res) res.on('close', onClose);
     pendingAsks.set(reqId, { resolve: finish, timer });
-    process.send({ type: 'agent_write', reqId, payload: pedido });
+    process.send({ type, reqId, payload: pedido });
   });
 }
 
-// Contexto das ferramentas MCP: gravação vai ao app, que pede confirmação.
+// ===== Nome do agente =====
+//
+// Aparece no pedido de aprovação ("claude-code quer ler..."). Vem do
+// clientInfo do initialize: o transporte stdio repassa no cabeçalho
+// X-MySecrets-Client; clientes HTTP diretos recebem um Mcp-Session-Id no
+// initialize e mandam de volta nas chamadas seguintes.
+
+const clientNames = new Map(); // Mcp-Session-Id -> nome
+const MAX_CLIENT_SESSIONS = 200;
+
+function cleanClientName(name) {
+  const v = String(name || '').replace(/[^\w .@()+-]/g, '').trim().slice(0, 60);
+  return v || null;
+}
+
+function rememberClient(name) {
+  const id = crypto.randomUUID();
+  clientNames.set(id, cleanClientName(name) || 'agente-http');
+  if (clientNames.size > MAX_CLIENT_SESSIONS) clientNames.delete(clientNames.keys().next().value);
+  return id;
+}
+
+function clientName(req) {
+  if (req.headers.origin) return 'extensao';
+  return cleanClientName(req.headers['x-mysecrets-client']) ||
+    clientNames.get(String(req.headers['mcp-session-id'] || '')) || 'agente-http';
+}
+
+// Contexto das ferramentas MCP: gravação vai ao app, que pede confirmação;
+// leitura com o cofre bloqueado também (a extensão, não).
 function toolContext(req, res) {
-  return {
+  const client = clientName(req);
+  const ctx = {
     allowWrite: !req.headers.origin,
-    client: req.headers.origin ? 'extensao' : 'agente-http',
-    submitWrite: (pedido) => submitAgentWrite(pedido, res)
+    client,
+    submitWrite: (pedido) => submitAgentWrite({ ...pedido, client }, res)
   };
+  if (!req.headers.origin) {
+    ctx.requestRead = async (tool, args) => {
+      const r = await submitAgentRead({ tool, args, client }, res);
+      if (!r || !r.success) throw appError(r, 'O app não liberou a leitura.');
+      return { data: r.data, approval: r.approval };
+    };
+  }
+  return ctx;
 }
 
 async function handleSaveLogin(msg, reply) {
@@ -224,7 +277,9 @@ async function handleSaveLogin(msg, reply) {
   // do formulário enviado, senão um site parecido trocaria a senha de outro.
   if (msg.params.id) {
     let doSite = [];
-    try { doSite = matchUrl(vault.loadEntries(), msg.params.url, { types: ['login'] }); } catch (_) { /* bloqueado */ }
+    try {
+      if (vault.checkSession().scope !== 'agent-read') doSite = matchUrl(vault.loadEntries(), msg.params.url, { types: ['login'] });
+    } catch (_) { /* bloqueado */ }
     if (!doSite.some((e) => e.id === msg.params.id)) {
       return reply(200, { jsonrpc: '2.0', id: msg.id, error: { code: -32602, message: 'Esta entrada não é do site do formulário' } });
     }
@@ -247,7 +302,8 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, {
       server: 'mysecrets-mcp',
       transport: 'http',
-      vaultAccessible: !!(s.valid && s.unlocked)
+      // A liberação de leitura para agentes não conta (a extensão não a usa)
+      vaultAccessible: !!(s.valid && s.unlocked && s.scope !== 'agent-read')
     });
   }
 
@@ -331,12 +387,18 @@ const server = http.createServer((req, res) => {
       return reply(200, { jsonrpc: '2.0', id: parsed.id, ...out });
     }
 
+    // initialize de cliente HTTP direto: guarda o nome para os pedidos de aprovação
+    const extra = {};
+    if (parsed && parsed.method === 'initialize' && !req.headers.origin) {
+      const info = parsed.params && parsed.params.clientInfo;
+      extra['Mcp-Session-Id'] = rememberClient(info && info.name);
+    }
     const response = await dispatch(parsed, toolContext(req, res));
     if (!response) {
       res.writeHead(202, cors); // notificação
       return res.end();
     }
-    return reply(200, response);
+    return reply(200, response, extra);
   });
   req.on('error', () => { /* conexão abortada */ });
 });
@@ -365,4 +427,4 @@ if (require.main === module) server.listen(PORT, HOST, () => {
 process.on('SIGINT', () => server.close(() => process.exit(0)));
 process.on('SIGTERM', () => server.close(() => process.exit(0)));
 
-module.exports = { originOk, corsHeaders, server, validSaveParams };
+module.exports = { originOk, corsHeaders, server, validSaveParams, cleanClientName };

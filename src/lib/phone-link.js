@@ -464,6 +464,11 @@ async function requestUnlock(pairing, opts = {}) {
 module.exports = {
   PHONE_PORT,
   QR_PREFIX,
+  PUSH_URL,
+  b64url,
+  hmac,
+  gcmSeal,
+  gcmOpen,
   mac,
   macOk,
   verificationCode,

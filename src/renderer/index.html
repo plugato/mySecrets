@@ -781,6 +781,36 @@
                         </button>
                     </div>
                     <small>Depois de parear, a tela de login ganha o botão <strong>Aprovar pelo celular</strong>: o celular mostra o pedido e você confirma com a digital. Funciona com os dois na mesma rede Wi-Fi e o app aberto no celular. O QR code contém a chave de desbloqueio — não mostre a ninguém.</small>
+
+                    <div class="phone-remote">
+                        <div class="form-group">
+                            <label class="settings-checkbox">
+                                <input type="checkbox" id="phone-remote">
+                                Aprovar pelo celular de qualquer lugar
+                            </label>
+                            <small>Pedidos de agentes (gravar e ler segredos) e o login deste PC chegam como notificação no celular, mesmo fora de casa: vão pela internet, cifrados de ponta a ponta. O MySecrets precisa ficar aberto neste PC (pode estar bloqueado); o servidor local liga sozinho.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="phone-read-policy">Pedir aprovação para leituras de agentes:</label>
+                            <select id="phone-read-policy" class="input-field">
+                                <option value="locked">Só com o cofre bloqueado</option>
+                                <option value="always">Sempre</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="phone-window-minutes">Tempo da liberação de leitura (botão “Liberar por”):</label>
+                            <select id="phone-window-minutes" class="input-field">
+                                <option value="5">5 minutos</option>
+                                <option value="15">15 minutos</option>
+                                <option value="30">30 minutos</option>
+                            </select>
+                            <small>Na aprovação, “Liberar só esta” vale para uma leitura. “Liberar por” deixa o agente ler sem perguntar até o prazo; gravações continuam pedindo aprovação uma a uma.</small>
+                        </div>
+                        <div class="phone-read-window" id="phone-read-window" style="display: none;">
+                            <span id="phone-read-window-text"></span>
+                            <button class="btn btn-secondary btn-small" id="phone-read-window-end">Encerrar agora</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="settings-section">
@@ -859,6 +889,7 @@
             <p class="agent-write-warning">
                 Os valores não aparecem aqui. Aprove só se você pediu isto a um assistente agora.
             </p>
+            <p class="agent-write-remote" id="agent-write-remote" style="display: none;"></p>
             <div class="agent-write-footer">
                 <span class="agent-write-timer" id="agent-write-timer"></span>
                 <div class="agent-write-actions">
@@ -866,6 +897,34 @@
                     <button id="agent-write-approve" class="btn btn-primary">
                         <span class="material-symbols-outlined">lock</span>
                         Gravar no cofre
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="agent-read-modal" class="modal agent-write-modal" role="alertdialog" aria-modal="true" aria-labelledby="agent-read-heading">
+        <div class="modal-content agent-write-content">
+            <div class="agent-write-top">
+                <span class="material-symbols-outlined agent-write-icon">visibility</span>
+                <div>
+                    <div class="agent-write-kicker">Pedido de leitura do cofre</div>
+                    <h2 id="agent-read-heading">Um agente (MCP) quer ler do cofre</h2>
+                </div>
+                <span class="agent-write-queue" id="agent-read-queue"></span>
+            </div>
+            <div class="agent-write-body" id="agent-read-body"></div>
+            <p class="agent-write-warning">
+                Libere só se você pediu isto a um assistente agora. Se estiver ligado, o pedido também foi para o celular.
+            </p>
+            <div class="agent-write-footer">
+                <span class="agent-write-timer" id="agent-read-timer"></span>
+                <div class="agent-write-actions">
+                    <button id="agent-read-decline" class="btn btn-secondary">Negar</button>
+                    <button id="agent-read-window" class="btn btn-secondary"></button>
+                    <button id="agent-read-once" class="btn btn-primary">
+                        <span class="material-symbols-outlined">lock_open</span>
+                        Liberar só esta
                     </button>
                 </div>
             </div>
@@ -893,5 +952,6 @@
     <script src="app/13-importacao.js"></script>
     <script src="app/14-acoes.js"></script>
     <script src="app/15-celular.js"></script>
+    <script src="app/16-aprovacao-agentes.js"></script>
 </body>
 </html>

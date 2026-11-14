@@ -155,6 +155,20 @@ no MySecrets server and no account.
 - "Approve PC login": requests are signed with a per-PC secret (HMAC-SHA256),
   carry a nonce and must be within 5 minutes; the phone only answers devices on
   the local network.
+- "Approve from your phone, anywhere" (off by default): agent requests and the
+  PC login can be approved away from home through an encrypted mailbox on the
+  project's Worker ([details](../developer/RELAY.md)). The Worker sees only an
+  opaque channel id, sizes and times — no titles, field names or values.
+  Requests are AES-256-GCM encrypted with a key derived from the pairing
+  secret; answers use a fresh ECDH (P-256) key on each side, so recorded
+  answers stay unreadable even if the pairing secret leaks later. Approving
+  requires the fingerprint: the answer carries the unlock key that only leaves
+  the Keystore after it, and the PC checks that it opens the stored master
+  password. An approval unlocks the vault for the agent only: the app screen
+  stays locked. A read can be allowed once (the vault is decrypted in memory for
+  that call only) or for 5, 15 or 30 minutes (a read-only agent session that the
+  browser extension cannot use and that ends on lock, at the deadline, or from
+  the phone's "End now"); saves always ask one by one.
 
 ## What MySecrets does not protect against
 
