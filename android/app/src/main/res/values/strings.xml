@@ -261,6 +261,19 @@
     <string name="relay_falha_envio">Não foi possível falar com o PC pela internet. Tente de novo.</string>
     <string name="relay_liberada_ate">Leitura liberada no %1$s até %2$s</string>
     <string name="relay_liberada_texto">Agentes leem sem perguntar até lá. Gravações continuam pedindo aprovação.</string>
+    <string name="relay_tipo_projeto">Tipo: %1$s · projeto %2$s</string>
+    <string name="relay_tipo">Tipo: %1$s</string>
+    <string name="relay_tags">Tags: %1$s</string>
+    <string name="relay_campo_valor">%1$s: %2$s</string>
+    <string name="relay_campo_tamanho">%1$s: %2$d caracteres (não mostrado)</string>
+    <string name="relay_campo_vazio">%1$s: vazio</string>
+    <string name="relay_arquivo">Arquivo: %1$s (%2$s)</string>
+    <string name="relay_tipo_login">login</string>
+    <string name="relay_tipo_token">token</string>
+    <string name="relay_tipo_nota">nota segura</string>
+    <string name="relay_campo_token">Token</string>
+    <string name="relay_cria_ou_atualiza">Cria a entrada ou atualiza a que tem esse título.</string>
+    <string name="relay_publico_gravar">Pedido de gravação no %1$s. Desbloqueie o celular para ver os detalhes.</string>
     <string name="relay_encerrar_agora">Encerrar agora</string>
     <string name="relay_liberacao_encerrada">Liberação de leitura encerrada</string>
 </resources>

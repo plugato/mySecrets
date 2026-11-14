@@ -232,15 +232,7 @@ object Relay {
     fun details(r: RelayProtocol.Request): List<String> {
         val lines = mutableListOf<String>()
         when (r.kind) {
-            "write" -> {
-                val names = names(r.summary.optJSONArray("fields")).map(::fieldLabel) + names(r.summary.optJSONArray("customFields"))
-                val files = r.summary.optJSONArray("files")?.length() ?: 0
-                val parts = mutableListOf<String>()
-                if (names.isNotEmpty()) parts += str(R.string.relay_campos, names.joinToString(", "))
-                if (files == 1) parts += str(R.string.relay_um_arquivo)
-                if (files > 1) parts += str(R.string.relay_n_arquivos, files)
-                if (parts.isNotEmpty()) lines += parts.joinToString(" · ")
-            }
+            "write" -> lines += writeDetails(r.summary)
             "read" -> lines += if (r.allowWindow) str(R.string.relay_ler_explica, r.windowMinutes) else str(R.string.relay_ler_explica_so_esta)
             else -> lines += str(R.string.codigo_toque_para_aprovar, r.code ?: "")
         }
@@ -248,6 +240,74 @@ object Relay {
         if (more == 1) lines += str(R.string.relay_mais_um_pedido)
         if (more > 1) lines += str(R.string.relay_mais_n_pedidos, more)
         return lines
+    }
+
+    /**
+     * O que vai ser gravado, linha a linha. Valores só do que não é segredo
+     * (usuário, URL, tipo de token, campos extras de texto); senha, token,
+     * notas e campos extras de senha aparecem só com o tamanho. PC 2.4.0 manda
+     * só os nomes ("fields"): aí sai a linha antiga "Campos: ...".
+     */
+    fun writeDetails(s: JSONObject): List<String> {
+        val lines = mutableListOf<String>()
+        val tipo = when (s.optString("type")) {
+            "login" -> str(R.string.relay_tipo_login)
+            "token" -> str(R.string.relay_tipo_token)
+            "note" -> str(R.string.relay_tipo_nota)
+            else -> ""
+        }
+        val projeto = s.optString("project")
+        if (tipo.isNotBlank()) lines += if (projeto.isNotBlank()) str(R.string.relay_tipo_projeto, tipo, projeto) else str(R.string.relay_tipo, tipo)
+        val tags = names(s.optJSONArray("tags")).filter { it != projeto }
+        if (tags.isNotEmpty()) lines += str(R.string.relay_tags, tags.joinToString(", "))
+
+        val values = s.optJSONObject("values")
+        val lengths = s.optJSONObject("lengths")
+        val fields = names(s.optJSONArray("fields"))
+        if (values == null && lengths == null) {
+            val todos = fields.map(::fieldLabel) + names(s.optJSONArray("customFields"))
+            if (todos.isNotEmpty()) lines += str(R.string.relay_campos, todos.joinToString(", "))
+        } else {
+            fields.forEach { k ->
+                val rotulo = fieldLabel(k).replaceFirstChar { it.uppercase() }
+                when {
+                    values?.has(k) == true -> {
+                        val v = values.optString(k)
+                        lines += if (v.isBlank()) str(R.string.relay_campo_vazio, rotulo) else str(R.string.relay_campo_valor, rotulo, v)
+                    }
+                    lengths?.has(k) == true -> {
+                        val n = lengths.optInt(k)
+                        lines += if (n == 0) str(R.string.relay_campo_vazio, rotulo) else str(R.string.relay_campo_tamanho, rotulo, n)
+                    }
+                }
+            }
+            val custom = s.optJSONArray("custom")
+            if (custom != null) {
+                for (i in 0 until custom.length()) {
+                    val c = custom.optJSONObject(i) ?: continue
+                    val nome = c.optString("name")
+                    if (nome.isBlank()) continue
+                    lines += if (c.optBoolean("secret")) str(R.string.relay_campo_tamanho, nome, c.optInt("length"))
+                    else str(R.string.relay_campo_valor, nome, c.optString("value"))
+                }
+            }
+        }
+
+        val files = s.optJSONArray("files")
+        if (files != null) {
+            for (i in 0 until files.length()) {
+                val f = files.optJSONObject(i) ?: continue
+                lines += str(R.string.relay_arquivo, f.optString("name"), tamanho(f.optLong("size")))
+            }
+        }
+        lines += str(R.string.relay_cria_ou_atualiza)
+        return lines
+    }
+
+    private fun tamanho(b: Long): String = when {
+        b < 1024 -> "$b B"
+        b < 1024 * 1024 -> String.format(java.util.Locale.getDefault(), "%.1f KB", b / 1024.0)
+        else -> String.format(java.util.Locale.getDefault(), "%.2f MB", b / (1024.0 * 1024.0))
     }
 
     private fun names(a: JSONArray?): List<String> =
@@ -259,6 +319,8 @@ object Relay {
         "username" -> str(R.string.usuario).lowercase()
         "notes" -> str(R.string.notas).lowercase()
         "url" -> str(R.string.site).lowercase()
+        "token" -> str(R.string.relay_campo_token).lowercase()
+        "tokenType" -> str(R.string.tipo_do_token).lowercase()
         else -> name
     }
 
@@ -273,18 +335,26 @@ object Relay {
             .setStyle(NotificationCompat.BigTextStyle().bigText(big))
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            // Tela bloqueada: só o resumo (os detalhes podem ter usuário e URL)
+            .setVisibility(if (r.kind == "write") NotificationCompat.VISIBILITY_PRIVATE else NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(ask)
             .setFullScreenIntent(ask, true)
             .setOnlyAlertOnce(true)
             // Fica até o pedido terminar: cancelar a digital não perde o pedido
             .setOngoing(true)
             .setTimeoutAfter((r.expiresAt - System.currentTimeMillis()).coerceIn(5_000, 31 * 60_000L))
+        if (r.kind == "write") {
+            b.setPublicVersion(NotificationCompat.Builder(ctx, CHANNEL)
+                .setSmallIcon(android.R.drawable.ic_lock_lock)
+                .setContentTitle(title(r))
+                .setContentText(str(R.string.relay_publico_gravar, r.desktop))
+                .build())
+        }
         if (r.kind == "read") {
             b.addAction(0, str(R.string.relay_liberar_so_esta), activityIntent(ctx, r, "once"))
             if (r.allowWindow) b.addAction(0, str(R.string.relay_liberar_por, r.windowMinutes), activityIntent(ctx, r, "window"))
         } else {
-            b.addAction(0, str(R.string.aprovar), activityIntent(ctx, r, null))
+            b.addAction(0, str(R.string.aprovar), activityIntent(ctx, r, "approve"))
         }
         b.addAction(0, str(R.string.negar), denyIntent(ctx, r))
         return b.build()

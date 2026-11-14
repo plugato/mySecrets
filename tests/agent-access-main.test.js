@@ -213,6 +213,27 @@ test('aprovação "sempre" com o cofre aberto: modal no PC × celular; o PC resp
   noSession();
 });
 
+test('resumo da gravação para o celular: valores só do que não é segredo', () => {
+  const s = access.writeSummary({
+    target: { title: 'GitHub CI' },
+    fields: { username: 'bot@x.com', password: 'segredo-123', url: 'https://github.com', token: 'ghp_abc', tokenType: 'PAT', notes: 'nota\nsecreta' },
+    customFields: [{ name: 'Conta', value: '42', type: 'text' }, { name: 'PIN', value: '9876', type: 'password' }],
+    files: [{ name: 'chave.pem', size: 2048, data: 'QUJD' }],
+    project: 'tcg-scanner',
+    tags: ['ci']
+  });
+  assert.strictEqual(s.type, 'token');
+  assert.deepStrictEqual(s.values, { username: 'bot@x.com', url: 'https://github.com', tokenType: 'PAT' });
+  assert.deepStrictEqual(s.lengths, { password: 11, token: 7, notes: 12 });
+  assert.deepStrictEqual(s.custom, [{ name: 'Conta', value: '42' }, { name: 'PIN', secret: true, length: 4 }]);
+  assert.deepStrictEqual(s.files, [{ name: 'chave.pem', size: 2048 }]);
+  // O app 2.4.0 do celular lê só os nomes
+  assert.deepStrictEqual(s.fields, ['username', 'password', 'url', 'token', 'tokenType', 'notes']);
+  assert.deepStrictEqual(s.customFields, ['Conta', 'PIN']);
+  const texto = JSON.stringify(s);
+  for (const segredo of ['segredo-123', 'ghp_abc', 'secreta', '9876', 'QUJD']) assert.ok(!texto.includes(segredo), segredo);
+});
+
 test('gravação com o cofre bloqueado: aprovada no celular guarda a senha para gravar', async () => {
   const job = { id: 'j1', request: { target: { title: 'Token' }, fields: { token: 'x' }, files: [], client: 'claude-code' }, deadline: Date.now() + 60000 };
   let pcPerguntado = false;

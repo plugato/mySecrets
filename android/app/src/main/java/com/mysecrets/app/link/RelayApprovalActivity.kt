@@ -6,6 +6,8 @@ import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
@@ -123,6 +125,18 @@ class RelayApprovalActivity : FragmentActivity() {
             }
         }
 
+        // Gravação pelo toque na notificação (ou pela tela cheia): revisar antes da digital
+        if (r.kind == "write" && chosen == null) {
+            AlertDialog(
+                onDismissRequest = { finish() }, // fechar não nega: o pedido segue na notificação
+                title = { Text(Relay.title(r)) },
+                text = { Column(Modifier.verticalScroll(rememberScrollState())) { RelayInfo(r, null) } },
+                confirmButton = { Button(enabled = !sending, onClick = { chosen = "approve" }) { Text(str(R.string.aprovar_com_digital)) } },
+                dismissButton = { TextButton(enabled = !sending, onClick = { deny() }) { Text(str(R.string.negar)) } }
+            )
+            return
+        }
+
         // Leitura pelo toque na notificação: escolher antes da digital
         if (r.kind == "read" && chosen == null) {
             AlertDialog(
@@ -149,7 +163,7 @@ class RelayApprovalActivity : FragmentActivity() {
             AlertDialog(
                 onDismissRequest = { finish() },
                 title = { Text(Relay.title(r)) },
-                text = { RelayInfo(r, st.error) },
+                text = { Column(Modifier.verticalScroll(rememberScrollState())) { RelayInfo(r, st.error) } },
                 confirmButton = { Button(enabled = !st.busy && !sending, onClick = { st.retry() }) { Text(str(R.string.aprovar_com_digital)) } },
                 dismissButton = { TextButton(enabled = !st.busy && !sending, onClick = { deny() }) { Text(str(R.string.negar)) } }
             )
@@ -159,7 +173,7 @@ class RelayApprovalActivity : FragmentActivity() {
     companion object {
         const val EXTRA_PAIR = "pairId"
         const val EXTRA_REQ = "reqId"
-        /** "once" / "window" (leitura); ausente = perguntar (leitura) ou aprovar (demais). */
+        /** "once" / "window" (leitura), "approve" (gravação/login: direto à digital); ausente = revisar antes. */
         const val EXTRA_MODE = "mode"
 
         /**

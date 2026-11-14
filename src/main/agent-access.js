@@ -152,17 +152,46 @@ function phoneSource(opts) {
 
 // Nomes dos campos como no pedido do agente: o celular mostra no idioma dele
 const FIELD_NAMES = ['username', 'password', 'url', 'token', 'tokenType', 'notes'];
+// O celular mostra o valor destes; dos outros (senha, token, notas), só o tamanho
+const PLAIN_FIELDS = new Set(['username', 'url', 'tokenType']);
 
-/** Resumo de uma gravação para o celular: só nomes, nunca valores. */
+const clip = (v, max) => {
+  // eslint-disable-next-line no-control-regex -- uma linha só, sem caracteres de controle
+  const t = String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
+  return t.length > max ? t.slice(0, max - 1) + '…' : t;
+};
+
+function inferWriteType(req) {
+  if (['login', 'token', 'note'].includes(req.type)) return req.type;
+  const f = req.fields || {};
+  if (f.token) return 'token';
+  if (f.password || f.username) return 'login';
+  return 'note';
+}
+
+/**
+ * Resumo de uma gravação para o celular. Valores só do que não é segredo
+ * (usuário, URL, tipo de token, campos extras de texto); senha, token, notas
+ * e campos extras do tipo senha vão só com o tamanho. "fields" e
+ * "customFields" (só nomes) continuam para o app 2.4.0 do celular.
+ */
 function writeSummary(req) {
   const fields = req.fields || {};
+  const presentes = FIELD_NAMES.filter((k) => fields[k] !== undefined && fields[k] !== null);
+  const custom = (req.customFields || []).slice(0, 20);
   return {
-    target: String((req.target && (req.target.title || req.target.id)) || '').slice(0, 120),
-    fields: FIELD_NAMES.filter((k) => fields[k] !== undefined && fields[k] !== null),
-    customFields: (req.customFields || []).map((c) => String(c.name || '').slice(0, 60)).slice(0, 20),
-    files: (req.files || []).map((f) => ({ name: String(f.name || '').slice(0, 120), size: f.size })).slice(0, 20),
-    project: req.project ? String(req.project).slice(0, 60) : undefined,
-    tags: (req.tags || []).slice(0, 10)
+    target: clip((req.target && (req.target.title || req.target.id)) || '', 120),
+    type: inferWriteType(req),
+    fields: presentes,
+    values: Object.fromEntries(presentes.filter((k) => PLAIN_FIELDS.has(k)).map((k) => [k, clip(fields[k], 120)])),
+    lengths: Object.fromEntries(presentes.filter((k) => !PLAIN_FIELDS.has(k)).map((k) => [k, String(fields[k]).length])),
+    customFields: custom.map((c) => clip(c.name, 60)),
+    custom: custom.map((c) => (c.type === 'password'
+      ? { name: clip(c.name, 60), secret: true, length: String(c.value == null ? '' : c.value).length }
+      : { name: clip(c.name, 60), value: clip(c.value, 80) })),
+    files: (req.files || []).map((f) => ({ name: clip(f.name, 120), size: f.size })).slice(0, 20),
+    project: req.project ? clip(req.project, 60) : undefined,
+    tags: (req.tags || []).slice(0, 10).map((t) => clip(t, 40))
   };
 }
 
@@ -413,6 +442,7 @@ function cancelRead(reqId) {
 
 module.exports = {
   register,
+  writeSummary,
   confirmWrite,
   handleRead,
   cancelRead,
