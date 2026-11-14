@@ -233,9 +233,29 @@ function submitToApp(type, pedido, res, timeout, timeoutError) {
 const clientNames = new Map(); // Mcp-Session-Id -> nome
 const MAX_CLIENT_SESSIONS = 200;
 
+// Letras de qualquer idioma (com acento), números e um pouco de pontuação
 function cleanClientName(name) {
-  const v = String(name || '').replace(/[^\w .@()+-]/g, '').trim().slice(0, 60);
+  const v = String(name || '').normalize('NFC').replace(/[^\p{L}\p{M}\p{N}_ .@()+-]/gu, '').trim().slice(0, 60);
   return v || null;
+}
+
+/**
+ * Valor do cabeçalho X-MySecrets-Client. O stdio manda com encodeURIComponent
+ * (cabeçalho HTTP só leva latin1); um cliente que mandou UTF-8 cru chega
+ * como latin1 e é recuperado aqui.
+ */
+function headerText(h) {
+  if (h == null) return '';
+  const s = String(h);
+  if (/%[0-9A-Fa-f]{2}/.test(s)) {
+    try { return decodeURIComponent(s); } catch (_) { /* não era URI */ }
+  }
+  // eslint-disable-next-line no-control-regex -- só bytes latin1
+  if (/[\u0080-\u00ff]/.test(s) && /^[\u0000-\u00ff]*$/.test(s)) {
+    const u = Buffer.from(s, 'latin1').toString('utf8');
+    if (!u.includes('\uFFFD')) return u;
+  }
+  return s;
 }
 
 function rememberClient(name) {
@@ -247,7 +267,7 @@ function rememberClient(name) {
 
 function clientName(req) {
   if (req.headers.origin) return 'extensao';
-  return cleanClientName(req.headers['x-mysecrets-client']) ||
+  return cleanClientName(headerText(req.headers['x-mysecrets-client'])) ||
     clientNames.get(String(req.headers['mcp-session-id'] || '')) || 'agente-http';
 }
 
@@ -427,4 +447,4 @@ if (require.main === module) server.listen(PORT, HOST, () => {
 process.on('SIGINT', () => server.close(() => process.exit(0)));
 process.on('SIGTERM', () => server.close(() => process.exit(0)));
 
-module.exports = { originOk, corsHeaders, server, validSaveParams, cleanClientName };
+module.exports = { originOk, corsHeaders, server, validSaveParams, cleanClientName, headerText };

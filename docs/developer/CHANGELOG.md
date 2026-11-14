@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Approving a save on the phone shows what will be saved: entry type, project and tags, the username, URL and token type, the length of the password, token and notes (never their content), extra fields (text values; password fields by length) and each file with its size. Tapping the notification opens this review before the fingerprint; "Approve" in the notification goes straight to the fingerprint. On the lock screen the notification shows only "Save request on <PC>".
 
+### Fixed
+- The agent name shown in approvals and in the reads log lost accented letters ("teste só esta" became "teste s esta"), and a name in another alphabet (or with an emoji) made the stdio server fail to forward saves, since HTTP headers only carry latin1. The stdio server now encodes the name, the local server decodes it (and recovers raw UTF-8 sent by other clients), and letters of any language are kept.
+
 ## [2.4.0] - 2026-11-14
 
 ### Added
