@@ -1757,6 +1757,13 @@ textarea.input-field {
     gap: 0.35rem;
 }
 
+/* Pedido também enviado ao celular (aprovar de qualquer lugar) */
+.agent-write-remote {
+    margin: 0.5rem 0 0;
+    font-size: 0.82rem;
+    color: var(--primary-color);
+}
+
 /* ---------- Anexos de arquivo ---------- */
 .attachment-row {
     display: flex;
@@ -3547,4 +3554,21 @@ kbd {
 .detail-type-icon.badge-passkey {
     background: var(--primary-light);
     color: var(--primary-text);
+}
+
+/* Aprovar pelo celular de qualquer lugar (Configurações > Celular) */
+.phone-remote {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+}
+.phone-read-window {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--bg-secondary, rgba(0, 0, 0, 0.04));
+    font-size: 0.88rem;
 }

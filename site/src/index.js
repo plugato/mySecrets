@@ -6,6 +6,8 @@
  *   GET /versao                   { versao, publicada, arquivos: { plataforma: { url, tamanho } } }
  *   POST /push                    { token, data } -> push do Firebase que acorda o app Android
  *                                 quando o PC pede aprovação (ver push.js)
+ *   /relay/{canal}/...            caixa postal cifrada para aprovar pedidos do PC no celular
+ *                                 de qualquer lugar (ver relay.js)
  * A consulta à API do GitHub fica em cache por 10 minutos (sem token: 60 consultas/hora por IP do Worker).
  */
 
@@ -22,6 +24,9 @@ const ARQUIVOS = {
 };
 
 import { handlePush } from './push.js';
+import { handleRelay } from './relay.js';
+
+export { RelayMailbox } from './relay.js';
 
 const CACHE_SEGUNDOS = 600;
 
@@ -62,6 +67,7 @@ export default {
       if (request.method !== 'POST') return new Response('método não permitido', { status: 405 });
       return handlePush(request, env);
     }
+    if (pathname.startsWith('/relay/')) return handleRelay(request, env);
     if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('método não permitido', { status: 405 });
 
     const plataforma = pathname === '/apk' ? 'android' : pathname.match(/^\/download\/([\w-]+)\/?$/)?.[1];

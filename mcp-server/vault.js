@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const vaultCrypto = require('../src/lib/vault-crypto');
+const agentAccess = require('../src/lib/agent-access');
 const sessionCrypto = require('../src/lib/session-crypto');
 const otp = require('../src/lib/otp');
 
@@ -102,7 +103,8 @@ function checkSession() {
   if (sessionData.expiresAt && now > sessionData.expiresAt) {
     return { valid: false, reason: 'SESSION_EXPIRED' };
   }
-  if (sessionData.timestamp && now - sessionData.timestamp > SESSION_TIMEOUT) {
+  // Liberação de leitura (scope agent-read): vale até expiresAt (no máximo 30 min)
+  if (sessionData.timestamp && sessionData.scope !== 'agent-read' && now - sessionData.timestamp > SESSION_TIMEOUT) {
     return { valid: false, reason: 'SESSION_EXPIRED' };
   }
   if (sessionData.pid) {
@@ -116,7 +118,30 @@ function checkSession() {
     return { valid: false, reason: 'HOSTNAME_MISMATCH' };
   }
 
-  return { valid: true, unlocked: sessionData.unlocked, sessionData };
+  return { valid: true, unlocked: sessionData.unlocked, scope: sessionData.scope || null, sessionData };
+}
+
+/**
+ * Aprovação de leitura: "locked" (só com o cofre bloqueado, padrão) ou
+ * "always" (toda leitura de agente pede aprovação). Configurado no app.
+ */
+function readPolicy() {
+  return agentAccess.readSettings(USER_DATA_PATH).readPolicy;
+}
+
+// Entradas já decifradas pelo app para UMA chamada ("liberar só esta"): o
+// processo principal decifra com a senha que veio do celular e executa a
+// ferramenta sem criar sessão. Síncrono: vale só durante fn().
+let entriesOverride = null;
+
+function withEntries(entries, fn) {
+  const antes = entriesOverride;
+  entriesOverride = entries;
+  try {
+    return fn();
+  } finally {
+    entriesOverride = antes;
+  }
 }
 
 
@@ -147,6 +172,7 @@ function reasonMessage(reason) {
 
 /** Todas as entradas fora da lixeira, inclusive passkeys (uso interno). */
 function loadAll() {
+  if (entriesOverride) return entriesOverride.filter((e) => e && !e.deletedAt);
   const session = checkSession();
   if (!session.valid) throw new VaultLockedError(session.reason);
   if (!session.unlocked) throw new VaultLockedError('LOCKED');
@@ -178,8 +204,14 @@ function loadEntries() {
   return loadAll().filter((e) => e.type !== 'passkey');
 }
 
-/** Só as passkeys: para as ferramentas de passkey da extensão. */
+/**
+ * Só as passkeys: para as ferramentas de passkey da extensão. A liberação de
+ * leitura para agentes (scope agent-read) não vale aqui: passkeys só com o
+ * cofre aberto no app.
+ */
 function loadPasskeys() {
+  const s = checkSession();
+  if (s.valid && s.scope === 'agent-read') throw new VaultLockedError('LOCKED');
   return loadAll().filter((e) => e.type === 'passkey' && e.passkey);
 }
 
@@ -204,6 +236,8 @@ module.exports = {
   getSecretsFile,
   SESSION_FILE,
   checkSession,
+  readPolicy,
+  withEntries,
   loadEntries,
   loadPasskeys,
   generateOtp,

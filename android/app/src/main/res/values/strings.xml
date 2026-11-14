@@ -235,4 +235,32 @@
     <string name="para_acender_a_tela_com_o">Para acender a tela com o pedido, permita a notificação em tela cheia.</string>
     <string name="permitir_tela_cheia">Permitir tela cheia</string>
     <string name="aprovar">Aprovar</string>
+    <!-- Relay: pedidos do PC pela internet -->
+    <string name="canal_relay">Pedidos do PC pela internet</string>
+    <string name="canal_relay_liberacao">Leitura liberada no PC</string>
+    <string name="relay_titulo_gravar">Gravar no %1$s?</string>
+    <string name="relay_titulo_ler">Ler no %1$s?</string>
+    <string name="relay_quer_gravar">%1$s quer gravar \"%2$s\" no %3$s</string>
+    <string name="relay_quer_ler">%1$s quer ler \"%2$s\" (%3$s) no %4$s</string>
+    <string name="relay_quer_ler_sem_alvo">%1$s quer usar %2$s no %3$s</string>
+    <string name="relay_campos">Campos: %1$s</string>
+    <string name="relay_um_arquivo">1 arquivo</string>
+    <string name="relay_n_arquivos">%1$d arquivos</string>
+    <string name="relay_mais_um_pedido">Mais 1 pedido esperando</string>
+    <string name="relay_mais_n_pedidos">Mais %1$d pedidos esperando</string>
+    <string name="relay_ler_explica">Liberar só esta leitura ou por %1$d min.</string>
+    <string name="relay_ler_explica_so_esta">Liberar só esta leitura.</string>
+    <string name="relay_liberar_so_esta">Liberar só esta</string>
+    <string name="relay_liberar_por">Liberar por %1$d min</string>
+    <string name="relay_aprovar_gravacao_no">Aprovar gravação no %1$s</string>
+    <string name="relay_liberar_leitura_no">Liberar leitura no %1$s</string>
+    <string name="relay_gravacao_aprovada">Gravação aprovada</string>
+    <string name="relay_leitura_liberada">Leitura liberada</string>
+    <string name="relay_negado">Pedido negado</string>
+    <string name="relay_pedido_encerrado">Este pedido já foi encerrado no PC</string>
+    <string name="relay_falha_envio">Não foi possível falar com o PC pela internet. Tente de novo.</string>
+    <string name="relay_liberada_ate">Leitura liberada no %1$s até %2$s</string>
+    <string name="relay_liberada_texto">Agentes leem sem perguntar até lá. Gravações continuam pedindo aprovação.</string>
+    <string name="relay_encerrar_agora">Encerrar agora</string>
+    <string name="relay_liberacao_encerrada">Liberação de leitura encerrada</string>
 </resources>

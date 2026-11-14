@@ -11,8 +11,16 @@
   "routes": [{ "pattern": "mysecrets.ancalagon.com.br", "custom_domain": true }],
   // POST /push: limite por IP e por token do celular (10 por minuto cada)
   "ratelimits": [
-    { "name": "PUSH_LIMIT", "namespace_id": "4301", "simple": { "limit": 10, "period": 60 } }
+    { "name": "PUSH_LIMIT", "namespace_id": "4301", "simple": { "limit": 10, "period": 60 } },
+    // /relay: por IP (o PC espera a resposta com long-poll de 20 s)
+    { "name": "RELAY_LIMIT", "namespace_id": "4302", "simple": { "limit": 120, "period": 60 } }
   ],
+  // Caixa postal do relay (aprovar no celular fora de casa): um Durable Object
+  // por pareamento, com SQLite (funciona no plano gratuito)
+  "durable_objects": {
+    "bindings": [{ "name": "RELAY", "class_name": "RelayMailbox" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RelayMailbox"] }],
   // Segredo FCM_SERVICE_ACCOUNT (wrangler secret put): conta de serviço do Firebase para o push
   "vars": {
     "REPO": "plugato/mySecrets"

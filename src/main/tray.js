@@ -19,6 +19,19 @@ function register(d) {
 
 let tray = null;
 let trayBaseIcon = null;
+let lastPending = 0;
+// Liberação de leitura para agentes em andamento: { until, end() }
+let readWindow = null;
+let readWindowTimer = null;
+
+/** Mostra (ou tira) a liberação de leitura na bandeja, com "Encerrar". */
+function setReadWindow(until, end) {
+  readWindow = until ? { until, end } : null;
+  if (readWindowTimer) { clearInterval(readWindowTimer); readWindowTimer = null; }
+  // O texto do menu tem a hora final; o intervalo só mantém o tooltip em dia
+  if (readWindow) readWindowTimer = setInterval(() => updateTrayIndicator(lastPending), 60 * 1000);
+  updateTrayIndicator(lastPending);
+}
 
 // Ícone da bandeja com um ponto vermelho: há pedido de gravação esperando
 function trayBadgeIcon(base) {
@@ -38,16 +51,25 @@ function trayBadgeIcon(base) {
 }
 
 function updateTrayIndicator(pending) {
+  lastPending = pending || 0;
   if (!tray || !trayBaseIcon) return;
+  const destaque = pending > 0 || !!readWindow;
   try {
-    tray.setImage(pending > 0 ? trayBadgeIcon(trayBaseIcon) : trayBaseIcon);
+    tray.setImage(destaque ? trayBadgeIcon(trayBaseIcon) : trayBaseIcon);
   } catch (_) { /* sem bitmap: fica só o texto */ }
-  tray.setToolTip(pending > 0
-    ? t("MySecrets — {0} pedido{1} de gravação aguardando", { 0: pending, 1: pending > 1 ? 's' : '' })
-    : 'MySecrets');
+  const ate = readWindow ? new Date(readWindow.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  let dica = 'MySecrets';
+  if (pending > 0) dica = t("MySecrets — {0} pedido{1} de gravação aguardando", { 0: pending, 1: pending > 1 ? 's' : '' });
+  else if (readWindow) dica = t("MySecrets — leitura liberada para agentes até {0}", { 0: ate });
+  tray.setToolTip(dica);
   const itens = [];
   if (pending > 0) {
     itens.push({ label: t("Revisar pedido de gravação ({0})", { 0: pending }), click: () => deps.showAndFocusWindow() });
+    itens.push({ type: 'separator' });
+  }
+  if (readWindow) {
+    const fim = readWindow.end;
+    itens.push({ label: t("Encerrar liberação de leitura (até {0})", { 0: ate }), click: () => fim() });
     itens.push({ type: 'separator' });
   }
   itens.push(
@@ -154,4 +176,4 @@ function applyGlobalShortcut(enabled) {
 
 ipcMain.handle('set-global-shortcut', async (event, enabled) => applyGlobalShortcut(!!enabled));
 
-module.exports = { register, createTray, setupPowerMonitor, updateTrayIndicator, toggleMainWindow };
+module.exports = { register, createTray, setupPowerMonitor, updateTrayIndicator, setReadWindow, toggleMainWindow };

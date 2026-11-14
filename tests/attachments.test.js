@@ -272,7 +272,7 @@ test('buildWriteRequest: valida argumentos e lê os arquivos', () => {
 
 // ===== Ponta a ponta: stdio -> servidor HTTP do app -> "app" -> cofre =====
 
-async function startHttpServer(t, onWrite) {
+async function startHttpServer(t, onWrite, onRead) {
   const port = 20000 + Math.floor(Math.random() * 20000);
   const child = fork(path.join(__dirname, '..', 'mcp-server', 'http-server.js'), [], {
     env: { ...process.env, MYSECRETS_MCP_PORT: String(port), MYSECRETS_MCP_TOKEN: 'tk', MYSECRETS_MCP_HOST: '127.0.0.1' },
@@ -284,6 +284,11 @@ async function startHttpServer(t, onWrite) {
     child.once('exit', () => reject(new Error('servidor saiu')));
   });
   child.on('message', async (msg) => {
+    if (msg.type === 'agent_read' && onRead) {
+      const result = await onRead(msg.payload);
+      child.send({ type: 'agent_read_result', reqId: msg.reqId, result });
+      return;
+    }
     if (msg.type !== 'agent_write') return;
     const result = await onWrite(msg.payload);
     child.send({ type: 'agent_write_result', reqId: msg.reqId, result });
@@ -297,6 +302,7 @@ async function startHttpServer(t, onWrite) {
 function fakeApp(decisions) {
   return async (req) => {
     decisions.pedidos.push(req);
+    if (decisions.bloqueado) return { success: false, locked: true, error: 'O cofre está bloqueado (teste).' };
     if (!decisions.aprovar) return { success: false, declined: true, error: 'O usuário recusou a gravação no app.' };
     const entries = fs.existsSync(SECRETS_FILE) ? readVault() : [];
     const { entry, mode } = applyAgentWrite(entries, req);
@@ -457,13 +463,34 @@ test('ponta a ponta: cofre bloqueado e servidor do app desligado', async (t) => 
   assert.strictEqual(r.isError, true);
   assert.match(r.data.error, /servidor local/);
 
-  // Servidor ligado mas sessão bloqueada: recusado antes de chegar ao app
-  const decisions = { aprovar: true, pedidos: [] };
-  await startHttpServer(t, fakeApp(decisions));
+  // Servidor ligado mas sessão bloqueada: o pedido chega ao app, que pode
+  // pedir a aprovação ao celular; sem isso ele responde "bloqueado"
+  const decisions = { aprovar: true, bloqueado: true, pedidos: [] };
+  const leituras = [];
+  await startHttpServer(t, fakeApp(decisions), async (p) => {
+    leituras.push(p);
+    return { success: true, approval: 'once', data: { id: 'abc', title: 'GitHub', password: 'liberada' } };
+  });
   writeSession({ unlocked: false });
   r = await call('store_secret', { title: 'X', notes: 'y' });
   assert.strictEqual(r.isError, true);
   assert.strictEqual(r.data.locked, true);
-  assert.strictEqual(decisions.pedidos.length, 0);
+  assert.match(r.data.error, /bloqueado \(teste\)/);
+  assert.strictEqual(decisions.pedidos.length, 1);
+
+  // Leitura com o cofre bloqueado: o app aprova "só esta" e devolve o resultado
+  const auditFile = path.join(DATA_DIR, 'mcp-audit.jsonl');
+  fs.rmSync(auditFile, { force: true });
+  r = await call('get_credentials', { query: 'github' });
+  assert.ok(!r.isError, JSON.stringify(r.data));
+  assert.strictEqual(r.data.password, 'liberada');
+  assert.strictEqual(leituras.length, 1);
+  assert.strictEqual(leituras[0].tool, 'get_credentials');
+  assert.deepStrictEqual(leituras[0].args, { query: 'github' });
+  // Registrada uma vez só (pelo servidor do app), com o modo da liberação
+  const linhas = fs.readFileSync(auditFile, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  assert.strictEqual(linhas.length, 1);
+  assert.strictEqual(linhas[0].approval, 'once');
+  assert.deepStrictEqual(linhas[0].ids, ['abc']);
   writeSession();
 });

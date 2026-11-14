@@ -21,7 +21,7 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const { dispatch } = require('./core');
+const { dispatch, appError } = require('./core');
 const vault = require('./vault');
 
 // Maior que o limite do servidor do app (260 s), que por sua vez é maior que o
@@ -43,8 +43,11 @@ function appEndpoint() {
   return { port, token };
 }
 
-/** Repassa uma ferramenta de gravação ao servidor HTTP do app. */
-function forwardToApp(name, args) {
+// Nome do cliente MCP (initialize.clientInfo): vai no pedido de aprovação
+let clientInfoName = null;
+
+/** Repassa uma ferramenta ao servidor HTTP do app (gravação, ou leitura que pede aprovação). */
+function forwardToApp(name, args, { read = false } = {}) {
   const { port, token } = appEndpoint();
   if (!port || !token) {
     return Promise.reject(new Error(
@@ -63,7 +66,8 @@ function forwardToApp(name, args) {
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(body),
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${token}`,
+        ...(clientInfoName ? { 'X-MySecrets-Client': clientInfoName } : {})
       }
     }, (res) => {
       let data = '';
@@ -77,13 +81,10 @@ function forwardToApp(name, args) {
           const text = msg.result && msg.result.content && msg.result.content[0] && msg.result.content[0].text;
           const parsed = JSON.parse(text || '{}');
           if (msg.result.isError) {
-            const e = parsed.locked
-              ? new vault.VaultLockedError(parsed.reason)
-              : new Error(parsed.error || 'Falha ao gravar');
-            ['declined', 'expired', 'cancelled'].forEach((k) => { if (parsed[k]) e[k] = true; });
-            return reject(e);
+            return reject(appError(parsed, read ? 'Falha ao ler' : 'Falha ao gravar'));
           }
-          resolve(parsed);
+          // Leitura: o servidor do app já registrou (mcp-audit.jsonl); aqui não repete
+          resolve(read ? { data: parsed, audited: true } : parsed);
         } catch (_) {
           reject(new Error('Resposta inválida do servidor do app.'));
         }
@@ -100,7 +101,22 @@ function forwardToApp(name, args) {
   });
 }
 
-const ctx = { forward: forwardToApp, client: 'agente-stdio' };
+const ctx = {
+  forward: (name, args) => forwardToApp(name, args),
+  // Cofre bloqueado (ou aprovação "sempre"): o app pede a aprovação e lê
+  requestRead: async (name, args) => {
+    try {
+      return await forwardToApp(name, args, { read: true });
+    } catch (e) {
+      // Servidor do app desligado: explica o bloqueio em vez do erro de conexão
+      if (!(e instanceof vault.VaultLockedError) && !e.declined && !e.expired && !e.cancelled && /servidor local/i.test(e.message)) {
+        throw new vault.VaultLockedError('LOCKED');
+      }
+      throw e;
+    }
+  },
+  get client() { return clientInfoName || 'agente-stdio'; }
+};
 
 // O cliente MCP pode fechar o pipe enquanto um pedido espera confirmação:
 // escrever no stdout fechado dá EPIPE. Encerra limpo em vez de cair.
@@ -146,6 +162,9 @@ process.stdin.on('data', (chunk) => {
     } catch (err) {
       process.stderr.write('[mysecrets-mcp] JSON inválido: ' + err.message + '\n');
       continue;
+    }
+    if (msg && msg.method === 'initialize' && msg.params && msg.params.clientInfo) {
+      clientInfoName = String(msg.params.clientInfo.name || '').slice(0, 60) || null;
     }
     dispatch(msg, ctx).then((response) => { if (response) send(response); }, () => {});
   }

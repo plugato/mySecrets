@@ -20,6 +20,7 @@ const { createAgentWriteQueue } = require('../lib/agent-queue');
 const passkeyLib = require('../lib/passkey');
 const attachmentFiles = require('../../mcp-server/files');
 const tray = require('./tray');
+const agentAccess = require('./agent-access');
 const { t } = require('./i18n');
 
 let deps = { getWindow: () => null };
@@ -213,6 +214,17 @@ function handleMcpMessage(child, msg) {
   }
   if (msg && msg.type === 'agent_write_cancel') {
     agentQueue.cancel(msg.reqId);
+    return;
+  }
+  if (msg && msg.type === 'agent_read') {
+    agentAccess.handleRead(msg.reqId, msg.payload).then((result) => {
+      if (!result || !result.success) console.log('Leitura de agente não liberada:', (result && result.error) || 'sem resposta');
+      try { child.send({ type: 'agent_read_result', reqId: msg.reqId, result }); } catch (_) { /* filho encerrado */ }
+    });
+    return;
+  }
+  if (msg && msg.type === 'agent_read_cancel') {
+    agentAccess.cancelRead(msg.reqId);
     return;
   }
   if (msg && msg.type === 'pair_request') {
@@ -497,19 +509,41 @@ function callAttention(job) {
 
 // ----- Fila -----
 
+const cancelPcConfirm = (job) => {
+  if (win() && !win().isDestroyed()) win().webContents.send('agent-write-cancel', job.id);
+};
+
 const agentQueue = createAgentWriteQueue({
   windowMs: AGENT_WRITE_WINDOW,
   applyTimeoutMs: AGENT_APPLY_TIMEOUT,
-  confirm: (job) => askRenderer('confirm', {
-    jobId: job.id,
-    deadline: job.deadline,
-    total: agentQueue.pending(),
-    // O resumo não precisa do conteúdo dos arquivos
-    request: { ...job.request, files: job.request.files.map(({ data, ...meta }) => meta) }
-  }, job.deadline - Date.now() + 1000),
-  apply: (job) => askRenderer('apply', { jobId: job.id, request: job.request }, AGENT_APPLY_TIMEOUT),
+  // Modal no PC × celular (de qualquer lugar): a primeira resposta vale
+  confirm: (job) => {
+    job.pending = agentQueue.pending();
+    return agentAccess.confirmWrite(job, {
+      ask: () => askRenderer('confirm', {
+        jobId: job.id,
+        deadline: job.deadline,
+        total: agentQueue.pending(),
+        // O resumo não precisa do conteúdo dos arquivos
+        request: { ...job.request, files: job.request.files.map(({ data, ...meta }) => meta) }
+      }, job.deadline - Date.now() + 1000),
+      cancel: () => cancelPcConfirm(job)
+    });
+  },
+  apply: async (job) => {
+    const password = job.password;
+    delete job.password;
+    // Cofre aberto: grava pelo renderer, como numa edição normal
+    if (deps.currentSessionPassword && deps.currentSessionPassword()) {
+      return askRenderer('apply', { jobId: job.id, request: job.request }, AGENT_APPLY_TIMEOUT);
+    }
+    // Bloqueado e aprovado no celular: grava aqui com a senha conferida pela digital
+    if (password && deps.applyWriteLocked) return deps.applyWriteLocked(job.request, password);
+    return { success: false, locked: true, error: t('O cofre foi bloqueado antes da gravação. Nada foi gravado.') };
+  },
   cancelConfirm: (job) => {
-    if (win() && !win().isDestroyed()) win().webContents.send('agent-write-cancel', job.id);
+    if (job.abort) job.abort();
+    cancelPcConfirm(job);
   },
   onShow: (job) => callAttention(job),
   onCount: (n) => {
@@ -520,6 +554,7 @@ const agentQueue = createAgentWriteQueue({
 });
 
 function handleAgentWrite(child, msg) {
+  if (msg.payload && typeof msg.payload === 'object') msg.payload.client = oneLine(msg.payload.client || 'agente', 60);
   const responder = (result) => {
     if (result && result.success) {
       console.log(`✅ Gravação de agente aplicada (${result.mode})`);

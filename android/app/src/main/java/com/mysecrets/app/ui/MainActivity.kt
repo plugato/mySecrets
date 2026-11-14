@@ -87,6 +87,12 @@ class MainActivity : FragmentActivity() {
         setIntent(intent) // volta do login com Google: nada a fazer, a tela já está esperando
         takeDebugExtras(intent)
     }
+
+    override fun onResume() {
+        super.onResume()
+        // Pedidos do PC pela internet que chegaram sem push (ou com o push perdido)
+        com.mysecrets.app.link.Relay.refreshAsync(this)
+    }
 }
 
 @Composable

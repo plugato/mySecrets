@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -33,12 +34,21 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
+/**
+ * Libera a K_d do pareamento com a digital (Keystore). Usada pela rede local
+ * ([approveWithBiometric]) e pelo relay ([com.mysecrets.app.link.RelayApprovalActivity]).
+ * Quem recebe zera a chave depois de mandar.
+ */
+suspend fun releaseUnlockKey(activity: FragmentActivity, pairId: String, title: String, subtitle: String?): ByteArray {
+    val pc = Pairings.find(pairId) ?: error(str(R.string.pareamento_nao_encontrado))
+    val cipher = Keys.bioDecryptCipher(Keys.BIO_LINK, pc.unlockSealed)
+    val ok = Biometric.authenticate(activity, cipher, title, subtitle)
+    return Keys.finishOpen(ok, pc.unlockSealed)
+}
+
 /** Pede a digital e, se aprovada, devolve ao PC a chave de desbloqueio. */
 suspend fun approveWithBiometric(activity: FragmentActivity, r: LinkServer.ApprovalRequest) {
-    val pc = Pairings.find(r.pairId) ?: error(str(R.string.pareamento_nao_encontrado))
-    val cipher = Keys.bioDecryptCipher(Keys.BIO_LINK, pc.unlockSealed)
-    val ok = Biometric.authenticate(activity, cipher, str(R.string.aprovar_login_no, r.desktopName), str(R.string.codigo, r.code))
-    r.answer.complete(Keys.finishOpen(ok, pc.unlockSealed))
+    r.answer.complete(releaseUnlockKey(activity, r.pairId, str(R.string.aprovar_login_no, r.desktopName), str(R.string.codigo, r.code)))
 }
 
 /** Estado de um pedido do PC: a digital abre sozinha; se cancelar ou falhar, [failed]. */
@@ -50,18 +60,25 @@ class ApprovalState {
     fun retry() { failed = false; error = null; attempt++ }
 }
 
+/**
+ * Roda [step] (que pede a digital) assim que a tela estiver visível, para o pedido
+ * [key]. Tela que sai de cena no meio pede de novo ao voltar; cancelar ou falhar
+ * vira [ApprovalState.failed] (a tela mostra o diálogo de tentar de novo / negar).
+ * [done] = o pedido já terminou (não pede a digital).
+ */
 @Composable
-fun rememberApproval(activity: FragmentActivity, r: LinkServer.ApprovalRequest): ApprovalState {
-    val st = remember(r) { ApprovalState() }
-    LaunchedEffect(r, st.attempt) {
+fun rememberBiometricStep(activity: FragmentActivity, key: Any, done: () -> Boolean, step: suspend () -> Unit): ApprovalState {
+    val st = remember(key) { ApprovalState() }
+    val currentStep by rememberUpdatedState(step)
+    val currentDone by rememberUpdatedState(done)
+    LaunchedEffect(key, st.attempt) {
         // Só com a tela visível (o prompt precisa de uma tela na frente)
         activity.lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
         delay(300)
-        if (r.answer.isCompleted) return@LaunchedEffect
+        if (currentDone()) return@LaunchedEffect
         st.busy = true
         try {
-            approveWithBiometric(activity, r)
-            toast(activity, str(R.string.login_aprovado))
+            currentStep()
         } catch (e: Biometric.Interrupted) {
             // A tela saiu de cena no meio: pede de novo quando ela voltar
             st.attempt++
@@ -81,6 +98,13 @@ fun rememberApproval(activity: FragmentActivity, r: LinkServer.ApprovalRequest):
     }
     return st
 }
+
+@Composable
+fun rememberApproval(activity: FragmentActivity, r: LinkServer.ApprovalRequest): ApprovalState =
+    rememberBiometricStep(activity, r, { r.answer.isCompleted }) {
+        approveWithBiometric(activity, r)
+        toast(activity, str(R.string.login_aprovado))
+    }
 
 /** Código e mensagem do pedido (diálogo do app e tela aberta pela notificação). */
 @Composable

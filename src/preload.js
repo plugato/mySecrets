@@ -79,6 +79,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   agentWriteResult: (reqId, result) => ipcRenderer.invoke('agent-write-result', reqId, result),
   onAgentWriteCancel: (callback) => ipcRenderer.on('agent-write-cancel', (event, jobId) => callback(jobId)),
   onAgentWriteCount: (callback) => ipcRenderer.on('agent-write-count', (event, n) => callback(n)),
+  // O pedido de gravação também foi para o celular (aprovar de qualquer lugar)
+  onAgentWriteRemote: (callback) => ipcRenderer.on('agent-write-remote', (event, data) => callback(data)),
+  // Agente pedindo para ler (cofre bloqueado ou aprovação "sempre"): liberar só esta, por N min ou negar
+  onAgentRead: (callback) => ipcRenderer.on('agent-read', (event, data) => callback(data)),
+  onAgentReadCancel: (callback) => ipcRenderer.on('agent-read-cancel', (event, jobId) => callback(jobId)),
+  agentReadAnswer: (jobId, answer) => ipcRenderer.invoke('agent-read-answer', jobId, answer),
+  onAgentReadWindow: (callback) => ipcRenderer.on('agent-read-window', (event, w) => callback(w)),
+  agentReadWindowEnd: () => ipcRenderer.invoke('agent-read-window-end'),
+  // Configurações da aprovação (celular de qualquer lugar, leituras, tempo da liberação)
+  agentApprovalGet: () => ipcRenderer.invoke('agent-approval-get'),
+  agentApprovalSet: (partial) => ipcRenderer.invoke('agent-approval-set', partial),
 
   // Anexos de arquivo (seletor e "Salvar como" ficam no processo principal)
   attachmentPick: () => ipcRenderer.invoke('attachment-pick'),

@@ -180,6 +180,8 @@ function renderAgentConfirm(state) {
         body.innerHTML = html;
         body.dataset.jobId = state.jobId;
         setTimeout(() => document.getElementById('agent-write-decline').focus(), 0);
+        // Pedido também enviado ao celular (16-aprovacao-agentes.js)
+        if (typeof renderAgentWriteRemote === 'function') renderAgentWriteRemote(state.jobId);
     }
     document.getElementById('agent-write-queue').textContent =
         state.total > 1 ? tr("Pedido 1 de {0}", { 0: state.total }) : '';

@@ -146,6 +146,74 @@ function createSession(masterPassword) {
     expiresAt: Date.now() + (15 * 60 * 1000), // 15 minutos
     hostname: require('os').hostname()
   });
+  // Pedidos de agentes esperando o cofre abrir seguem agora
+  agentAccess.onUnlock();
+}
+
+// ===== Acesso de agentes aprovado no celular (cofre bloqueado no PC) =====
+//
+// Ver src/main/agent-access.js e docs/developer/RELAY.md. A senha vem da
+// aprovação do celular (conferida: a chave que só sai com a digital abriu a
+// senha guardada no pareamento). Nada disto desbloqueia a tela do app.
+
+/** Sem cofre aberto nem liberação de leitura: a chave derivada não fica na memória. */
+function forgetKeysIfLocked() {
+  if (!sessionPassword && !fs.existsSync(sessionPath)) vaultKeys.clear();
+}
+
+async function readVaultForAgent(password) {
+  const enc = JSON.parse(fs.readFileSync(vaultFile(), 'utf8'));
+  await vaultKeys.prime(enc, password); // PBKDF2 fora da thread principal
+  const data = JSON.parse(decryptVault(enc, password));
+  return Array.isArray(data) ? data : (data.entries || []);
+}
+
+/** "Liberar só esta": entradas decifradas só para uma chamada. */
+async function readEntriesForAgent(password) {
+  try {
+    return fs.existsSync(vaultFile()) ? await readVaultForAgent(password) : [];
+  } finally {
+    forgetKeysIfLocked();
+  }
+}
+
+/** "Liberar por N min": sessão só de leitura para agentes, até `until`. */
+async function openAgentSession(password, until) {
+  if (fs.existsSync(vaultFile())) await readVaultForAgent(password); // confere a senha e guarda a chave
+  writeSessionFile({
+    timestamp: Date.now(),
+    pid: process.pid,
+    unlocked: true,
+    keys: vaultKeys.exportKeys(),
+    expiresAt: until,
+    hostname: require('os').hostname(),
+    scope: 'agent-read'
+  });
+}
+
+/** Fim da liberação: some a sessão de leitura (a sessão normal do app fica). */
+function closeAgentSession() {
+  if (sessionPassword) return;
+  destroySession();
+}
+
+/** Gravação aprovada no celular com o cofre bloqueado: grava aqui mesmo. */
+async function applyAgentWriteLocked(request, password) {
+  const { applyAgentWrite } = require('./renderer/agent-write');
+  try {
+    let entries = fs.existsSync(vaultFile()) ? await readVaultForAgent(password) : [];
+    rememberVault(entries);
+    if (isSyncEnabled()) entries = mergeWithSyncFolder(entries, password).entries;
+    const { entry, mode } = applyAgentWrite(entries, request, { newId: () => crypto.randomUUID() });
+    writeVaultFile(entries, password);
+    rememberVault(entries);
+    maybeAutoBackup();
+    return { success: true, id: entry.id, mode, title: entry.title };
+  } catch (error) {
+    return { success: false, error: error.message };
+  } finally {
+    forgetKeysIfLocked();
+  }
 }
 
 /**
@@ -192,6 +260,8 @@ function refreshSession() {
  * Remove arquivo de sessão quando bloquear ou fechar
  */
 function destroySession() {
+  // Bloqueou: a liberação de leitura para agentes (se houver) acaba junto
+  agentAccess.onLock();
   // Sem sessão = cofre fechado: esquece também a chave derivada em memória
   try { vaultKeys.clear(); } catch (_) { /* ainda não inicializado */ }
   sessionPassword = null;
@@ -225,7 +295,23 @@ windowsHello.register({ getWindow: () => mainWindow, helloPath });
 // ===== Servidor MCP, extensão e gravações de agentes: src/main/mcp.js =====
 
 const mcp = require('./main/mcp');
-mcp.register({ getWindow: () => mainWindow, mcpTokenPath, mcpEndpointPath, trustedExtensionsPath });
+mcp.register({
+  getWindow: () => mainWindow, mcpTokenPath, mcpEndpointPath, trustedExtensionsPath,
+  currentSessionPassword: () => currentSessionPassword(),
+  applyWriteLocked: (request, password) => applyAgentWriteLocked(request, password)
+});
+
+// ===== Leituras e gravações de agentes aprovadas no PC ou no celular: src/main/agent-access.js =====
+
+const agentAccess = require('./main/agent-access');
+agentAccess.register({
+  getWindow: () => mainWindow,
+  userDataPath,
+  currentSessionPassword: () => currentSessionPassword(),
+  readEntries: (password) => readEntriesForAgent(password),
+  openAgentSession: (password, until) => openAgentSession(password, until),
+  closeAgentSession: () => closeAgentSession()
+});
 const { startMcpServer, stopMcpServer, showAndFocusWindow } = mcp;
 
 // ===== Anexos pela interface =====

@@ -66,6 +66,9 @@ if (window.electronAPI && window.electronAPI.onPhoneUnlockStatus) {
         if (!phoneWaiting) return;
         if (s.stage === 'searching') setPhoneLoginStatus(tr('Procurando o celular na rede…'));
         if (s.stage === 'woke') setPhoneLoginStatus(tr('Notificação enviada ao celular. Procurando na rede…'));
+        if (s.stage === 'remote') {
+            setPhoneLoginStatus(tr("Pedido enviado ao celular{0} pela internet. Aprove na notificação com a digital. Código: {1}", { 0: s.phoneName ? ' (' + s.phoneName + ')' : '', 1: s.code }));
+        }
         if (s.stage === 'waiting') {
             setPhoneLoginStatus(tr("Aprove no celular{0} com a digital. Código: {1}", { 0: s.phoneName ? ' (' + s.phoneName + ')' : '', 1: s.code }));
         }

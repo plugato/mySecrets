@@ -1,7 +1,9 @@
 /**
  * POST /push — o app desktop pede para acordar o MySecrets do celular.
  *
- * Corpo: { token, data: { type: 'wake', pairId, ts, nonce, sig } }
+ * Corpo: { token, data: { type: 'wake' | 'relay', pairId, ts, nonce, sig } }
+ *  - 'wake': o app volta a escutar na rede local; 'relay': há pedido na caixa
+ *    postal (relay.js) para aprovar de qualquer lugar.
  *  - token: token do Firebase Cloud Messaging do celular (o celular manda ao PC
  *    pela rede local; este Worker não guarda nada).
  *  - data: repassado como está. A assinatura (sig) usa o segredo do pareamento,
@@ -33,7 +35,7 @@ export function validar(corpo) {
   for (const k of CHAVES) {
     if (typeof data[k] !== 'string' || !data[k] || data[k].length > 256) return 'data inválido';
   }
-  if (data.type !== 'wake') return 'data inválido';
+  if (data.type !== 'wake' && data.type !== 'relay') return 'data inválido';
   return { token, data: Object.fromEntries(CHAVES.map((k) => [k, data[k]])) };
 }
 
