@@ -67,7 +67,8 @@ function forwardToApp(name, args, { read = false } = {}) {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(body),
         Authorization: `Bearer ${token}`,
-        ...(clientInfoName ? { 'X-MySecrets-Client': clientInfoName } : {})
+        // Cabeçalho HTTP só leva latin1: nome com acento ou outro alfabeto vai codificado
+        ...(clientInfoName ? { 'X-MySecrets-Client': encodeURIComponent(clientInfoName) } : {})
       }
     }, (res) => {
       let data = '';

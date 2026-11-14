@@ -268,3 +268,15 @@ test('validConn e pairUrl: resposta do pareamento só vale para loopback', async
   assert.throws(() => validConn({ url: 'http://evil.example.com/mcp', token: 'a' }), /fora do seu computador/);
   assert.strictEqual(pairUrl('http://127.0.0.1:9000/mcp'), 'http://127.0.0.1:9000/pair');
 });
+
+test('nome do agente: acentos e outros alfabetos ficam; cabeçalho em latin1 ou codificado é recuperado', () => {
+  const { cleanClientName, headerText } = require('../mcp-server/http-server');
+  assert.strictEqual(cleanClientName('claude-code (teste só esta)'), 'claude-code (teste só esta)');
+  assert.strictEqual(cleanClientName('Agente Çãé 客户端 <script>'), 'Agente Çãé 客户端 script');
+  assert.strictEqual(cleanClientName('\u0000\n'), null);
+  assert.strictEqual(headerText(encodeURIComponent('teste só esta 客户端')), 'teste só esta 客户端');
+  // curl/cliente que mandou UTF-8 cru: o Node entrega como latin1
+  assert.strictEqual(headerText(Buffer.from('teste só esta', 'utf8').toString('latin1')), 'teste só esta');
+  assert.strictEqual(headerText('claude-code'), 'claude-code');
+  assert.strictEqual(headerText('100%'), '100%');
+});
