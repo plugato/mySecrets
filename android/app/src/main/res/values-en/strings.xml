@@ -261,6 +261,19 @@
     <string name="relay_falha_envio">Couldn\'t reach the PC over the internet. Try again.</string>
     <string name="relay_liberada_ate">Reading allowed on %1$s until %2$s</string>
     <string name="relay_liberada_texto">Agents can read without asking until then. Saves still ask for approval.</string>
+    <string name="relay_tipo_projeto">Type: %1$s · project %2$s</string>
+    <string name="relay_tipo">Type: %1$s</string>
+    <string name="relay_tags">Tags: %1$s</string>
+    <string name="relay_campo_valor">%1$s: %2$s</string>
+    <string name="relay_campo_tamanho">%1$s: %2$d characters (not shown)</string>
+    <string name="relay_campo_vazio">%1$s: empty</string>
+    <string name="relay_arquivo">File: %1$s (%2$s)</string>
+    <string name="relay_tipo_login">login</string>
+    <string name="relay_tipo_token">token</string>
+    <string name="relay_tipo_nota">secure note</string>
+    <string name="relay_campo_token">Token</string>
+    <string name="relay_cria_ou_atualiza">Creates the entry or updates the one with this title.</string>
+    <string name="relay_publico_gravar">Save request on %1$s. Unlock your phone to see the details.</string>
     <string name="relay_encerrar_agora">End now</string>
     <string name="relay_liberacao_encerrada">Read access ended</string>
 </resources>

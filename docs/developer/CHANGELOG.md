@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-11-14
+
+### Changed
+- Approving a save on the phone shows what will be saved: entry type, project and tags, the username, URL and token type, the length of the password, token and notes (never their content), extra fields (text values; password fields by length) and each file with its size. Tapping the notification opens this review before the fingerprint; "Approve" in the notification goes straight to the fingerprint. On the lock screen the notification shows only "Save request on <PC>".
+
 ## [2.4.0] - 2026-11-14
 
 ### Added

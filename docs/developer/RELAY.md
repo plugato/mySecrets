@@ -67,7 +67,12 @@ Vetores de teste (os dois lados): `tests/fixtures/relay-vectors.json` e
 
 `summary` (só nomes, nunca valores):
 
-- `write`: `{ target, fields: [nomes], customFields: [nomes], files: [{ name, size }], project, tags }`
+- `write`: `{ target, type, fields: [nomes], values, lengths, customFields: [nomes], custom, files: [{ name, size }], project, tags }`
+  - `values`: valor de `username`, `url` e `tokenType` (não são segredo);
+  - `lengths`: só o tamanho de `password`, `token` e `notes`;
+  - `custom`: campos extras de texto com o valor (`{ name, value }`) e de senha só com o tamanho (`{ name, secret: true, length }`);
+  - `fields`/`customFields` (só nomes) ficam para o app do celular 2.4.0.
+  - No celular, a notificação de gravação é privada na tela bloqueada (aparece só "Pedido de gravação no PC"); tocar nela abre a revisão completa antes da digital.
 - `read`: `{ tool, query?, id?, attachment? }`
 - `unlock`: `{}` (o celular mostra `code`, que também aparece no PC)
 
