@@ -39,7 +39,7 @@
     "electron-updater": "^6.8.11",
     "otplib": "^13.6.0",
     "qrcode": "^1.5.4",
-    "tldts": "^7.4.19"
+    "tldts": "^7.5.5"
   },
   "build": {
     "appId": "com.mysecrets.app",
